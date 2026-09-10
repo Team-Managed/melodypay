@@ -59,11 +59,11 @@ The listed **0.96-inch 128x64 SSD1306 I2C OLED at ₹162 is appropriate**. It is
 
 1. Chain name and chain ID.
 2. Asset and amount.
-3. Recipient pages.
+3. Recipient address (EIP-55 format across 2 lines).
 4. Fee and expiration.
 5. `APPROVE` and `REJECT` prompts.
 
-It is not large enough to show a full address on one screen, so the firmware must paginate the address and use a checksum or first/last-character confirmation pattern. A larger display is unnecessary for the first prototype.
+The full 42-character EIP-55 address fits on a single review screen using 2 lines (21 characters per line at the 6×8 font). There is no need to paginate the address across multiple screens. A larger display is unnecessary for the first prototype.
 
 ## Production-Security Parts, Not First-Bench Parts
 
@@ -81,12 +81,41 @@ Using the prices supplied for the controller, buttons, OLED, generic amplifier, 
 
 This estimate excludes the secure element. The secure element belongs in the next security milestone and should not be represented as present in the first bench prototype unless its exact part and signing support have been verified.
 
-## Wiring Checklist
+## Verified GPIO Pinout Matrix (ESP32-S3 N16R8)
 
-- ESP32-S3 and all digital modules share ground.
-- INMP441 uses 3.3 V, ground, I2S clock, word-select, and data; follow the exact breakout pin labels.
-- MAX98357A uses its documented supply voltage, ground, I2S clock, word-select, and data; do not assume every clone labels pins identically.
-- OLED uses I2C SDA, SCL, 3.3 V, and ground.
-- Buttons connect to GPIO inputs with pull-ups or pull-downs and are debounced in firmware.
-- Keep microphone and amplifier wiring physically separated where practical.
-- Verify voltage with a multimeter before connecting audio modules.
+> [!WARNING]
+> **Octal SPI Flash/PSRAM Warning:** The ESP32-S3 WROOM-1 N16R8 module uses Octal Flash and Octal PSRAM. **GPIO 33 through GPIO 37 are permanently wired to internal SPI memory and MUST NEVER BE USED.** Strapping pins (GPIO 0, 3, 45, 46) and native USB-JTAG pins (GPIO 19, 20) are reserved or avoided below.
+
+| Peripheral | Signal | Breakout Pin Label | ESP32-S3 GPIO | Electrical Notes |
+|---|---|---|---|---|
+| **INMP441 (Mic)** | Bit Clock (BCLK) | `SCK` | **GPIO 4** | I2S0 Serial Clock |
+| | Word Select (WS) | `WS` | **GPIO 5** | I2S0 Word Select (L/R Clock) |
+| | Serial Data (SD) | `SD` | **GPIO 6** | I2S0 Serial Data In |
+| | Channel Select | `L/R` | **GND** | Pull to GND for Left Channel |
+| | Power & Ground | `VDD`, `GND` | **3.3V & GND** | **Strictly 3.3V! Connecting to 5V destroys the MEMS chip.** |
+| **MAX98357A (Amp)** | Bit Clock (BCLK) | `BCLK` | **GPIO 15** | I2S1 Bit Clock |
+| | Word Select (LRC) | `LRC` | **GPIO 16** | I2S1 Word Select |
+| | Serial Data In | `DIN` | **GPIO 7** | I2S1 Serial Data Out |
+| | Gain / Shutdown | `GAIN`, `SD` | `GND`, Unconnected | Default 9dB gain; leave SD floating or pull up |
+| | Power & Ground | `VIN`, `GND` | **5V (VBUS) & GND** | **CRITICAL: Connect VIN to 5V (USB VBUS), NOT 3.3V!** |
+| **SSD1306 (OLED)** | Serial Data | `SDA` | **GPIO 8** | I2C Data (requires 3.3V pull-ups on breakout) |
+| | Serial Clock | `SCL` | **GPIO 9** | I2C Clock |
+| | Power & Ground | `VCC`, `GND` | **3.3V & GND** | Standard 3.3V logic |
+| **Tactile Buttons** | Approve Button | Pin 1 / Pin 2 | **GPIO 1 & GND** | Active LOW, internal ESP32 pull-up enabled |
+| | Reject Button | Pin 1 / Pin 2 | **GPIO 2 & GND** | Active LOW, internal ESP32 pull-up enabled |
+
+---
+
+## Wiring & Electrical Checklist
+
+- **Speaker Acoustic Cutoff Warning:** The 28mm 0.5W speaker drops off sharply above ~10–12 kHz. It physically cannot generate the 18–20 kHz frequencies required for ultrasonic ggwave. **Bench testing must strictly use Audible Mode (Protocol 2, ~1.5–3.5 kHz).**
+- **High-Frequency I2S Wire Length (Crucial):** The I2S bit clock runs at 3.072 MHz. Standard 20cm Dupont jumper wires act as RF antennas and cause bit slips. **Keep I2S wires (BCLK, WS, SD) short ($\le 10\text{ cm}$)** and run a ground wire parallel to the clock lines to dampen electromagnetic ringing.
+- **INMP441 Channel Pin Grounding:** The `L/R` pin on the microphone breakout must be firmly wired to **GND** (Left channel). If left floating, the microphone fluctuates into high-impedance mode, causing intermittent zero-byte audio buffers.
+- **Power Rails (Crucial):**
+  - **MAX98357A MUST be powered from 5V (VBUS / USB 5V pin):** Driving an 8Ω speaker from the ESP32-S3's on-board 3.3V LDO regulator causes voltage dips during audio bursts, triggering the ESP32-S3 hardware brownout detector (`Brownout detector was triggered`). Connecting to 5V provides clean power with zero MCU brownouts.
+  - **INMP441 MUST be powered from 3.3V:** The MEMS sensor is not 5V tolerant.
+- **Common Ground:** ESP32-S3, OLED, INMP441, and MAX98357A must all share a common ground plane on the breadboard.
+- **Physical Wire Routing:** Keep the INMP441 microphone wires physically separated from the MAX98357A speaker output leads to prevent inductive noise pickup on high-gain audio inputs.
+- **Half-Duplex Operation in Firmware:** During audio transmission from MAX98357A, the firmware must mute/ignore the INMP441 microphone DMA stream to prevent self-echo and buffer corruption.
+- **Verify with Multimeter:** Always test voltages with a multimeter at the breadboard power rails before inserting the ESP32-S3 and breakout boards.
+
