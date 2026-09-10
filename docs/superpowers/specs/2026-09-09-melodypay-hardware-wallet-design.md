@@ -54,7 +54,7 @@ There is no separate relay. The receiver is the online participant and broadcast
 - Native EVM transfers with EIP-1559 transaction signing.
 - Standard ERC-20 `transfer(address,uint256)` support only after native transfers are stable.
 - Chain ID included in every request and signed transaction.
-- Common-chain registry plus generic EVM mode with an explicit warning.
+- Strict chain whitelist with unknown chains rejected immediately.
 - ggwave C/C++ integration through I2S input/output.
 - SSD1306 128x64 OLED.
 - Approve and Reject tactile buttons.
@@ -72,17 +72,26 @@ There is no separate relay. The receiver is the online participant and broadcast
 
 The ESP32-S3 prototype may use encrypted flash and secure boot for development, but a product wallet must use a secure element that explicitly supports Ethereum `secp256k1` signing. The secure element is a required production milestone, not an optional security upgrade.
 
-Every signing request must be independently checked on the device. The display must show the network name or `Unknown EVM`, chain ID, asset, amount, recipient in pages, fee, and expiration/request ID. Signing only occurs after the Approve button is pressed. Reject cancels and returns no signature.
+Every signing request must be independently checked on the device. The display must show the verified network name, chain ID, asset, amount, full recipient in EIP-55 mixed-case checksum format (displayed across 2 lines on a single review screen), fee, and request ID. Unrecognized or unmapped chains are strictly rejected by the device.
+
+### Device Verification Invariants:
+1. **Relative TTL Countdown:** The device enforces a relative countdown (default 60 seconds) using its internal hardware timer (`esp_timer_get_time()`). If approval is not confirmed within the TTL, the pending request is wiped.
+2. **256-bit Big-Integer Arithmetic:** All EVM amounts, fees, and RLP encodings use 256-bit integer structures (`bignum256` or 32-byte buffers) to prevent integer overflow crashes on values $\ge 18.44$ tokens.
+3. **Gas Limit Ceiling:** For native transfers, `gasLimit` is verified to be $\le 30,000$ (exactly 21,000 on Monad/Ethereum). Requests with bloated gas limits are rejected to protect against Monad's charge-on-gas-limit rule.
+4. **Nonce Monotonicity:** The device caches `last_signed_nonce[chainId]` in memory to flag duplicate or stale nonces (`⚠️ STALE NONCE`).
+5. **Strict Chain Whitelist & Fee Sanity Ceiling:** The device strictly verifies `chainId` against its internal firmware whitelist. Any request with an unmapped `chainId` is rejected immediately with an error (`❌ UNSUPPORTED CHAIN`) and will never be signed. If estimated gas fee exceeds the whitelisted chain's maximum normal fee threshold (or >5% of the transaction value), a high-fee warning state is triggered.
+6. **Physical Confirmation:** Signing only occurs after the Approve button is pressed (with a 2-second hold confirmation on final page). Reject cancels and returns no signature.
+7. **Key Validity Invariant:** Generated private keys must strictly satisfy secp256k1 curve order constraints ($0 < \text{privateKey} < n$) and combine hardware TRNG with ADC noise and timer jitter to ensure entropy in air-gapped mode. Development builds provide a hardcoded test key flag to avoid faucet fund loss during flashing.
 
 ## Protocol
 
-The current text messages are retained during bring-up because they are easy to inspect. Before productization, use a versioned binary envelope with length, message type, request ID, chain ID, asset type, recipient, amount, nonce, fee fields, expiry, and checksum. All messages are chunked with sequence number and total count.
+The current text messages are retained during bring-up because they are easy to inspect. Before productization, use a versioned binary envelope with length, message type, request ID, chain ID, asset type, recipient, amount, nonce, fee fields, TTL seconds, and checksum. Signed transactions are transmitted across 2 audio chunks (`TOTAL_CHUNKS = 2`) with an 8-byte chunk header and 300ms inter-chunk interval. After transmission, the signed buffer is immediately wiped from memory and the device listens for a `RECEIPT` within the TTL window. If audio fails, recovery requires the merchant to initiate a fresh `PAYMENT_REQUEST` from the terminal — there is no resend mechanism.
 
 Minimum message types:
 
 - `HELLO`: hardware wallet address and protocol version.
-- `PAYMENT_REQUEST`: receiver address, chain ID, native/ERC-20 asset, amount, nonce, fee, expiry, request ID.
-- `SIGNED_TRANSACTION`: signed EVM transaction chunks.
+- `PAYMENT_REQUEST`: receiver address, audio profile (audible/ultrasound), chain ID, native/ERC-20 asset, amount, nonce, fee, TTL seconds, request ID.
+- `SIGNED_TRANSACTION`: signed EVM transaction (transmitted across 2 chunks).
 - `RECEIPT`: transaction hash, status, and request ID.
 - `REJECTED` and `ERROR`: bounded error code and request ID.
 
@@ -90,9 +99,22 @@ The receiver must reject malformed messages, mismatched request IDs, expired req
 
 ## Multi-chain Strategy
 
-The signer is chain-agnostic. It signs EVM transaction fields and does not contact a chain. The receiver owns the RPC and explorer configuration. A chain profile contains chain ID, display name, RPC URL, explorer URL, native symbol, fee policy, and supported token metadata.
+The signer is completely chain-agnostic. It signs standard EVM transaction fields and never connects to any network. The receiver terminal owns the RPC, gas estimation, and explorer configuration.
 
-Native transfers are universal. Generic EVM mode displays an explicit unknown-network warning and requires confirmation. ERC-20 support is limited to decoding and signing `transfer(address,uint256)` and only configured token contracts.
+### Built-in Firmware Chain Registry
+The hardware wallet maintains a static whitelist lookup table of approved EVM chains for safe display and fee validation:
+
+| Chain ID | Network Display Name | Native Asset Symbol | Max Normal Fee Ceiling | Action on Request |
+|---|---|---|---|---|
+| `10143` | Monad Testnet | `MON` | 0.01 MON | Allowed |
+| `11155111` | Ethereum Sepolia | `ETH` | 0.005 ETH | Allowed |
+| `1` | Ethereum Mainnet | `ETH` | 0.01 ETH | Allowed |
+| `8453` | Base | `ETH` | 0.001 ETH | Allowed |
+| `42161` | Arbitrum One | `ETH` | 0.001 ETH | Allowed |
+| `137` | Polygon | `POL` | 0.1 POL | Allowed |
+| `*` (Any other) | Unmapped / Unknown | N/A | N/A | **Strictly Rejected (`❌ UNSUPPORTED CHAIN`)** |
+
+Native transfers are supported exclusively across whitelisted EVM chains. Any unmapped or unrecognized chain ID is rejected immediately by the firmware to prevent blind-signing, cross-chain spoofing, and gas drain vulnerabilities. ERC-20 support is limited to decoding and signing `transfer(address,uint256)` on approved, whitelisted token contracts matching the requested chain ID.
 
 ## Validation and Testing
 
