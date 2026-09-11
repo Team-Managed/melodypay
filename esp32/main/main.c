@@ -18,14 +18,24 @@ void app_main(void)
     ESP_ERROR_CHECK(keystore_init());
     wallet_state_init();
 
-    display_message("MelodyPay", "Wallet ready", "Development backend", "Awaiting audio");
+    display_message("MelodyPay", hardware_audio_available() ? "Audio ready" : "Bare board", "Development backend", "USB diagnostics");
     ESP_LOGI(TAG, "wallet state initialized: %d", wallet_state_get());
 
+    bool previous_approve = false;
+    bool previous_reject = false;
     while (true) {
-        if (hardware_reject_pressed()) {
+        const bool approve = hardware_approve_pressed();
+        const bool reject = hardware_reject_pressed();
+        if (approve && !previous_approve) {
+            ESP_LOGI(TAG, "approve button pressed");
+        }
+        if (reject && !previous_reject) {
             wallet_state_set(WALLET_IDLE);
             display_message("Rejected", "No signature", "", "");
+            ESP_LOGI(TAG, "reject button pressed");
         }
+        previous_approve = approve;
+        previous_reject = reject;
         vTaskDelay(pdMS_TO_TICKS(50));
     }
 }

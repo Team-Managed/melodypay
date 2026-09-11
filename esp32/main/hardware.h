@@ -19,6 +19,7 @@
 #define MELODY_REJECT_GPIO 2
 
 esp_err_t hardware_init(void);
+bool hardware_audio_available(void);
 esp_err_t hardware_read_mic(int32_t *samples, size_t sample_count, size_t *samples_read, uint32_t timeout_ms);
 esp_err_t hardware_play_pcm(const int16_t *samples, size_t sample_count);
 void hardware_mute_mic(void);
