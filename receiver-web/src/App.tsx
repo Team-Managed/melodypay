@@ -1,13 +1,7 @@
-import { BrowserRouter, Routes, Route, useLocation, Link, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Home } from "./pages/Home";
-import { SendPayment } from "./pages/SendPayment";
 import { ReceivePayment } from "./pages/ReceivePayment";
-import { Onboarding } from "./pages/Onboarding";
-import { Dashboard } from "./pages/Dashboard";
-import { BaristaAgent } from "./pages/BaristaAgent";
-import { CustomerAgent } from "./pages/CustomerAgent";
-import { Waves } from "lucide-react";
 import { InstallPrompt } from "./components/InstallPrompt";
 import ReactLenis from "lenis/react";
 
@@ -47,20 +41,12 @@ function Navbar() {
                     <span className="w-1.5 h-1.5 rounded-full bg-app-dark/0 group-hover:bg-app-dark/40 transition-colors"></span>
                     FAQs
                 </a>
-                <Link to="/app" className="text-app-dark hover:opacity-80 transition-opacity font-semibold ml-4">
-                    Open App
+                <Link to="/receive" className="text-app-dark hover:opacity-80 transition-opacity font-semibold ml-4">
+                    Receive payment
                 </Link>
             </div>
         </nav>
     );
-}
-
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-    const pk = localStorage.getItem("melodypay_pk");
-    if (!pk) {
-        return <Navigate to="/onboarding" replace />;
-    }
-    return <>{children}</>;
 }
 
 function AnimatedRoutes() {
@@ -70,43 +56,10 @@ function AnimatedRoutes() {
         <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
                 <Route path="/" element={<Home />} />
-                <Route path="/onboarding" element={
-                    <PageWrapper>
-                        <Onboarding />
-                    </PageWrapper>
-                } />
-                <Route path="/app" element={
-                    <ProtectedRoute>
-                        <PageWrapper>
-                            <Dashboard />
-                        </PageWrapper>
-                    </ProtectedRoute>
-                } />
-                <Route path="/send" element={
-                    <ProtectedRoute>
-                        <PageWrapper>
-                            <SendPayment />
-                        </PageWrapper>
-                    </ProtectedRoute>
-                } />
                 <Route path="/receive" element={
                     <PageWrapper>
                         <ReceivePayment />
                     </PageWrapper>
-                } />
-                <Route path="/agent/barista" element={
-                    <ProtectedRoute>
-                        <PageWrapper>
-                            <BaristaAgent />
-                        </PageWrapper>
-                    </ProtectedRoute>
-                } />
-                <Route path="/agent/customer" element={
-                    <ProtectedRoute>
-                        <PageWrapper>
-                            <CustomerAgent />
-                        </PageWrapper>
-                    </ProtectedRoute>
                 } />
             </Routes>
         </AnimatePresence>

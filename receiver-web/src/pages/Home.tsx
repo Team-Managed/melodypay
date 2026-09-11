@@ -30,15 +30,15 @@ export function Home() {
     const faqs = [
         {
             question: "How does audio transaction work?",
-            answer: "We encode your signed Monad transaction into high-frequency audio waves (inaudible to most adults) using a custom FSK modulation protocol. The receiver's device listens for this specific frequency pattern, decodes it back into a transaction hash, and submits it to the Monad network."
+            answer: "The receiver sends a payment request over sound. An offline hardware wallet reviews and signs it, then sends the signed transaction back over sound for broadcast."
         },
         {
             question: "Is it secure?",
-            answer: "Extremely. The transaction is fully cryptographically signed offline before it is ever converted into sound. Even if someone were to 'record' the sound wave, they could only rebroadcast an already executed transaction. Your private key is never exposed."
+            answer: "The receiver never holds the sender private key. The hardware wallet displays the recipient, amount, chain, and fee, then requires physical approval before signing."
         },
         {
             question: "Do I need an internet connection to send?",
-            answer: "No. The sender can be completely air-gapped without any WiFi or cellular connection. As long as the receiver is connected to the internet to submit the broadcasted transaction to the blockchain, the payment will clear instantly."
+            answer: "The receiver needs internet access to fetch nonce and fee data and broadcast the signed transaction. The hardware signer does not need internet access."
         }
     ];
 
@@ -71,25 +71,25 @@ export function Home() {
                     <div className="text-app-dark/80 text-lg font-sans mb-10 max-w-md leading-relaxed">
                         <Copy duration={0.3} stagger={0.05} delay={0.6} blockColor="#E5E5E5">
                             {[
-                                "Execute secure, air-gapped crypto", 
+                                "Accept secure, sound-based crypto", 
                                 <span>
                                     <GsapColorCycle colors={["#1848FF", "#00FFA3", "#FF0099"]}>
-                                        <TextSwap texts={["transactions", "payments", "transfers", "swaps"]} />
+                                        <TextSwap texts={["payments", "transfers", "transactions"]} />
                                     </GsapColorCycle> 
                                     {" "}on the Monad network
                                 </span>, 
                                 "using high-frequency audio waves.", 
-                                "No internet connection required."
+                                "The receiver stays online; the signer stays offline."
                             ]}
                         </Copy>
                     </div>
                     
                     <div>
                         <Link 
-                            to="/app" 
+                            to="/receive" 
                             className="inline-block bg-[#1C1C1E] text-white px-8 py-4 rounded-lg font-sans font-medium text-sm hover:bg-black transition-colors"
                         >
-                            Try for free
+                            Open receiver
                         </Link>
                     </div>
 

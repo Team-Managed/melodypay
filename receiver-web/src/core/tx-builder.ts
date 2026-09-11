@@ -174,3 +174,60 @@ export async function validateSignedNativeTransfer(
 
   return tx;
 }
+
+export interface Erc20TransferExpectation {
+  sender: string;
+  tokenContract: string;
+  tokenRecipient: string;
+  tokenAmount: bigint;
+  chainId: number;
+  nonce: number;
+  gasLimit: bigint;
+  maxPriorityFeePerGas?: bigint;
+  maxFeePerGas?: bigint;
+}
+
+export async function validateSignedErc20Transfer(
+  signedTx: string,
+  expected: Erc20TransferExpectation,
+): Promise<ethers.Transaction> {
+  const chain = getChainConfig(expected.chainId);
+  if (!chain) throw new Error(`Unsupported chain: ${expected.chainId}`);
+
+  const tx = ethers.Transaction.from(signedTx);
+  if (tx.type !== 2) throw new Error("Only EIP-1559 transactions are supported");
+  if (!tx.from || tx.from.toLowerCase() !== expected.sender.toLowerCase()) {
+    throw new Error("Sender mismatch");
+  }
+  if (tx.chainId !== BigInt(expected.chainId)) throw new Error("Chain ID mismatch");
+  if (tx.to?.toLowerCase() !== expected.tokenContract.toLowerCase()) {
+    throw new Error("Token contract mismatch");
+  }
+  if (tx.value !== 0n) throw new Error("ERC-20 transaction must not transfer native value");
+  if (tx.nonce !== expected.nonce) throw new Error("Nonce mismatch");
+  if (tx.gasLimit !== expected.gasLimit) throw new Error("Gas limit mismatch");
+  if (tx.gasLimit > 200000n) throw new Error("ERC-20 gas limit exceeds policy ceiling");
+
+  const data = ethers.getBytes(tx.data);
+  if (data.length !== 68 || ethers.hexlify(data.slice(0, 4)) !== "0xa9059cbb") {
+    throw new Error("Unsupported ERC-20 selector; only transfer is allowed");
+  }
+
+  const encodedRecipient = ethers.getAddress(ethers.hexlify(data.slice(16, 36)));
+  if (encodedRecipient.toLowerCase() !== expected.tokenRecipient.toLowerCase()) {
+    throw new Error("Token recipient mismatch");
+  }
+
+  let encodedAmount = 0n;
+  for (const byte of data.slice(36, 68)) encodedAmount = (encodedAmount << 8n) | BigInt(byte);
+  if (encodedAmount !== expected.tokenAmount) throw new Error("Token amount mismatch");
+
+  if (expected.maxPriorityFeePerGas !== undefined && tx.maxPriorityFeePerGas !== expected.maxPriorityFeePerGas) {
+    throw new Error("Priority fee mismatch");
+  }
+  if (expected.maxFeePerGas !== undefined && tx.maxFeePerGas !== expected.maxFeePerGas) {
+    throw new Error("Max fee mismatch");
+  }
+
+  return tx;
+}

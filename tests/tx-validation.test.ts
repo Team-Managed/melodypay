@@ -3,7 +3,7 @@ import { Wallet, parseEther, parseUnits } from "ethers";
 import {
   validateSignedNativeTransfer,
   type NativeTransferExpectation,
-} from "../src/core/tx-builder";
+} from "../receiver-web/src/core/tx-builder";
 
 const privateKey = "0x0123456789012345678901234567890123456789012345678901234567890123";
 

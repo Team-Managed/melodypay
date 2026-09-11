@@ -2,6 +2,17 @@
 
 > Sound-based crypto payments on the Monad testnet. Sign transactions completely offline and broadcast them over audio.
 
+## Hardware Wallet Track
+
+The original PWA is the proof of concept for MelodyPay's receiver-driven sound payment flow. The current Continuity-track work moves signing onto an ESP32-S3 hardware wallet:
+
+- Keyless online receiver requests chain, amount, nonce, and fees.
+- Offline wallet displays the payment and requires a physical approval.
+- Signed EVM transactions return over ggwave audio.
+- Receiver validates and broadcasts without holding the sender's private key.
+
+See `docs/architecture.md`, `docs/hardware-wiring.md`, and `docs/demo-script.md` for the new work. The firmware is currently a development scaffold and is not safe for real funds.
+
 MelodyPay is a PWA that enables air-gapped cryptocurrency transactions on the **Monad testnet** using [ggwave](https://github.com/ggerganov/ggwave) — an open-source data-over-sound library. The sender keeps their private key completely offline while the receiver (with internet access) handles broadcasting the final signed transaction to the chain.
 
 **Live Demo:** [melody-pay.vercel.app](https://melody-pay.vercel.app)
@@ -87,35 +98,37 @@ Customer Agent                     Barista Agent
 
 ```
 melody-pay/
-├── index.html               # Entry point — loads ggwave.js globally
+├── receiver-web/            # React landing page + keyless payment receiver
+│   ├── src/                 # Web application source
+│   └── README.md
+├── cli/                     # Interactive keyless operator terminal
+├── esp32/                   # ESP-IDF hardware-wallet firmware
+├── contracts/               # Solidity-only workspace
+├── index.html               # Web entry point — loads ggwave.js globally
 ├── vite.config.ts           # Vite + PWA config
 ├── tailwind.config.js       # Tailwind theme
 ├── .env                     # VITE_GEMINI_API_KEY (not committed)
 ├── public/
 │   ├── ggwave.js            # ggwave WASM library
 │   └── icons/               # PWA icons
-└── src/
+└── receiver-web/src/
     ├── main.tsx             # React bootstrap
-    ├── App.tsx              # Router, Navbar, transitions
+    ├── App.tsx              # Landing + receiver routes
     ├── components/          # UI components
     │   ├── InstallPrompt.tsx  # PWA install banner
     │   ├── Copy.tsx           # Animated text reveal
     │   ├── GsapColorCycle.tsx # Color-cycling animation
     │   └── TextSwap.tsx       # Word swap animation
-    ├── core/                # Core protocol logic
+    ├── core/                # Receiver audio and validation logic
     │   ├── ggwave.ts        # ggwave WASM wrapper (encode/decode)
     │   ├── broadcaster.ts   # Speaker output (play, playLoop, playChunked)
     │   ├── listener.ts      # Mic input (listen, chunkedListen)
-    │   ├── tx-builder.ts    # Monad tx signing & broadcasting
-    │   └── agent.ts         # Gemini LLM integration for A2A
+    │   ├── tx-builder.ts    # Multi-chain validation and broadcasting
+    │   ├── chains.ts        # Whitelisted EVM profiles
+    │   └── payment-protocol.ts
     └── pages/
         ├── Home.tsx           # Landing page
-        ├── Onboarding.tsx     # Wallet setup
-        ├── Dashboard.tsx      # App hub
-        ├── SendPayment.tsx    # Sender: fully automatic offline flow
-        ├── ReceivePayment.tsx # Receiver: auto nonce + submit
-        ├── BaristaAgent.tsx   # AI barista agent
-        └── CustomerAgent.tsx  # AI customer agent
+        └── ReceivePayment.tsx # Keyless online receiver
 ```
 
 ---

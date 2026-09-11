@@ -20,12 +20,12 @@
 
 ## File Map
 
-- Create `firmware/`: ESP-IDF project, wallet state machine, display, buttons, I2S, ggwave, transaction signing.
-- Create `firmware/components/protocol/`: versioned message encoding, decoding, chunking, checksum.
-- Create `firmware/components/evm/`: transaction parsing, address display, signing interface.
-- Create `receiver/`: keyless receiver implementation extracted from current PWA logic.
-- Modify `src/core/tx-builder.ts`: chain profiles and receiver-side typed transaction creation/validation.
-- Modify `src/core/listener.ts` and `src/core/broadcaster.ts`: protocol compatibility during migration.
+- Create `esp32/`: ESP-IDF project, wallet state machine, display, buttons, I2S, ggwave, transaction signing.
+- Create `esp32/components/protocol/`: versioned message encoding, decoding, chunking, checksum.
+- Create `esp32/components/evm/`: transaction parsing, address display, signing interface.
+- Create `cli/`: keyless online operator terminal.
+- Modify `receiver-web/src/core/tx-builder.ts`: chain profiles and receiver-side typed transaction creation/validation.
+- Modify `receiver-web/src/core/listener.ts` and `receiver-web/src/core/broadcaster.ts`: protocol compatibility during migration.
 - Create `docs/hardware-shopping-list.md`: standalone BOM and alternatives.
 - Create `docs/protocol.md`: wire format and compatibility rules.
 - Create `docs/security-model.md`: threat model, prototype limitations, and production requirements.
@@ -155,12 +155,12 @@
 ### Task 7: Refactor Receiver to Be Keyless and Multi-chain
 
 **Files:**
-- Modify: `src/pages/ReceivePayment.tsx`
-- Modify: `src/core/tx-builder.ts`
-- Modify: `src/core/listener.ts`
-- Modify: `src/core/broadcaster.ts`
-- Create: `src/core/chains.ts`
-- Create: `src/core/payment-protocol.ts`
+- Modify: `receiver-web/src/pages/ReceivePayment.tsx`
+- Modify: `receiver-web/src/core/tx-builder.ts`
+- Modify: `receiver-web/src/core/listener.ts`
+- Modify: `receiver-web/src/core/broadcaster.ts`
+- Create: `receiver-web/src/core/chains.ts`
+- Create: `receiver-web/src/core/payment-protocol.ts`
 
 - [ ] Dynamically match browser sample rate: Pass `audioCtx.sampleRate` directly into ggwave initialization instead of hardcoding 48kHz, ensuring full compatibility with 44.1kHz Windows/Android devices.
 - [ ] Bypass browser WebRTC filters: Explicitly set `echoCancellation: false`, `noiseSuppression: false`, and `autoGainControl: false` in `navigator.mediaDevices.getUserMedia` so the browser does not filter modem chirps.
@@ -179,10 +179,10 @@
 ### Task 8: Add ERC-20 Transfer Support
 
 **Files:**
-- Modify: `firmware/components/evm/evm_tx.c`
-- Modify: `src/core/payment-protocol.ts`
-- Modify: `src/core/tx-builder.ts`
-- Create: `src/core/tokens.ts`
+- Modify: `esp32/components/evm/evm_tx.c`
+- Modify: `receiver-web/src/core/payment-protocol.ts`
+- Modify: `receiver-web/src/core/tx-builder.ts`
+- Create: `receiver-web/src/core/tokens.ts`
 
 - [ ] Support only the exact ERC-20 `transfer(address,uint256)` selector (`0xa9059cbb`).
 - [ ] Maintain a firmware token contract whitelist `(chainId, contractAddress, symbol, decimals)` to prevent rogue contract calls.
@@ -195,8 +195,8 @@
 
 **Files:**
 - Create: `docs/security-model.md`
-- Create: `firmware/SECURE_BUILD.md`
-- Modify: `firmware/sdkconfig.defaults`
+- Create: `esp32/SECURE_BUILD.md`
+- Modify: `esp32/sdkconfig.defaults`
 
 - [ ] Document threats: malicious receiver, modified audio, replay, wrong-chain request, display truncation, firmware replacement, and physical extraction.
 - [ ] Enable secure boot and flash encryption in a development-safe documented mode.

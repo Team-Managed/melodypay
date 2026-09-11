@@ -14,12 +14,11 @@ The current PWA proves the following flow:
 
 The following existing code is protocol reference only and will not be used as wallet firmware:
 
-- `src/pages/SendPayment.tsx`
-- `src/pages/ReceivePayment.tsx`
-- `src/core/ggwave.ts`
-- `src/core/listener.ts`
-- `src/core/broadcaster.ts`
-- `src/core/tx-builder.ts`
+- `receiver-web/src/pages/ReceivePayment.tsx`
+- `receiver-web/src/core/ggwave.ts`
+- `receiver-web/src/core/listener.ts`
+- `receiver-web/src/core/broadcaster.ts`
+- `receiver-web/src/core/tx-builder.ts`
 
 The browser key flow is not acceptable for the hardware product: `Onboarding.tsx` stores a raw private key in `localStorage`, and `SendPayment.tsx` signs automatically without physical confirmation.
 
@@ -44,7 +43,7 @@ Offline hardware wallet
   - transmits signed transaction through MAX98357A and speaker
 ```
 
-There is no separate relay. The receiver is the online participant and broadcaster. The hardware wallet never needs RPC, Wi-Fi, Bluetooth, or a private-key import screen.
+There is no separate relay. The receiver web app and the standalone CLI are online participants and broadcasters. The hardware wallet never needs RPC, Wi-Fi, Bluetooth, or a private-key import screen.
 
 ## Scope
 

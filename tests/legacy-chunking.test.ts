@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitLegacyPayload } from "../src/core/broadcaster";
+import { splitLegacyPayload } from "../receiver-web/src/core/broadcaster";
 
 describe("legacy audio chunking", () => {
   it("keeps every framed payload within the ggwave limit", () => {

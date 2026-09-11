@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getChainConfig, isSupportedChain } from "../src/core/chains";
+import { getChainConfig, isSupportedChain } from "../receiver-web/src/core/chains";
 
 describe("EVM chain registry", () => {
   it("returns the Monad testnet profile", () => {

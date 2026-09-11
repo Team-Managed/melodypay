@@ -6,7 +6,7 @@ import {
   decodePaymentRequest,
   encodePaymentRequest,
   type PaymentRequest,
-} from "../src/core/payment-protocol";
+} from "../receiver-web/src/core/payment-protocol";
 
 const request: PaymentRequest = {
   requestId: 0x12345678,
