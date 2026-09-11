@@ -1,15 +1,40 @@
-import { encode, initGGWave, SAMPLE_RATE } from "./ggwave";
+import {
+  encode,
+  getGGWaveSampleRate,
+  initGGWave,
+  isInitialized,
+  SAMPLE_RATE,
+} from "./ggwave";
 
 // Reuse a single AudioContext to avoid mobile browser limits
 let sharedAudioCtx: AudioContext | null = null;
 
-const CHUNK_OVERHEAD = 6; // "TX1/2|" = 6 chars
 const MAX_PAYLOAD = 140;
-const CHUNK_DATA_SIZE = MAX_PAYLOAD - CHUNK_OVERHEAD; // 134 chars per chunk
+
+export function splitLegacyPayload(payload: string, maxPayload = MAX_PAYLOAD): string[] {
+  if (maxPayload <= 8) throw new Error("Legacy payload limit is too small");
+
+  let totalChunks = 1;
+  for (;;) {
+    const dataSize = maxPayload - `TX${totalChunks}/${totalChunks}|`.length;
+    const nextTotal = Math.max(1, Math.ceil(payload.length / dataSize));
+    if (nextTotal === totalChunks) break;
+    totalChunks = nextTotal;
+  }
+
+  const dataSize = maxPayload - `TX${totalChunks}/${totalChunks}|`.length;
+  const chunks: string[] = [];
+  for (let offset = 0; offset < payload.length || (payload.length === 0 && offset === 0); offset += dataSize) {
+    const index = chunks.length + 1;
+    chunks.push(`TX${index}/${totalChunks}|${payload.slice(offset, offset + dataSize)}`);
+  }
+  return chunks;
+}
 
 function getAudioContext(): AudioContext {
+  const sampleRate = isInitialized() ? getGGWaveSampleRate() : SAMPLE_RATE;
   if (!sharedAudioCtx || sharedAudioCtx.state === "closed") {
-    sharedAudioCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
+    sharedAudioCtx = new AudioContext({ sampleRate });
   }
   return sharedAudioCtx;
 }
@@ -21,15 +46,15 @@ export async function playPayload(
   payload: string,
   protocolName?: string,
 ): Promise<void> {
-  await initGGWave();
-  const samples = encode(payload, protocolName);
   const audioCtx = getAudioContext();
+  await initGGWave(audioCtx.sampleRate);
+  const samples = encode(payload, protocolName);
 
   if (audioCtx.state === "suspended") {
     await audioCtx.resume();
   }
 
-  const buffer = audioCtx.createBuffer(1, samples.length, SAMPLE_RATE);
+  const buffer = audioCtx.createBuffer(1, samples.length, audioCtx.sampleRate);
   buffer.getChannelData(0).set(samples);
 
   const source = audioCtx.createBufferSource();
@@ -52,23 +77,17 @@ export async function playPayload(
  * Play a large payload by splitting into numbered chunks.
  * Format: "TX1/N|<data>" "TX2/N|<data>" ...
  * Each chunk is played sequentially with a gap between.
- * For payloads <= 140 bytes, sends as single chunk "TX1/1|<data>".
  */
 export async function playChunkedPayload(
   payload: string,
-  gapMs: number = 1500,
+  gapMs: number = 300,
   protocolName?: string,
 ): Promise<void> {
-  const totalChunks = Math.ceil(payload.length / CHUNK_DATA_SIZE);
-
-  for (let i = 0; i < totalChunks; i++) {
-    const chunkData = payload.slice(
-      i * CHUNK_DATA_SIZE,
-      (i + 1) * CHUNK_DATA_SIZE,
-    );
-    const chunk = `TX${i + 1}/${totalChunks}|${chunkData}`;
+  const chunks = splitLegacyPayload(payload);
+  for (let index = 0; index < chunks.length; index += 1) {
+    const chunk = chunks[index];
     await playPayload(chunk, protocolName);
-    if (i < totalChunks - 1) {
+    if (index < chunks.length - 1) {
       await new Promise((r) => setTimeout(r, gapMs));
     }
   }

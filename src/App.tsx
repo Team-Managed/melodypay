@@ -90,11 +90,9 @@ function AnimatedRoutes() {
                     </ProtectedRoute>
                 } />
                 <Route path="/receive" element={
-                    <ProtectedRoute>
-                        <PageWrapper>
-                            <ReceivePayment />
-                        </PageWrapper>
-                    </ProtectedRoute>
+                    <PageWrapper>
+                        <ReceivePayment />
+                    </PageWrapper>
                 } />
                 <Route path="/agent/barista" element={
                     <ProtectedRoute>

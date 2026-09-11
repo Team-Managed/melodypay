@@ -15,6 +15,7 @@
 let ggwaveModule: any = null;
 let ggwaveInstance: any = null;
 let initPromise: Promise<void> | null = null;
+let configuredSampleRate: number | null = null;
 
 const SAMPLE_RATE = 48000;
 const MAX_PAYLOAD_BYTES = 140;
@@ -28,9 +29,16 @@ function getProtocol(name: string): any {
   return ggwaveModule.ProtocolId[name];
 }
 
-export async function initGGWave(): Promise<void> {
+export async function initGGWave(sampleRate: number = SAMPLE_RATE): Promise<void> {
   // ggwaveInstance can be 0 (valid instance ID), so check for null explicitly
-  if (ggwaveInstance !== null) return;
+  if (ggwaveInstance !== null) {
+    if (configuredSampleRate !== sampleRate) {
+      throw new Error(
+        `ggwave is configured for ${configuredSampleRate} Hz, not ${sampleRate} Hz`,
+      );
+    }
+    return;
+  }
 
   // Prevent concurrent initialization
   if (initPromise) return initPromise;
@@ -45,9 +53,10 @@ export async function initGGWave(): Promise<void> {
 
     ggwaveModule = await ggwaveFactory();
     const parameters = ggwaveModule.getDefaultParameters();
-    parameters.sampleRateInp = SAMPLE_RATE;
-    parameters.sampleRateOut = SAMPLE_RATE;
+    parameters.sampleRateInp = sampleRate;
+    parameters.sampleRateOut = sampleRate;
     ggwaveInstance = ggwaveModule.init(parameters);
+    configuredSampleRate = sampleRate;
   })();
 
   return initPromise;
@@ -55,6 +64,10 @@ export async function initGGWave(): Promise<void> {
 
 export function isInitialized(): boolean {
   return ggwaveInstance !== null;
+}
+
+export function getGGWaveSampleRate(): number {
+  return configuredSampleRate ?? SAMPLE_RATE;
 }
 
 /**

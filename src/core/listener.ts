@@ -1,4 +1,10 @@
-import { decode, initGGWave, SAMPLE_RATE } from "./ggwave";
+import {
+  decode,
+  getGGWaveSampleRate,
+  initGGWave,
+  isInitialized,
+  SAMPLE_RATE,
+} from "./ggwave";
 
 export type OnDecodeCallback = (data: string) => void;
 
@@ -8,9 +14,9 @@ export type OnDecodeCallback = (data: string) => void;
 export async function startListening(
   onDecode: OnDecodeCallback,
 ): Promise<{ stop: () => void }> {
-  await initGGWave();
-
-  const audioCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
+  const requestedSampleRate = isInitialized() ? getGGWaveSampleRate() : SAMPLE_RATE;
+  const audioCtx = new AudioContext({ sampleRate: requestedSampleRate });
+  await initGGWave(audioCtx.sampleRate);
   if (audioCtx.state === "suspended") {
     await audioCtx.resume();
   }
@@ -68,17 +74,23 @@ export async function startChunkedListening(
       return;
     }
 
-    const chunkNum = parseInt(match[1]);
-    const total = parseInt(match[2]);
+    const chunkNum = parseInt(match[1], 10);
+    const total = parseInt(match[2], 10);
     const chunkData = match[3];
 
+    if (total < 1 || chunkNum < 1 || chunkNum > total || total > 255) return;
+    if (expectedTotal !== 0 && expectedTotal !== total) {
+      chunks.clear();
+    }
+
     expectedTotal = total;
+    if (chunks.get(chunkNum) === chunkData) return;
     chunks.set(chunkNum, chunkData);
 
     onStatus?.(`Received chunk ${chunks.size}/${total}`);
 
     // Check if we have all chunks
-    if (chunks.size === total) {
+    if (chunks.size === total && Array.from({ length: total }, (_, i) => i + 1).every((i) => chunks.has(i))) {
       // Reassemble in order
       let fullPayload = "";
       for (let i = 1; i <= total; i++) {
