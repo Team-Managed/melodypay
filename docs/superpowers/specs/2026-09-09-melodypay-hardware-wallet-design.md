@@ -81,17 +81,17 @@ Every signing request must be independently checked on the device. The display m
 4. **Nonce Monotonicity:** The device caches `last_signed_nonce[chainId]` in memory to flag duplicate or stale nonces (`⚠️ STALE NONCE`).
 5. **Strict Chain Whitelist & Fee Sanity Ceiling:** The device strictly verifies `chainId` against its internal firmware whitelist. Any request with an unmapped `chainId` is rejected immediately with an error (`❌ UNSUPPORTED CHAIN`) and will never be signed. If estimated gas fee exceeds the whitelisted chain's maximum normal fee threshold (or >5% of the transaction value), a high-fee warning state is triggered.
 6. **Physical Confirmation:** Signing only occurs after the Approve button is pressed (with a 2-second hold confirmation on final page). Reject cancels and returns no signature.
-7. **Key Validity Invariant:** Generated private keys must strictly satisfy secp256k1 curve order constraints ($0 < \text{privateKey} < n$) and combine hardware TRNG with ADC noise and timer jitter to ensure entropy in air-gapped mode. Development builds provide a hardcoded test key flag to avoid faucet fund loss during flashing.
+7. **Key Validity Invariant:** Generated private keys must strictly satisfy secp256k1 curve order constraints ($0 < \text{privateKey} < n$). Development firmware may collect supplemental ADC noise and timer jitter, but cryptographic entropy must come from a validated hardware RNG or, for the product revision, the secure element's RNG. Development builds provide a hardcoded test key flag to avoid faucet fund loss during flashing.
 
 ## Protocol
 
-The current text messages are retained during bring-up because they are easy to inspect. Before productization, use a versioned binary envelope with length, message type, request ID, chain ID, asset type, recipient, amount, nonce, fee fields, TTL seconds, and checksum. Signed transactions are transmitted across 2 audio chunks (`TOTAL_CHUNKS = 2`) with an 8-byte chunk header and 300ms inter-chunk interval. After transmission, the signed buffer is immediately wiped from memory and the device listens for a `RECEIPT` within the TTL window. If audio fails, recovery requires the merchant to initiate a fresh `PAYMENT_REQUEST` from the terminal — there is no resend mechanism.
+The current text messages are retained during bring-up because they are easy to inspect. Before productization, use a versioned binary envelope with length, message type, request ID, chain ID, asset type, recipient, amount, nonce, full-width fee fields, TTL seconds, and checksum. Signed transactions and payment requests use dynamic chunk counts bounded by the implementation's maximum message size, with a 300ms inter-chunk interval. After transmission, the signed buffer is immediately wiped from memory and the device listens for a `RECEIPT` within the TTL window. If audio fails, recovery requires the merchant to initiate a fresh `PAYMENT_REQUEST` from the terminal; there is no resend mechanism.
 
 Minimum message types:
 
 - `HELLO`: hardware wallet address and protocol version.
 - `PAYMENT_REQUEST`: receiver address, audio profile (audible/ultrasound), chain ID, native/ERC-20 asset, amount, nonce, fee, TTL seconds, request ID.
-- `SIGNED_TRANSACTION`: signed EVM transaction (transmitted across 2 chunks).
+- `SIGNED_TRANSACTION`: signed EVM transaction (transmitted across dynamically sized chunks).
 - `RECEIPT`: transaction hash, status, and request ID.
 - `REJECTED` and `ERROR`: bounded error code and request ID.
 
@@ -99,7 +99,7 @@ The receiver must reject malformed messages, mismatched request IDs, expired req
 
 ## Multi-chain Strategy
 
-The signer is completely chain-agnostic. It signs standard EVM transaction fields and never connects to any network. The receiver terminal owns the RPC, gas estimation, and explorer configuration.
+The signer is network-independent at the cryptographic layer: it signs standard EVM transaction fields and never connects to any network. The device still applies a firmware chain policy so it can display a verified network name and fee policy. The receiver terminal owns the RPC, gas estimation, and explorer configuration.
 
 ### Built-in Firmware Chain Registry
 The hardware wallet maintains a static whitelist lookup table of approved EVM chains for safe display and fee validation:

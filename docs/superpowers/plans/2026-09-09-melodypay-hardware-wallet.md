@@ -38,7 +38,7 @@
 - [ ] Record the selected prototype parts: ESP32-S3 DevKit N16R8, INMP441 I2S microphone, generic MAX98357A I2S amplifier, 0.5W 8-ohm speaker, 0.96-inch SSD1306 OLED, two tactile switches, solderless breadboard, Dupont wires, USB data cable, and 5V power source.
 - [ ] Mark listed prices as user-provided India prices and label all unverified prices as retailer-dependent.
 - [ ] Add alternatives and compatibility notes, especially that TPA3118/TDA/LM386/PAM8403 boards are not direct I2S replacements for MAX98357A.
-- [ ] Note bench speaker acoustic cutoff (~10–12 kHz) requiring Protocol 2 Audible Fastest for bench tests, and mandate short ($\le 10\text{ cm}$) Dupont wires for 3.072 MHz I2S clock lines with parallel ground shielding.
+- [ ] Note that the bench speaker is unsuitable for ultrasound, require Protocol 2 Audible Fastest for bench tests after a spectral check, and mandate short ($\le 10\text{ cm}$) Dupont wires for 3.072 MHz I2S clock lines with parallel ground shielding.
 - [ ] Separate required prototype items from production-only items: secure element, custom PCB, enclosure, battery, charger, and secure boot provisioning.
 
 ### Task 2: Scaffold Firmware and Hardware Abstraction
@@ -70,7 +70,7 @@
 - Create: `firmware/main/keystore.c`
 
 - [ ] On first boot, detect absence of stored key material in NVS (Non-Volatile Storage).
-- [ ] Implement Air-Gapped Entropy Mixing: Since Wi-Fi/BT RF subsystems are powered off, combine `esp_fill_random()` with SAR ADC thermal noise and microsecond timer jitter (`esp_timer_get_time()`) to feed the RNG pool.
+- [ ] Use `esp_fill_random()` only after confirming the ESP32-S3 hardware RNG entropy source is available in the selected offline configuration. ADC noise and timer jitter may be supplemental diagnostics, but must not be treated as the cryptographic entropy source. The product revision must use the secure element's validated RNG.
 - [ ] Verify Curve Order Invariant: Validate that the candidate 32-byte private key strictly satisfies $0 < \text{privateKey} < n$ (secp256k1 curve order); discard and re-roll if invalid or zero.
 - [ ] Store the key in an NVS partition (cleartext in bench dev; encrypted if flash encryption is enabled).
 - [ ] Add `CONFIG_USE_HARDCODED_DEV_KEY` build flag: If set, loads a pre-funded testnet development key to prevent faucet fund loss across `idf.py erase-flash`.
@@ -90,7 +90,7 @@
 
 - [ ] Define message types `HELLO` (0x01), `PAYMENT_REQUEST` (0x02), `SIGNED_TRANSACTION` (0x03), `RECEIPT` (0x04), `REJECTED` (0x05), and `ERROR` (0x06).
 - [ ] Implement the 8-byte chunk framing header: `MAGIC` (0x4D), `PROTO_VER` (0x01), `MSG_ID`, `CHUNK_INDEX`, `TOTAL_CHUNKS`, `PAYLOAD_LEN`, `CHUNK_CRC8` with max 128-byte payload.
-- [ ] Implement 2-Chunk Signed Transaction Framing: Split signed EIP-1559 transaction payloads across 2 audio bursts (`TOTAL_CHUNKS = 2`) with an 8-byte chunk header and 300ms inter-burst silence gap.
+- [ ] Implement dynamic chunk framing: split payment requests and signed EIP-1559 transaction payloads into the minimum number of chunks permitted by the 8-byte header and 128-byte payload limit, enforce a maximum message size, and insert a 300ms inter-burst silence gap.
 - [ ] Implement post-transmission buffer wipe: After emitting both chunks, immediately `memset` the signed transaction buffer to zero and transition to listening for `RECEIPT` within the remaining TTL window. There is no resend mechanism — if the receiver misses chunks, recovery requires a fresh `PAYMENT_REQUEST` from the merchant terminal.
 - [ ] Implement polynomial 0x07 CRC-8 calculation and validation.
 - [ ] Reject invalid magic, version, length, sequence, total, checksum, and duplicate chunks.
@@ -106,9 +106,9 @@
 
 - [ ] Vendor or add pinned native ggwave C++ source as an ESP-IDF component.
 - [ ] Allocate large ggwave sample buffers in external PSRAM (`MALLOC_CAP_SPIRAM`) to preserve internal SRAM.
-- [ ] Lock bench testing to Audible Fastest (Protocol 2, ~1.5–3.5 kHz) to stay within the 28mm speaker's acoustic cutoff.
+- [ ] Lock bench testing to Audible Fastest (Protocol 2) and verify the actual frequency range with a spectral recording; reserve ultrasonic profiles for a production transducer.
 - [ ] Implement software squelch / noise gate: calculate RMS amplitude of input audio; discard buffers below calibrated threshold before calling ggwave FFT to preserve CPU.
-- [ ] Feed INMP441 PCM samples into ggwave decoder using 48kHz / 16-bit mono.
+- [ ] Feed INMP441 PCM samples into the pinned ggwave decoder at its supported sample rate, resampling the ESP32 I2S stream if necessary; use 16-bit mono after the documented 24-bit-to-16-bit conversion.
 - [ ] Encode outgoing protocol frames to PCM and stream through MAX98357A I2S.
 - [ ] Enforce half-duplex turn-taking: mute microphone DMA while speaker is active and discard echo window (800ms) after playback.
 - [ ] Add receive timeout (driven by request `ttl_seconds`, default 60s), duplicate suppression, and bounded reassembly memory.
@@ -130,7 +130,7 @@
 - [ ] Implement EIP-55 mixed-case checksum formatting for recipient address verification on OLED, displaying the complete 42-character address across 2 lines on a single review screen so the full address is visible at once.
 - [ ] Enforce Chain-Aware Fee Sanity Ceiling: If calculated max fee exceeds the chain's maximum normal fee threshold from the registry (or >5% of transfer value), trigger a high-fee warning state.
 - [ ] Implement wei-to-token decimal conversion for OLED display using the resolved native symbol from the chain registry.
-- [ ] Provide a signing interface that computes Keccak-256 digest and RFC 6979 deterministic ECDSA signature with recovery parity `v` (0 or 1).
+- [ ] Provide a signing interface that computes Keccak-256 digest and RFC 6979 deterministic ECDSA signature with recovery parity `yParity` (0 or 1); encode it as the EIP-1559 transaction's parity field rather than legacy `v` semantics.
 - [ ] Initially use a clearly labelled development key backend only for bench tests; block production build configuration until secure-element signing is selected.
 - [ ] Add test vectors generated from ethers.js for Monad Testnet and Ethereum Sepolia native transfers.
 

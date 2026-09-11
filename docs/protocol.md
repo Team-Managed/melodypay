@@ -1,14 +1,14 @@
 # MelodyPay Acoustic Wire Protocol Specification
 
-> **Status:** Draft / Active Specification  
-> **Target Transport:** ggwave audio (audible fastest protocol 2 / ultrasonic protocol 5)  
-> **Target Runtime:** ESP32-S3 Firmware & Web Receiver Terminal  
+> **Status:** Draft / Active Specification
+> **Target Transport:** ggwave audio (audible fastest protocol 2 / ultrasonic protocol 5)
+> **Target Runtime:** ESP32-S3 Firmware & Web Receiver Terminal
 
 ---
 
 ## 1. Overview
 
-The MelodyPay protocol defines a half-duplex, framed binary communication layer transmitted over sound waves using [ggwave](https://github.com/ggerganov/ggwave). 
+The MelodyPay protocol defines a half-duplex, framed binary communication layer transmitted over sound waves using [ggwave](https://github.com/ggerganov/ggwave).
 
 Because ggwave's reliable transmission capacity at audible frequencies is ~140 bytes per audio burst, signed EVM transactions (110–200 bytes) and structured payment requests are packetized into **bounded chunks** with sequence numbers, length headers, and checksums.
 
@@ -69,7 +69,7 @@ When all chunks for a `MSG_ID` are received and assembled, the payload constitut
 |---|---|---|---|
 | `HELLO` | `0x01` | Wallet ➔ Receiver | Announces wallet public address and protocol readiness. |
 | `PAYMENT_REQUEST` | `0x02` | Receiver ➔ Wallet | Requests payment: chain ID, recipient, amount, nonce, gas limits, expiry, audio profile. |
-| `SIGNED_TRANSACTION` | `0x03` | Wallet ➔ Receiver | Delivers raw signed EIP-1559 transaction bytes across 2 audio chunks. |
+| `SIGNED_TRANSACTION` | `0x03` | Wallet ➔ Receiver | Delivers raw signed EIP-1559 transaction bytes across dynamically sized chunks. |
 | `RECEIPT` | `0x04` | Receiver ➔ Wallet | Confirms onchain broadcast with transaction hash and block status. |
 | `REJECTED` | `0x05` | Wallet ➔ Receiver | Informs receiver that user physically pressed Reject button. |
 | `ERROR` | `0x06` | Either direction | Diagnostic or protocol error code. |
@@ -93,18 +93,18 @@ Transmitted by online receiver after fetching onchain nonce and base fee:
 - `Value`: 32 bytes (`uint256`, in wei).
 - `Nonce`: 8 bytes (`uint64`).
 - `Gas Limit`: 4 bytes (`uint32`, e.g. `21000`).
-- `Max Priority Fee`: 8 bytes (`uint64`, in wei).
-- `Max Fee Per Gas`: 8 bytes (`uint64`, in wei).
+- `Max Priority Fee`: 32 bytes (`uint256`, in wei).
+- `Max Fee Per Gas`: 32 bytes (`uint256`, in wei).
 - `TTL Duration Seconds`: 2 bytes (`uint16`, e.g. `60`). Because the offline hardware wallet lacks an RTC battery and network NTP time, expiration is enforced locally as a relative countdown using the ESP32-S3 hardware microsecond timer (`esp_timer_get_time()`).
 
 > [!WARNING]
-> **Capacity Constraint:** The `PAYMENT_REQUEST` body totals **116 bytes**. With the 3-byte Application Envelope header and 8-byte chunk header, the full burst is **127 bytes** — within the 136-byte burst limit but with zero room for additional fields. Any future field additions will force the `PAYMENT_REQUEST` itself into 2 chunks.
+> **Capacity Constraint:** The `PAYMENT_REQUEST` body totals **164 bytes** with full-width fee fields. With the 3-byte Application Envelope header, it must be sent as at least two chunks using the framing rules above. Implementations must not assume that payment requests fit in one burst.
 
 #### Invariant Validation Rules for Hardware Wallet:
 1. **Gas Limit Ceiling:** For native transfers (`Asset Type == 0x00`), `Gas Limit` must be strictly $\le 30,000$ (exactly `21,000` on Monad/Ethereum; up to `30,000` on L2s with L1 data overhead). Requests demanding bloated limits are rejected to protect against Monad's charge-on-gas-limit model.
 2. **Nonce Monotonicity:** Hardware wallet caches `last_signed_nonce[chainId]`. If incoming `Nonce <= last_signed_nonce[chainId]`, the device displays a `⚠️ STALE NONCE` warning to prevent duplicate signing attacks.
 3. **Value Representation:** All arithmetic and RLP packing on `Value`, `Max Fee`, and `Priority Fee` must use 256-bit big-integer arithmetic (`bignum256`), preventing integer overflow crashes on transfers $\ge 18.44$ tokens.
-4. **Strict Chain Whitelist:** The hardware wallet strictly checks `Chain ID` against its static firmware whitelist (`10143` Monad Testnet, `11155111` Ethereum Sepolia, `1` Ethereum Mainnet, `8453` Base, `42161` Arbitrum One, `137` Polygon). Any unrecognized or unmapped chain ID is rejected immediately with an `ERROR` message (`0x06`) and will never be presented for review or signing.
+4. **Strict Chain Whitelist:** The hardware wallet strictly checks `Chain ID` against its static firmware whitelist (`10143` Monad Testnet, `11155111` Ethereum Sepolia, `1` Ethereum Mainnet, `8453` Base, `42161` Arbitrum One, `137` Polygon). Any unrecognized or unmapped chain ID is rejected immediately with an `ERROR` message (`0x06`) and will never be presented for review or signing. Adding a chain requires a firmware release or an authenticated registry update; the receiver cannot opt into an arbitrary chain at runtime.
 5. **Full Recipient Address Verification:** The 20-byte recipient address is formatted with EIP-55 mixed-case checksum and displayed completely across 2 lines on a single review screen without truncation or multi-page splitting.
 
 ### 4.3 `SIGNED_TRANSACTION` (Type 0x03) — Signed EVM Payload
@@ -113,10 +113,7 @@ Transmitted by hardware wallet following user physical approval:
 - `Tx Data Length`: 2 bytes (`uint16`).
 - `Raw Signed Tx`: Variable length (EIP-1559 RLP bytes starting with `0x02`).
 
-Transmitted across **2 audio chunks (`TOTAL_CHUNKS = 2`)**:
-- **Chunk 0 (`CHUNK_INDEX = 0`):** 8-byte chunk header + first segment of signed transaction payload.
-- *300ms inter-burst silence interval.*
-- **Chunk 1 (`CHUNK_INDEX = 1`):** 8-byte chunk header + remaining signed transaction payload.
+Transmitted across the minimum number of audio chunks required by the payload length. Native transfers will commonly require one or two chunks; ERC-20 transfers may require more. `TOTAL_CHUNKS` is dynamic and must be bounded by the implementation's maximum message size rather than hardcoded to `2`. A 300ms inter-burst silence interval is used between chunks.
 
 After transmitting both chunks, the hardware wallet immediately wipes the signed transaction buffer from memory (`memset`), displays `"Tx Sent"` on the OLED, and listens for a `RECEIPT` (Type 0x04) within the remaining TTL window. If no `RECEIPT` is received before timeout, the device returns to `IDLE`. If the receiver failed to decode the audio, the merchant initiates a fresh `PAYMENT_REQUEST` from the terminal (with a new nonce), and the user reviews and signs again from scratch. There is no resend or replay mechanism — every signing attempt is a unique cryptographic operation.
 
@@ -132,7 +129,7 @@ Upon receiving `RECEIPT`, the hardware wallet displays transaction confirmation,
 
 1. **Hardware Wallet Muting Invariant:** While the MAX98357A speaker is playing audio (state `TRANSMITTING`), the INMP441 I2S DMA input buffer must be disabled or cleared to prevent the device from decoding its own transmissions.
 2. **Audio Squelch / Noise Gate:** The firmware must compute the Root-Mean-Square (RMS) amplitude of incoming PCM frames. If the energy is below the calibrated ambient noise threshold, samples are discarded before invoking the ggwave FFT decoder, preserving CPU cycles and preventing false triggers.
-3. **Dynamic Sample Rate Matching (Critical):** The receiver terminal must never assume a static 48,000 Hz sample rate. On Windows PCs and Android devices, system audio hardware often runs at 44,100 Hz, while macOS/iOS defaults to 48,000 Hz. The receiver MUST pass its runtime `audioCtx.sampleRate` directly into ggwave initialization to prevent the ~8.8% frequency shift that causes total packet loss.
+3. **Sample Rate Handling (Critical):** The receiver terminal must not assume that its audio device runs at 48,000 Hz. It must either initialize ggwave with the runtime sample rate when that rate is supported by the pinned ggwave build, or resample microphone and playback buffers to the ggwave sample rate. Passing an unsupported rate directly to ggwave is not valid. The chosen rate and conversion path must be covered by recorded-audio tests.
 4. **Browser Audio Processing Filter Bypass:** In the receiver terminal, `navigator.mediaDevices.getUserMedia` must explicitly set:
    ```typescript
    audio: {
@@ -142,7 +139,7 @@ Upon receiving `RECEIPT`, the hardware wallet displays transaction confirmation,
    }
    ```
    Failing to disable noise suppression will cause browser WebRTC filters to misidentify ggwave FSK tones as background noise and actively cancel them out.
-5. **Bench Speaker Acoustic Limits:** The bench prototype's 28mm speaker drops off above 10–12 kHz and cannot reproduce ultrasonic audio. Bench testing must strictly use **Audible Fastest (Protocol 2, ~1.5–3.5 kHz)**. Ultrasound is reserved for production hardware with specialized transducers.
+5. **Bench Speaker Acoustic Limits:** The bench prototype's 28mm speaker is not suitable for ultrasonic testing. Bench testing must use **Audible Fastest (Protocol 2)** after confirming the actual frequency range with a spectral test. Ultrasound is reserved for production hardware with specialized transducers.
 6. **Receiver Turn Delay:** The receiver must wait a minimum of **800ms** after finishing sound playback before opening the microphone stream, allowing acoustic echoes in the room to dissipate.
 7. **Chunk Interval:** Multi-chunk transmissions must include a **300ms silence interval** between bursts to permit clean decoder frame synchronization on the listening device.
 8. **Session Timeout:** If no `RECEIPT` is received within the request's `ttl_seconds` (default 60s), the hardware wallet times out, wipes all buffers, and returns to `IDLE`. Recovery requires a fresh `PAYMENT_REQUEST` from the receiver terminal.
