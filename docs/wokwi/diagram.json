@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "author": "MelodyPay",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-devkitc-1",
+      "id": "esp",
+      "top": 40,
+      "left": 40,
+      "attrs": {}
+    },
+    {
+      "type": "board-ssd1306",
+      "id": "oled",
+      "top": 40,
+      "left": 360,
+      "attrs": {
+        "i2cAddress": "0x3c"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "approve",
+      "top": 280,
+      "left": 360,
+      "attrs": {
+        "color": "green",
+        "label": "APPROVE",
+        "key": "a",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "reject",
+      "top": 380,
+      "left": 360,
+      "attrs": {
+        "color": "red",
+        "label": "REJECT",
+        "key": "r",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-text",
+      "id": "audioNote",
+      "top": 220,
+      "left": 600,
+      "attrs": {
+        "text": "Physical only:\nINMP441 -> GPIO 4/5/6\nMAX98357A -> GPIO 15/16/7\nSee docs/hardware-wiring.md"
+      }
+    }
+  ],
+  "connections": [
+    [ "esp:8", "oled:SDA", "green", [] ],
+    [ "esp:9", "oled:SCL", "blue", [] ],
+    [ "esp:3V3", "oled:VCC", "red", [] ],
+    [ "esp:GND.1", "oled:GND", "black", [] ],
+    [ "esp:1", "approve:1.l", "green", [] ],
+    [ "approve:2.l", "esp:GND.2", "black", [] ],
+    [ "esp:2", "reject:1.l", "green", [] ],
+    [ "reject:2.l", "esp:GND.2", "black", [] ]
+  ]
+}

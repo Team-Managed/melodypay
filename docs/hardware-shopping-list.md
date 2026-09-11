@@ -96,7 +96,7 @@ This estimate excludes the secure element. The secure element belongs in the nex
 | **MAX98357A (Amp)** | Bit Clock (BCLK) | `BCLK` | **GPIO 15** | I2S1 Bit Clock |
 | | Word Select (LRC) | `LRC` | **GPIO 16** | I2S1 Word Select |
 | | Serial Data In | `DIN` | **GPIO 7** | I2S1 Serial Data Out |
-| | Gain / Shutdown | `GAIN`, `SD` | `GND`, Unconnected | Default 9dB gain; leave SD floating or pull up |
+| | Gain / Shutdown | `GAIN`, `SD` | `GAIN` unconnected, `SD` to 3.3V | Default 9dB gain; 3.3V enables the photographed board's shutdown input |
 | | Power & Ground | `VIN`, `GND` | **5V (VBUS) & GND** | **CRITICAL: Connect VIN to 5V (USB VBUS), NOT 3.3V!** |
 | **SSD1306 (OLED)** | Serial Data | `SDA` | **GPIO 8** | I2C Data (requires 3.3V pull-ups on breakout) |
 | | Serial Clock | `SCL` | **GPIO 9** | I2C Clock |
@@ -114,8 +114,8 @@ This estimate excludes the secure element. The secure element belongs in the nex
 - **Power Rails (Crucial):**
   - **MAX98357A MUST be powered from 5V (VBUS / USB 5V pin):** Driving an 8Ω speaker from the ESP32-S3's on-board 3.3V LDO regulator causes voltage dips during audio bursts, triggering the ESP32-S3 hardware brownout detector (`Brownout detector was triggered`). Connecting to 5V provides clean power with zero MCU brownouts.
   - **INMP441 MUST be powered from 3.3V:** The MEMS sensor is not 5V tolerant.
+- **MAX98357A speaker power:** At 5V the amplifier can deliver more power than the listed 0.5W speaker should continuously receive. Start with a low firmware volume and stop immediately if the speaker distorts or becomes hot.
 - **Common Ground:** ESP32-S3, OLED, INMP441, and MAX98357A must all share a common ground plane on the breadboard.
 - **Physical Wire Routing:** Keep the INMP441 microphone wires physically separated from the MAX98357A speaker output leads to prevent inductive noise pickup on high-gain audio inputs.
 - **Half-Duplex Operation in Firmware:** During audio transmission from MAX98357A, the firmware must mute/ignore the INMP441 microphone DMA stream to prevent self-echo and buffer corruption.
 - **Verify with Multimeter:** Always test voltages with a multimeter at the breadboard power rails before inserting the ESP32-S3 and breakout boards.
-
