@@ -3,6 +3,7 @@
 #include "driver/gpio.h"
 #include "esp_check.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
 
 static const char *TAG = "hardware";
 static i2s_chan_handle_t mic_channel;
@@ -21,6 +22,7 @@ static esp_err_t init_buttons(void)
     return gpio_config(&config);
 }
 
+#if !CONFIG_MELODY_BARE_BOARD_DIAGNOSTIC
 static esp_err_t init_microphone(void)
 {
     i2s_chan_config_t channel_config = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
@@ -77,6 +79,7 @@ static esp_err_t init_amplifier(void)
     ESP_RETURN_ON_ERROR(i2s_channel_enable(amp_channel), TAG, "amp enable");
     return ESP_OK;
 }
+#endif
 
 esp_err_t hardware_init(void)
 {
