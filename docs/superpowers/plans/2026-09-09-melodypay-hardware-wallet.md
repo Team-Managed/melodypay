@@ -62,6 +62,28 @@
 - [ ] Add a diagnostic mode that prints audio, button, and display status over USB serial without touching key material.
 - [ ] Build the empty firmware with `idf.py build`.
 
+### Task 2a: Bare-board ESP32-S3 Bring-up
+
+**Files:**
+- Verify: `esp32/build/melodypay_wallet.bin`
+- Verify: `esp32/main/main.c`
+- Verify: `esp32/main/hardware.c`
+
+This checkpoint was completed on September 12, 2026 using the physical ESP32-S3 N16R8 board on `COM4` with ESP-IDF `v5.5.5`.
+
+- [x] Build the ESP32-S3 firmware with `idf.py build`.
+- [x] Generate bootloader, partition table, and `melodypay_wallet.bin`.
+- [x] Flash the image with `idf.py -p COM4 flash` and verify esptool hash checks.
+- [x] Boot the board with USB only; no microphone, amplifier, OLED, speaker, or buttons connected.
+- [x] Verify serial output reports ESP32-S3, 16 MB flash, 8 MB PSRAM, and a passing PSRAM memory test.
+- [x] Verify serial output reports `bare-board diagnostic mode` and skips I2S initialization.
+- [x] Verify NVS development-key initialization and wallet state `0`.
+- [ ] Connect the Approve and Reject buttons and verify edge logs over serial.
+- [ ] Connect the OLED and replace serial-only display output with SSD1306 output.
+- [ ] Disable `MELODY_BARE_BOARD_DIAGNOSTIC`, rebuild, and verify I2S initialization with the physical audio modules.
+
+The bare-board image is a development diagnostic only. The development key backend is not safe for real funds, and the secure signing boundary remains fail-closed until a reviewed secp256k1 or secure-element backend is integrated.
+
 ### Task 2b: Implement First-Boot Key Generation
 
 **Files:**
