@@ -71,7 +71,7 @@ export function Home() {
                     <div className="text-app-dark/80 text-lg font-sans mb-10 max-w-md leading-relaxed">
                         <Copy duration={0.3} stagger={0.05} delay={0.6} blockColor="#E5E5E5">
                             {[
-                                "Accept secure, sound-based crypto", 
+                                "Accept secure, sound-based crypto",
                                 <span>
                                     <GsapColorCycle colors={["#1848FF", "#00FFA3", "#FF0099"]}>
                                         <TextSwap texts={["payments", "transfers", "transactions"]} />
@@ -86,7 +86,7 @@ export function Home() {
                     
                     <div>
                         <Link 
-                            to="/receive" 
+                            to="/receive"
                             className="inline-block bg-[#1C1C1E] text-white px-8 py-4 rounded-lg font-sans font-medium text-sm hover:bg-black transition-colors"
                         >
                             Open receiver
