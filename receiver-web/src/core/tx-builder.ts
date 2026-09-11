@@ -1,4 +1,4 @@
-import { ethers, Wallet } from "ethers";
+import { ethers } from "ethers";
 import { getChainConfig } from "./chains";
 
 /**
@@ -21,42 +21,6 @@ export interface TxParams {
   gasLimit?: number;
   maxFeePerGas?: string; // in gwei
   maxPriorityFeePerGas?: string; // in gwei
-}
-
-/**
- * Sign a Monad transaction offline.
- * This function needs NO internet. Just a private key and tx params.
- * Returns the serialized signed transaction (hex string starting with 0x).
- *
- * NOTE: On Monad, gas_limit directly determines cost. We hardcode 21000
- * for native transfers since this is always correct and minimizes user cost.
- */
-export async function signTransaction(
-  params: TxParams,
-  privateKey: string,
-): Promise<string> {
-  const wallet = new Wallet(privateKey);
-
-  const chainId = params.chainId ?? MONAD_CONFIG.chainId;
-  if (!getChainConfig(chainId)) throw new Error(`Unsupported chain: ${chainId}`);
-
-  const tx = {
-    to: params.to,
-    value: ethers.parseEther(params.value),
-    chainId,
-    nonce: params.nonce,
-    // Hardcode 21000 for native transfers — Monad charges on gas_limit!
-    gasLimit: params.gasLimit || 21000,
-    // Monad testnet base fee is ~100 gwei. Set maxFeePerGas high enough.
-    maxFeePerGas: ethers.parseUnits(params.maxFeePerGas || "150", "gwei"),
-    maxPriorityFeePerGas: ethers.parseUnits(
-      params.maxPriorityFeePerGas || "2",
-      "gwei",
-    ),
-    type: 2,
-  };
-
-  return await wallet.signTransaction(tx);
 }
 
 /**
@@ -85,13 +49,6 @@ export async function getNonce(
   if (!chain) throw new Error(`Unsupported chain: ${chainId}`);
   const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
   return await provider.getTransactionCount(address);
-}
-
-/**
- * Get wallet address from a private key (no internet needed).
- */
-export function getAddress(privateKey: string): string {
-  return new Wallet(privateKey).address;
 }
 
 /**
