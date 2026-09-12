@@ -9,6 +9,7 @@ typedef struct {
 } chain_policy_t;
 
 static const chain_policy_t chain_policies[] = {
+    {5042002, "Arc Testnet", "USDC"},
     {10143, "Monad Testnet", "MON"},
     {11155111, "Ethereum Sepolia", "ETH"},
     {1, "Ethereum Mainnet", "ETH"},

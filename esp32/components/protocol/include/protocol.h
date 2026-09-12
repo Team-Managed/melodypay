@@ -17,6 +17,7 @@ typedef enum {
     MELODY_MSG_RECEIPT = 0x04,
     MELODY_MSG_REJECTED = 0x05,
     MELODY_MSG_ERROR = 0x06,
+    MELODY_MSG_SIGNED_AUTHORIZATION = 0x07,
 } melody_message_type_t;
 
 typedef struct {
