@@ -226,6 +226,19 @@ If a button is placed entirely on one side of the breadboard trench, both wires 
 
 Before inserting a switch, use a multimeter in continuity mode if the two contact sides are unclear. With the button released, continuity should exist between the two legs of each side. With the button pressed, continuity should exist between all four legs.
 
+### If The JYZ Switch Does Not Fit
+
+Do not force a JYZ 12 mm switch into the breadboard. Some JYZ variants use a leg spacing that does not match the breadboard's 2.54 mm hole grid. Use the switch beside the breadboard instead:
+
+```text
+JYZ contact pair A, one leg -> female Dupont wire -> GPIO17 or GPIO18
+JYZ contact pair B, one leg -> female Dupont wire -> GND rail
+```
+
+Leave the other two switch legs unconnected. Secure the female Dupont connectors to the switch legs with tape during testing so they cannot fall off. This is a temporary bench connection; soldered wires or a pre-headered button module are better for repeatable testing.
+
+Do not plug all four switch legs into one `a-e` or `f-j` row. That can short the two contacts together and make the button appear permanently pressed. If the switch does fit across the center trench, one contact pair must be on the left half and the other pair on the right half.
+
 ## Critical Amplifier Warning
 
 The MAX98357A output is bridge-tied. The speaker output is not ground-referenced:
