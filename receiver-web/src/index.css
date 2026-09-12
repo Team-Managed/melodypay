@@ -4,8 +4,8 @@
 
 @layer base {
   body {
-    background-color: #F7F7F5;
-    color: #1C1C1E;
+    background-color: #FBFBF9;
+    color: #111113;
     font-family: 'Inter', sans-serif;
     margin: 0;
     overflow-x: hidden;
@@ -13,6 +13,19 @@
 }
 
 @layer utilities {
+  .bg-drafting-grid {
+    background-size: 24px 24px;
+    background-image: radial-gradient(circle, rgba(17, 17, 19, 0.08) 1px, transparent 1px);
+  }
+  .bg-drafting-lines {
+    background-size: 32px 32px;
+    background-image: 
+      linear-gradient(to right, rgba(17, 17, 19, 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(17, 17, 19, 0.04) 1px, transparent 1px);
+  }
+  .technical-border {
+    border: 1px solid #E2E2DA;
+  }
   .vibrant-gradient-1 { background: linear-gradient(180deg, #1848FF 0%, #FF0099 50%, #FFD600 100%); }
   .vibrant-gradient-2 { background: linear-gradient(180deg, #FF0099 0%, #FFD600 50%, #00FFA3 100%); }
   .vibrant-gradient-3 { background: linear-gradient(180deg, #FFD600 0%, #00FFA3 50%, #1848FF 100%); }

@@ -3,9 +3,10 @@ import React, { useState, useEffect, useRef } from 'react';
 interface TextSwapProps {
   texts: string[];
   intervalMs?: number;
+  className?: string;
 }
 
-export function TextSwap({ texts, intervalMs = 3000 }: TextSwapProps) {
+export function TextSwap({ texts, intervalMs = 3000, className = '' }: TextSwapProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const spanRef = useRef<HTMLSpanElement>(null);
 
@@ -37,7 +38,7 @@ export function TextSwap({ texts, intervalMs = 3000 }: TextSwapProps) {
   }, [texts, intervalMs]);
 
   return (
-    <span ref={spanRef} className="t-text-swap inline-block min-w-[3em]">
+    <span ref={spanRef} className={`t-text-swap inline-block min-w-[3.5em] ${className}`}>
       {texts[currentIndex]}
     </span>
   );
