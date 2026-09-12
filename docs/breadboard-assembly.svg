@@ -59,39 +59,40 @@
   </g>
 
   <!-- Row mapping: y = 125 + (row - 1) * 14. -->
-  <rect x="150" y="150" width="135" height="85" class="part"/>
+  <rect x="150" y="115" width="135" height="85" class="part"/>
   <text x="165" y="175" class="label">OLED</text>
-  <text x="165" y="195" class="small">rows 3-6</text>
-  <text x="165" y="215" class="small">one pin/row</text>
-  <path d="M285 160 H370" class="wire3"/>
+  <text x="165" y="175" class="small">rows 1-4</text>
+  <text x="165" y="195" class="small">one pin/row</text>
+  <path d="M285 140 H370" class="wire3"/>
 
-  <rect x="465" y="370" width="230" height="310" class="part"/>
+  <rect x="465" y="455" width="230" height="320" class="part"/>
   <text x="510" y="400" class="label">ESP32-S3</text>
-  <text x="505" y="425" class="small">rows 20-41</text>
-  <text x="505" y="450" class="small">body over gap</text>
-  <text x="495" y="500" class="pin">GPIO1 APPROVE</text>
-  <text x="495" y="525" class="pin">GPIO2 REJECT</text>
-  <text x="495" y="550" class="pin">GPIO8/9 OLED</text>
-  <text x="495" y="575" class="pin">3V3 / 5V / GND</text>
-  <path d="M465 520 H400" class="wireI"/>
-  <path d="M695 520 H750" class="wireI"/>
+  <text x="505" y="485" class="small">rows 25-46</text>
+  <text x="505" y="510" class="small">body over gap</text>
+  <text x="495" y="570" class="pin">GPIO17 APPROVE</text>
+  <text x="495" y="595" class="pin">GPIO18 REJECT</text>
+  <text x="495" y="620" class="pin">GPIO8/9 OLED</text>
+  <text x="495" y="645" class="pin">3V3 / 5V / GND</text>
+  <text x="495" y="700" class="small">leave outer column for jumpers</text>
+  <path d="M465 590 H400" class="wireI"/>
+  <path d="M695 590 H750" class="wireI"/>
 
-  <rect x="150" y="735" width="170" height="100" class="part"/>
-  <text x="170" y="765" class="label">INMP441</text>
-  <text x="170" y="787" class="small">rows 45-50</text>
-  <text x="170" y="809" class="small">left terminal area</text>
-  <path d="M320 760 H370" class="wireI"/>
+  <rect x="150" y="925" width="170" height="100" class="part"/>
+  <text x="170" y="955" class="label">INMP441</text>
+  <text x="170" y="977" class="small">rows 58-60</text>
+  <text x="170" y="999" class="small">across center gap</text>
+  <path d="M320 970 H370" class="wireI"/>
 
-  <rect x="900" y="735" width="185" height="115" class="part"/>
-  <text x="920" y="765" class="label">MAX98357A</text>
-  <text x="920" y="787" class="small">rows 45-51</text>
-  <text x="920" y="809" class="small">right terminal area</text>
-  <path d="M790 760 H900" class="wireI"/>
+  <rect x="900" y="115" width="185" height="115" class="part"/>
+  <text x="920" y="145" class="label">MAX98357A</text>
+  <text x="920" y="167" class="small">rows 1-7</text>
+  <text x="920" y="189" class="small">right terminal area</text>
+  <path d="M790 170 H900" class="wireI"/>
 
-  <rect x="430" y="265" width="90" height="35" class="buttonA"/>
-  <text x="445" y="288" class="small">APPROVE row 10</text>
-  <rect x="650" y="321" width="90" height="35" class="buttonR"/>
-  <text x="665" y="344" class="small">REJECT row 14</text>
+  <rect x="430" y="290" width="90" height="35" class="buttonA"/>
+  <text x="445" y="313" class="small">APPROVE row 14</text>
+  <rect x="650" y="374" width="90" height="35" class="buttonR"/>
+  <text x="665" y="397" class="small">REJECT row 20</text>
 
   <text x="40" y="1100" class="small">Power off before changing wires. Check rails with a multimeter.</text>
   <text x="40" y="1122" class="small">MAX98357A speaker + and - are bridged outputs: never connect either to GND.</text>

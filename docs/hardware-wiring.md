@@ -82,14 +82,14 @@ RIGHT BLUE RAIL = GND
 
 The red rails on the left and right are not automatically connected to each other. Do not join them. The two blue rails may also be separate; connect them to the same ESP32 GND only if you need both sides of the board.
 
-Suggested physical placement, using the printed row numbers on your 60-row board:
+Suggested physical placement, matching your latest photo and the printed row numbers on your 60-row board:
 
 ```text
-Rows  3-6:   OLED header vertically on the left side
-Rows 10,14:  Approve and Reject buttons across the center trench
-Rows 20-41:  ESP32-S3 across the center trench
-Rows 45-50:  INMP441 on the left side
-Rows 45-51:  MAX98357A on the right side
+Rows  1-4:   OLED header vertically on the left side
+Rows  1-7:   MAX98357A header vertically on the right side
+Rows 14,20:  Approve and Reject buttons across the center trench
+Rows 25-46:  ESP32-S3 across the center trench
+Rows 58-60:  INMP441 straddling the center trench
 ```
 
 The ESP32 board is wider than the center trench. Its body should sit over the trench while its two header rows enter the left and right terminal areas. The exact columns depend on the width of your soldered headers; do not force the board into holes that are not aligned.
@@ -98,13 +98,26 @@ Suggested module pin rows:
 
 | Rows | Module pins | Placement |
 |---|---|---|
-| 3, 4, 5, 6 | OLED `VDD`, `GND`, `SCK`, `SDA` | One pin per numbered row on the left; do not put all four across one row |
-| 10 | Approve switch | Across the center trench |
-| 14 | Reject switch | Across the center trench |
-| 45-50 | INMP441 `SCK`, `WS`, `SD`, `VDD`, `GND`, `L/R` | One pin per numbered row on the left where possible |
-| 45-51 | MAX98357A `BCLK`, `LRC`, `DIN`, `VIN`, `GND`, `SD`, `GAIN` | One pin per numbered row on the right where possible |
+| 1, 2, 3, 4 | OLED `VDD`, `GND`, `SCK`, `SDA` | One pin per numbered row on the left; do not put all four across one row |
+| 14 | Approve switch | Across the center trench |
+| 20 | Reject switch | Across the center trench |
+| 58-60 | INMP441 pin rows | Straddle the center trench if the two pin columns are across the gap |
+| 1-7 | MAX98357A `BCLK`, `LRC`, `DIN`, `VIN`, `GND`, `SD`, `GAIN` | One pin per numbered row on the right where possible |
 
 If a module's header spacing does not fit these rows, use individual Dupont wires from each module pin. Never insert multiple pins from one module into the same connected `a-e` or `f-j` row, because that would short those pins together.
+
+## Photo Check
+
+Your current placement has useful spare space:
+
+- The ESP32-S3 is correctly over the center trench.
+- A free column beside each ESP32 header is enough for jumper wires. Use the same numbered row as the signal pin; do not use a different row.
+- The OLED and MAX98357A are correctly placed near the top, with their pin rows separated vertically.
+- The buttons are correctly in the middle. Confirm each button crosses the center trench.
+- The round INMP441 at the bottom should remain across the center trench if its two pin columns are separated by that gap.
+- The red speaker wires already attached to the MAX98357A screw terminal should remain connected only to the speaker output `+` and `-`.
+
+For example, if an ESP32 signal header is in column `e`, connect its jumper in column `a`, `b`, `c`, or `d` on the same numbered row. If it is in column `f`, use `g`, `h`, `i`, or `j` on that same row.
 
 Connect the ESP32 power pins to the rails before connecting modules:
 
@@ -152,10 +165,10 @@ Do not wire everything and power it for the first time. Build and test in this o
 | OLED `SDA` | GPIO 8 | I2C data |
 | OLED `VDD` | 3V3 | OLED power |
 | OLED `GND` | GND | Common ground |
-| Approve button | GPIO 1 and GND | Active-low input |
-| Reject button | GPIO 2 and GND | Active-low input |
+| Approve button | GPIO 17 and GND | Active-low input |
+| Reject button | GPIO 18 and GND | Active-low input |
 
-The firmware should configure GPIO 1 and GPIO 2 as `INPUT_PULLUP`. No external resistor is required for this first prototype.
+The firmware should configure GPIO 17 and GPIO 18 as `INPUT_PULLUP`. No external resistor is required for this first prototype.
 
 ## Breadboard Layout
 
@@ -190,14 +203,28 @@ Do not bridge the 3.3 V rail to the 5 V rail. On your board, each side's red and
 
 The four legs of a typical tactile switch are not four independent contacts. Two legs on one side are already connected internally, and the two legs on the opposite side are the other contact. Pressing the switch joins the two sides.
 
+You may connect both legs from one side to GND, but it is unnecessary. One leg from each contact is safer and leaves the other two legs unused:
+
+```text
+side A, one leg ---- GPIO17 or GPIO18
+side B, one leg ---- GND
+other two legs ---- leave unconnected
+```
+
+If you want to use both legs, both legs of the **ground contact side** may go into the blue GND rail. Do not put either leg of the GPIO contact side into the GND rail; both of those legs are electrically the GPIO signal, and grounding them would hold the GPIO permanently LOW.
+
+The two legs belonging to the same side may be in different numbered rows because they are connected inside the switch. However, do not connect one GPIO and GND to the same internal side. That would short the GPIO directly to ground even when the button is released and create an apparently stuck input.
+
 Place the switch across the breadboard center trench. Use one leg from each side:
 
 ```text
-GPIO 1 ---- [ APPROVE SWITCH ] ---- GND
-GPIO 2 ---- [ REJECT SWITCH  ] ---- GND
+GPIO 17 ---- [ APPROVE SWITCH ] ---- GND
+GPIO 18 ---- [ REJECT SWITCH  ] ---- GND
 ```
 
 If a button is placed entirely on one side of the breadboard trench, both wires may connect to the same internal contact and the button will appear permanently pressed or permanently open.
+
+Before inserting a switch, use a multimeter in continuity mode if the two contact sides are unclear. With the button released, continuity should exist between the two legs of each side. With the button pressed, continuity should exist between all four legs.
 
 ## Critical Amplifier Warning
 

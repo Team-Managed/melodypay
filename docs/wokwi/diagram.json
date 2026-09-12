@@ -58,9 +58,9 @@
     [ "esp:9", "oled:SCL", "blue", [] ],
     [ "esp:3V3", "oled:VCC", "red", [] ],
     [ "esp:GND.1", "oled:GND", "black", [] ],
-    [ "esp:1", "approve:1.l", "green", [] ],
+    [ "esp:17", "approve:1.l", "green", [] ],
     [ "approve:2.l", "esp:GND.2", "black", [] ],
-    [ "esp:2", "reject:1.l", "green", [] ],
+    [ "esp:18", "reject:1.l", "green", [] ],
     [ "reject:2.l", "esp:GND.2", "black", [] ]
   ]
 }

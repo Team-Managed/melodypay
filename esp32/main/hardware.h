@@ -15,8 +15,8 @@
 #define MELODY_AMP_DATA_GPIO 7
 #define MELODY_OLED_SDA_GPIO 8
 #define MELODY_OLED_SCL_GPIO 9
-#define MELODY_APPROVE_GPIO 1
-#define MELODY_REJECT_GPIO 2
+#define MELODY_APPROVE_GPIO 17
+#define MELODY_REJECT_GPIO 18
 
 esp_err_t hardware_init(void);
 bool hardware_audio_available(void);

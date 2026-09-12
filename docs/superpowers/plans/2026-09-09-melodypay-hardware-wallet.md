@@ -47,11 +47,11 @@
 - Create: `firmware/CMakeLists.txt`
 - Create: `firmware/sdkconfig.defaults`
 - Create: `firmware/main/main.c`
-- Create: `firmware/main/hardware.h`
-- Create: `firmware/main/hardware.c`
+- Create: `esp32/main/hardware.h`
+- Create: `esp32/main/hardware.c`
 
 - [ ] Scaffold an ESP-IDF v5.2+ project targeting ESP32-S3 (`idf.py set-target esp32s3`).
-- [ ] Define board pin configuration exclusively in `firmware/main/hardware.h` matching the pin matrix in `docs/hardware-shopping-list.md` (INMP441 on GPIO 4/5/6, MAX98357A on GPIO 15/16/7, SSD1306 on GPIO 8/9, Buttons on GPIO 1/2).
+- [ ] Define board pin configuration exclusively in `esp32/main/hardware.h` matching the pin matrix in `docs/hardware-shopping-list.md` (INMP441 on GPIO 4/5/6, MAX98357A on GPIO 15/16/7, SSD1306 on GPIO 8/9, Buttons on GPIO 17/18).
 - [ ] Initialize SSD1306 via `esp_lcd` (or `u8g2`), two buttons with software debounce (active LOW, internal pull-up), I2S0 microphone input, and I2S1 speaker output using modern `driver/i2s_std.h`.
 - [ ] Configure I2S0 for INMP441: Set slot format to `I2S_DATA_BIT_WIDTH_32BIT` (Left channel, `L/R` pin tied to GND). In the DMA loop, bit-shift the 24-bit data (`sample >> 14`) to produce clean 16-bit signed PCM without digital static.
 - [ ] Route a ground line parallel to the 3.072 MHz `BCLK` and keep I2S Dupont wires $\le 10\text{ cm}$ to prevent clock ringing and bit-slips.

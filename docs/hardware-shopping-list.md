@@ -101,8 +101,8 @@ This estimate excludes the secure element. The secure element belongs in the nex
 | **SSD1306 (OLED)** | Serial Data | `SDA` | **GPIO 8** | I2C Data (requires 3.3V pull-ups on breakout) |
 | | Serial Clock | `SCL` | **GPIO 9** | I2C Clock |
 | | Power & Ground | `VCC`, `GND` | **3.3V & GND** | Standard 3.3V logic |
-| **Tactile Buttons** | Approve Button | Pin 1 / Pin 2 | **GPIO 1 & GND** | Active LOW, internal ESP32 pull-up enabled |
-| | Reject Button | Pin 1 / Pin 2 | **GPIO 2 & GND** | Active LOW, internal ESP32 pull-up enabled |
+| **Tactile Buttons** | Approve Button | Pin 1 / Pin 2 | **GPIO 17 & GND** | Active LOW, internal ESP32 pull-up enabled |
+| | Reject Button | Pin 1 / Pin 2 | **GPIO 18 & GND** | Active LOW, internal ESP32 pull-up enabled |
 
 ---
 
