@@ -18,7 +18,10 @@ import {
     getFeeData,
     getNonce,
     validateSignedNativeTransfer,
+    validateSignedReceiveAuthorization,
+    getArcUsdcBalance,
 } from "../core/tx-builder";
+import { generateAuthorizationNonce } from "../core/eip3009";
 
 type Step =
     | "setup"
@@ -33,9 +36,12 @@ type Step =
 interface PendingPayment {
     sender: string;
     nonce: number;
+    authNonce?: string;
     requestId: number;
     gasLimit: bigint;
     startedAt: number;
+    isArc?: boolean;
+    tokenValue?: bigint;
 }
 
 const PAYMENT_TTL_SECONDS = 60;
@@ -94,9 +100,10 @@ export function ReceivePayment() {
             return;
         }
 
+        const isArc = chain.chainId === 5042002;
         let value: bigint;
         try {
-            value = ethers.parseEther(amount);
+            value = isArc ? ethers.parseUnits(amount, 6) : ethers.parseEther(amount);
         } catch {
             setError("Enter a valid amount.");
             return;
@@ -123,39 +130,65 @@ export function ReceivePayment() {
                 stop();
                 stopRef.current = null;
                 setStep("fetching-network");
-                setStatus(`Fetching ${chain.name} nonce and fee data...`);
+                setStatus(`Fetching ${chain.name} context...`);
 
                 try {
-                    const [nonce, feeData] = await Promise.all([
-                        getNonce(sender, chain.chainId),
-                        getFeeData(chain.chainId),
-                    ]);
                     const requestId = Math.floor(Math.random() * 0x1_0000_0000) >>> 0;
-                    const gasLimit = 21000n;
-                    pendingRef.current = {
-                        sender,
-                        nonce,
-                        requestId,
-                        gasLimit,
-                        startedAt: Date.now(),
-                    };
+                    let paymentRequest: string;
 
-                    // Keep PAY compatibility for the current browser proof of concept.
-                    // PAY2 carries the chain and fee fields needed by the hardware wallet.
-                    const paymentRequest = chain.chainId === 10143
-                        ? `PAY|${receiver}|${amount}|${nonce}`
-                        : [
-                            "PAY2",
+                    if (isArc) {
+                        await getArcUsdcBalance(sender, 5042002);
+                        const authNonce = generateAuthorizationNonce();
+                        pendingRef.current = {
+                            sender,
+                            nonce: 0,
+                            authNonce,
+                            requestId,
+                            gasLimit: 100000n,
+                            startedAt: Date.now(),
+                            isArc: true,
+                            tokenValue: value,
+                        };
+
+                        paymentRequest = [
+                            "PAY_ARC",
                             chain.chainId,
                             receiver,
                             amount,
-                            nonce,
+                            authNonce,
                             requestId,
                             PAYMENT_TTL_SECONDS,
-                            feeData.maxFeePerGas.toString(),
-                            feeData.maxPriorityFeePerGas.toString(),
-                            gasLimit,
                         ].join("|");
+                    } else {
+                        const [nonce, feeData] = await Promise.all([
+                            getNonce(sender, chain.chainId),
+                            getFeeData(chain.chainId),
+                        ]);
+                        const gasLimit = 21000n;
+                        pendingRef.current = {
+                            sender,
+                            nonce,
+                            requestId,
+                            gasLimit,
+                            startedAt: Date.now(),
+                            isArc: false,
+                        };
+
+                        paymentRequest = chain.chainId === 10143
+                            ? `PAY|${receiver}|${amount}|${nonce}`
+                            : [
+                                "PAY2",
+                                chain.chainId,
+                                receiver,
+                                amount,
+                                nonce,
+                                requestId,
+                                PAYMENT_TTL_SECONDS,
+                                feeData.maxFeePerGas.toString(),
+                                feeData.maxPriorityFeePerGas.toString(),
+                                gasLimit,
+                            ].join("|");
+                    }
 
                     setStep("broadcasting-request");
                     for (let attempt = 1; attempt <= 3; attempt += 1) {
@@ -167,7 +200,7 @@ export function ReceivePayment() {
 
                     if (cancelledRef.current) return;
                     setStep("listening");
-                    setStatus("Listening for the signed transaction...");
+                    setStatus("Listening for authorization...");
                     timeoutRef.current = window.setTimeout(() => {
                         if (!cancelledRef.current) {
                             resetSession("Audio timed out. Tap Start to create a fresh payment request.");
@@ -175,8 +208,8 @@ export function ReceivePayment() {
                     }, PAYMENT_TTL_SECONDS * 1000);
 
                     const { stop: stopChunked } = await startChunkedListening(
-                        async (signedTx) => {
-                            if (cancelledRef.current || !signedTx.startsWith("0x")) return;
+                        async (signedData) => {
+                            if (cancelledRef.current) return;
                             const pending = pendingRef.current;
                             if (!pending) return;
 
@@ -184,31 +217,126 @@ export function ReceivePayment() {
                             stopRef.current = null;
                             clearTimeoutTimer();
                             setStep("verifying");
-                            setStatus("Verifying the signed transaction...");
+                            setStatus("Verifying authorization...");
 
                             try {
-                                const parsed = await validateSignedNativeTransfer(signedTx, {
-                                    sender: pending.sender,
-                                    recipient: receiver,
-                                    chainId: chain.chainId,
-                                    value,
-                                    nonce: pending.nonce,
-                                    gasLimit: pending.gasLimit,
-                                });
-                                const transactionHash = parsed.hash ?? ethers.keccak256(ethers.getBytes(signedTx));
-                                if (seenTransactionsRef.current.has(transactionHash)) {
-                                    resetSession("Duplicate transaction ignored. Start a new payment if needed.");
-                                    return;
-                                }
-                                seenTransactionsRef.current.add(transactionHash);
+                                if (pending.isArc) {
+                                    let authPayload: {
+                                        authorizer: string;
+                                        recipient: string;
+                                        value: bigint;
+                                        validAfter: bigint;
+                                        validBefore: bigint;
+                                        nonce: string;
+                                        v: number;
+                                        r: string;
+                                        s: string;
+                                    };
 
-                                setStep("submitting");
-                                setStatus(`Broadcasting ${ethers.formatEther(parsed.value)} ${chain.nativeSymbol}...`);
-                                const hash = await broadcastTransaction(signedTx, chain.chainId);
-                                if (cancelledRef.current) return;
-                                setTxHash(hash);
-                                setStep("done");
-                                setStatus(`${ethers.formatEther(parsed.value)} ${chain.nativeSymbol} submitted.`);
+                                    if (signedData.startsWith("AUTH|")) {
+                                        const parts = signedData.split("|");
+                                        authPayload = {
+                                            authorizer: parts[1],
+                                            recipient: parts[2],
+                                            value: BigInt(parts[3]),
+                                            validAfter: BigInt(parts[4]),
+                                            validBefore: BigInt(parts[5]),
+                                            nonce: parts[6],
+                                            v: Number(parts[7]),
+                                            r: parts[8],
+                                            s: parts[9],
+                                        };
+                                    } else {
+                                        const sig = ethers.Signature.from(signedData);
+                                        authPayload = {
+                                            authorizer: pending.sender,
+                                            recipient: receiver,
+                                            value: pending.tokenValue!,
+                                            validAfter: 0n,
+                                            validBefore: BigInt(Math.floor(pending.startedAt / 1000) + PAYMENT_TTL_SECONDS),
+                                            nonce: pending.authNonce!,
+                                            v: sig.v,
+                                            r: sig.r,
+                                            s: sig.s,
+                                        };
+                                    }
+
+                                    const validated = validateSignedReceiveAuthorization(authPayload, {
+                                        expectedAuthorizer: pending.sender,
+                                        expectedRecipient: receiver,
+                                        expectedValue: pending.tokenValue!,
+                                        chainId: chain.chainId,
+                                    });
+
+                                    if (seenTransactionsRef.current.has(validated.nonce)) {
+                                        resetSession("Duplicate authorization ignored.");
+                                        return;
+                                    }
+                                    seenTransactionsRef.current.add(validated.nonce);
+
+                                    setStep("submitting");
+                                    setStatus(`Submitting ${amount} USDC authorization to Arc...`);
+
+                                    if (typeof window !== "undefined" && (window as any).ethereum) {
+                                        try {
+                                            const browserProvider = new ethers.BrowserProvider((window as any).ethereum);
+                                            const signer = await browserProvider.getSigner();
+                                            const usdcContract = new ethers.Contract(
+                                                "0x3600000000000000000000000000000000000000",
+                                                [
+                                                    "function receiveWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s) external",
+                                                ],
+                                                signer,
+                                            );
+                                            const tx = await usdcContract.receiveWithAuthorization(
+                                                authPayload.authorizer,
+                                                authPayload.recipient,
+                                                authPayload.value,
+                                                authPayload.validAfter,
+                                                authPayload.validBefore,
+                                                authPayload.nonce,
+                                                authPayload.v,
+                                                authPayload.r,
+                                                authPayload.s,
+                                            );
+                                            const receipt = await tx.wait();
+                                            if (cancelledRef.current) return;
+                                            setTxHash(receipt.hash);
+                                            setStep("done");
+                                            setStatus(`${amount} USDC payment settled on Arc.`);
+                                        } catch (broadcastErr) {
+                                            // Fallback to verified authorization display if broadcast rejected
+                                            setStep("done");
+                                            setStatus(`Authorization verified for ${amount} USDC from ${validated.authorizer} (Broadcast failed or declined: ${broadcastErr instanceof Error ? broadcastErr.message : "submission error"})`);
+                                        }
+                                    } else {
+                                        setStep("done");
+                                        setStatus(`Authorization verified for ${amount} USDC from ${validated.authorizer}. Nonce: ${validated.nonce.slice(0, 10)}... (Connect browser wallet to broadcast onchain)`);
+                                    }
+                                } else {
+                                    const parsed = await validateSignedNativeTransfer(signedData, {
+                                        sender: pending.sender,
+                                        recipient: receiver,
+                                        chainId: chain.chainId,
+                                        value,
+                                        nonce: pending.nonce,
+                                        gasLimit: pending.gasLimit,
+                                    });
+                                    const transactionHash = parsed.hash ?? ethers.keccak256(ethers.getBytes(signedData));
+                                    if (seenTransactionsRef.current.has(transactionHash)) {
+                                        resetSession("Duplicate transaction ignored. Start a new payment if needed.");
+                                        return;
+                                    }
+                                    seenTransactionsRef.current.add(transactionHash);
+
+                                    setStep("submitting");
+                                    setStatus(`Broadcasting ${ethers.formatEther(parsed.value)} ${chain.nativeSymbol}...`);
+                                    const hash = await broadcastTransaction(signedData, chain.chainId);
+                                    if (cancelledRef.current) return;
+                                    setTxHash(hash);
+                                    setStep("done");
+                                    setStatus(`${ethers.formatEther(parsed.value)} ${chain.nativeSymbol} submitted.`);
+                                }
                             } catch (err) {
                                 if (!cancelledRef.current) {
                                     resetSession(err instanceof Error ? err.message : "Transaction validation failed.");

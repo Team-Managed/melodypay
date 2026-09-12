@@ -188,3 +188,131 @@ export async function validateSignedErc20Transfer(
 
   return tx;
 }
+
+export const ARC_USDC_ABI = [
+  "function balanceOf(address account) external view returns (uint256)",
+  "function receiveWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s) external",
+  "function transferWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s) external",
+  "function authorizationState(address authorizer, bytes32 nonce) external view returns (bool)",
+  "event AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce)",
+  "event Transfer(address indexed from, address indexed to, uint256 value)",
+];
+
+export async function getArcUsdcBalance(
+  address: string,
+  chainId: number = 5042002,
+): Promise<string> {
+  const chain = getChainConfig(chainId);
+  if (!chain) throw new Error(`Unsupported chain: ${chainId}`);
+
+  const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
+  const usdcContract = new ethers.Contract("0x3600000000000000000000000000000000000000", ARC_USDC_ABI, provider);
+  const rawBalance: bigint = await usdcContract.balanceOf(address);
+  return ethers.formatUnits(rawBalance, 6);
+}
+
+export async function getArcAuthorizationState(
+  authorizer: string,
+  nonce: string,
+  chainId: number = 5042002,
+): Promise<boolean> {
+  const chain = getChainConfig(chainId);
+  if (!chain) throw new Error(`Unsupported chain: ${chainId}`);
+
+  const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
+  const usdcContract = new ethers.Contract("0x3600000000000000000000000000000000000000", ARC_USDC_ABI, provider);
+  return await usdcContract.authorizationState(authorizer, nonce);
+}
+
+export interface ArcAuthorizationExpectation {
+  expectedAuthorizer?: string;
+  expectedRecipient: string;
+  expectedValue: bigint;
+  chainId?: number;
+  verifyingContract?: string;
+  maxValidBefore?: bigint;
+}
+
+export function validateSignedReceiveAuthorization(
+  auth: {
+    authorizer: string;
+    recipient: string;
+    value: bigint;
+    validAfter: bigint;
+    validBefore: bigint;
+    nonce: string;
+    v: number;
+    r: string;
+    s: string;
+  },
+  expected: ArcAuthorizationExpectation,
+  currentTimestamp: number = Math.floor(Date.now() / 1000),
+): { authorizer: string; recipient: string; value: bigint; nonce: string } {
+  const chainId = expected.chainId ?? 5042002;
+  const verifyingContract = expected.verifyingContract ?? "0x3600000000000000000000000000000000000000";
+
+  const domain = {
+    name: "USDC",
+    version: "2",
+    chainId,
+    verifyingContract: ethers.getAddress(verifyingContract),
+  };
+
+  const message = {
+    from: ethers.getAddress(auth.authorizer),
+    to: ethers.getAddress(auth.recipient),
+    value: auth.value,
+    validAfter: auth.validAfter,
+    validBefore: auth.validBefore,
+    nonce: auth.nonce,
+  };
+
+  if (message.to.toLowerCase() !== expected.expectedRecipient.toLowerCase()) {
+    throw new Error("Recipient mismatch");
+  }
+  if (message.value !== expected.expectedValue) {
+    throw new Error("Value mismatch");
+  }
+  if (BigInt(currentTimestamp) > message.validBefore) {
+    throw new Error("Authorization expired");
+  }
+  if (BigInt(currentTimestamp) < message.validAfter) {
+    throw new Error("Authorization not yet valid");
+  }
+
+  // Recover authorizer from EIP-712 typed data
+  const types = {
+    ReceiveWithAuthorization: [
+      { name: "from", type: "address" },
+      { name: "to", type: "address" },
+      { name: "value", type: "uint256" },
+      { name: "validAfter", type: "uint256" },
+      { name: "validBefore", type: "uint256" },
+      { name: "nonce", type: "bytes32" },
+    ],
+  };
+
+  const digest = ethers.TypedDataEncoder.hash(domain, types, message);
+  const signature = ethers.Signature.from({
+    v: auth.v,
+    r: auth.r,
+    s: auth.s,
+  });
+
+  const recovered = ethers.recoverAddress(digest, signature);
+  if (recovered.toLowerCase() !== message.from.toLowerCase()) {
+    throw new Error("Signer recovery failed");
+  }
+
+  if (expected.expectedAuthorizer && recovered.toLowerCase() !== expected.expectedAuthorizer.toLowerCase()) {
+    throw new Error("Authorizer mismatch");
+  }
+
+  return {
+    authorizer: recovered,
+    recipient: message.to,
+    value: message.value,
+    nonce: message.nonce,
+  };
+}
+
