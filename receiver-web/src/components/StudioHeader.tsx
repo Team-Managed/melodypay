@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowUpRight, Menu, X, Radio } from "lucide-react";
+import { MelodyLogoM } from "./MelodyLogoM";
 
 export function StudioHeader() {
     const location = useLocation();
@@ -9,11 +10,12 @@ export function StudioHeader() {
 
     const navItems = [
         { path: "/", label: "Overview", hash: "" },
+        { path: "/#features", label: "Features", hash: "features" },
+        { path: "/#how-it-works", label: "How It Works", hash: "how-it-works" },
+        { path: "/#prototype", label: "Prototype", hash: "prototype" },
+        { path: "/#faqs", label: "FAQs", hash: "faqs" },
         { path: "/receive", label: "Terminal", hash: "" },
         { path: "/register", label: "Register", hash: "" },
-        { path: "/#oscilloscope", label: "Oscilloscope", hash: "oscilloscope" },
-        { path: "/#hardware", label: "Hardware", hash: "hardware" },
-        { path: "/#ecosystem", label: "Ecosystem", hash: "ecosystem" },
     ];
 
     const handleScrollOrNav = (path: string, hash: string) => {
@@ -30,12 +32,13 @@ export function StudioHeader() {
         <header className="fixed top-4 sm:top-5 left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-4xl select-none">
             {/* Dark Floating Architectural Header */}
             <nav className="relative bg-[#111113]/95 backdrop-blur-xl border border-white/15 rounded-xl px-4 sm:px-6 py-2.5 shadow-2xl flex items-center justify-between text-white transition-all">
-                {/* Brand Title */}
+                {/* Brand Logo & Title */}
                 <Link 
                     to="/" 
-                    className="flex items-center cursor-pointer"
+                    className="flex items-center gap-2.5 cursor-pointer group"
                     onClick={() => setMobileOpen(false)}
                 >
+                    <MelodyLogoM size={20} />
                     <span className="text-sm font-semibold tracking-tight text-white font-sans">
                         MelodyPay
                     </span>

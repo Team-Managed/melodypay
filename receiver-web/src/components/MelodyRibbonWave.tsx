@@ -14,7 +14,7 @@ export function MelodyRibbonWave() {
     const animIdRef = useRef<number | null>(null);
     const audioCtxRef = useRef<AudioContext | null>(null);
     const [isPlaying, setIsPlaying] = useState<boolean>(true);
-    const [isMuted, setIsMuted] = useState<boolean>(false);
+    const [isMuted, setIsMuted] = useState<boolean>(true);
     const lastNotePlayedRef = useRef<number>(-1);
     const playheadPosRef = useRef<number>(0);
     const mouseRef = useRef<{ x: number; y: number; active: boolean }>({ x: 0, y: 0, active: false });
@@ -30,37 +30,10 @@ export function MelodyRibbonWave() {
         { t: 0.88, lineIndex: -1, symbol: "♪", freq: 2080, label: "CRC-8 OK" },
     ];
 
-    // Sound chime synthesizer when playhead crosses a note
-    const playChime = useCallback((freq: number) => {
-        if (isMuted) return;
-        try {
-            const AudioCtxClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-            if (!AudioCtxClass) return;
-
-            const ctx = audioCtxRef.current || new AudioCtxClass();
-            audioCtxRef.current = ctx;
-            if (ctx.state === "suspended") ctx.resume();
-
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-
-            osc.type = "sine";
-            osc.frequency.setValueAtTime(freq, ctx.currentTime);
-
-            // Gentle bell-like envelope
-            gain.gain.setValueAtTime(0.001, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.03);
-            gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
-
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-
-            osc.start();
-            osc.stop(ctx.currentTime + 0.35);
-        } catch {
-            // Audio context restricted until user interaction
-        }
-    }, [isMuted]);
+    // Sound chime synthesizer: completely silent per user requirement
+    const playChime = useCallback((_freq: number) => {
+        return;
+    }, []);
 
     useEffect(() => {
         const canvas = canvasRef.current;

@@ -212,46 +212,16 @@ export function AcousticOscilloscope({
         };
     }, [isReceiving, isTransmitting, isPlayingTestTone]);
 
-    // Test tone generator: Plays a 1950Hz FSK carrier chirp for 450ms
+    // Test tone generator: Visual telemetry simulation only (completely silent per user requirement)
     const playTestTone = async () => {
         if (isPlayingTestTone) return;
         setIsPlayingTestTone(true);
         setRmsDb(-18);
 
-        try {
-            const ctx = audioCtxRef.current || new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-            if (ctx.state === "suspended") {
-                await ctx.resume();
-            }
-
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-
-            osc.type = "sine";
-            // FSK frequency sweep simulating ggwave audible fastest packet header
-            osc.frequency.setValueAtTime(1875, ctx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(2150, ctx.currentTime + 0.35);
-
-            gain.gain.setValueAtTime(0.001, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.05);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-
-            osc.start();
-            osc.stop(ctx.currentTime + 0.4);
-
-            setTimeout(() => {
-                setIsPlayingTestTone(false);
-                setRmsDb(-52);
-            }, 450);
-        } catch {
-            setTimeout(() => {
-                setIsPlayingTestTone(false);
-                setRmsDb(-52);
-            }, 450);
-        }
+        setTimeout(() => {
+            setIsPlayingTestTone(false);
+            setRmsDb(-52);
+        }, 450);
     };
 
     return (

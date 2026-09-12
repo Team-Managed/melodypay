@@ -76,15 +76,26 @@ describe("Frontend Industrial Studio Components & Logic", () => {
   it("verifies StudioHeader navigation links and action targets", () => {
     const navItems = [
       { path: "/", label: "Overview" },
+      { path: "/#features", label: "Features" },
+      { path: "/#how-it-works", label: "How It Works" },
+      { path: "/#prototype", label: "Prototype" },
+      { path: "/#faqs", label: "FAQs" },
       { path: "/receive", label: "Terminal" },
       { path: "/register", label: "Register" },
-      { path: "/#hardware", label: "Hardware" },
-      { path: "/#oscilloscope", label: "Oscilloscope" },
-      { path: "/#ecosystem", label: "Ecosystem" },
     ];
 
-    expect(navItems.length).toBe(6);
+    expect(navItems.length).toBe(7);
+    expect(navItems.find((item) => item.label === "Features")?.path).toBe("/#features");
+    expect(navItems.find((item) => item.label === "How It Works")?.path).toBe("/#how-it-works");
+    expect(navItems.find((item) => item.label === "Prototype")?.path).toBe("/#prototype");
+    expect(navItems.find((item) => item.label === "FAQs")?.path).toBe("/#faqs");
     expect(navItems.find((item) => item.label === "Terminal")?.path).toBe("/receive");
     expect(navItems.find((item) => item.label === "Register")?.path).toBe("/register");
+  });
+
+  it("verifies MelodyLogoM component export and default props contract", async () => {
+    const { MelodyLogoM } = await import("../receiver-web/src/components/MelodyLogoM");
+    expect(MelodyLogoM).toBeDefined();
+    expect(typeof MelodyLogoM).toBe("function");
   });
 });

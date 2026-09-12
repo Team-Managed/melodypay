@@ -29,36 +29,7 @@ export function AudioWaveMesh({ interactive = true, showControls = false, classN
             intensity: 1.0,
         };
         setIsChirping(true);
-
-        try {
-            const AudioCtxClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-            if (AudioCtxClass) {
-                const ctx = audioCtxRef.current || new AudioCtxClass();
-                audioCtxRef.current = ctx;
-                if (ctx.state === "suspended") ctx.resume();
-
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-
-                osc.type = "sine";
-                // Chirp sweep across FSK acoustic frequencies
-                osc.frequency.setValueAtTime(1875, ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(2200, ctx.currentTime + 0.35);
-
-                gain.gain.setValueAtTime(0.001, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.05);
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-
-                osc.start();
-                osc.stop(ctx.currentTime + 0.4);
-            }
-        } catch {
-            // Audio context not available or user gesture needed
-        }
-
+        // Completely silent per user requirement: no sound on any effect on the website
         setTimeout(() => setIsChirping(false), 700);
     }, []);
 

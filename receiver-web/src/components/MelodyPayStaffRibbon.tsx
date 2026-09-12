@@ -1,6 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import { Volume2, VolumeX, Play, Pause } from "lucide-react";
-import { motion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
 
 interface Note {
     t: number; // 0 to 1 along curve
@@ -19,103 +17,111 @@ interface PathSample {
     u: number;
 }
 
-// Full 2D Cursive Calligraphy Path for "melodypay" aligned on the SAME HORIZONTAL BASELINE AXIS (Y = 280)
-// Coordinate space: 1400 x 600
+// Master 2D Compact & Cohesive Spencerian Cursive Calligraphy Path for "melodypay"
+// Engineered so the word is naturally proportioned, tightly kerned, and centered:
+// - Left undulating stave entrance: (X: 40 -> 380, Y: 280)
+// - "m": compact 3 arches (X: 385 -> 475, baseline Y: 280, crests Y: 210)
+// - "e": tight loop (X: 475 -> 515)
+// - "l": graceful tall ascender (X: 515 -> 560, crest Y: 110)
+// - "o": compact oval (X: 560 -> 610)
+// - "d": compact oval with tall ascender stem (X: 610 -> 665, crest Y: 105)
+// - "y": compact cup with graceful descender loop (X: 665 -> 735, descender Y: 410)
+// - "p": compact stem and rounded bulb (X: 735 -> 805, stem Y: 410)
+// - "a": compact oval and downstem (X: 805 -> 860)
+// - "y": compact cup with graceful descender loop (X: 860 -> 935, descender Y: 410)
+// - Right undulating stave egress: (X: 935 -> 1380, Y: 280)
+// Coordinate space: 1420 x 540
 const CURSIVE_MELODYPAY_ALIGNED_PATH = `
-M 40 180
-L 100 180
-C 120 180, 135 230, 145 280
-C 150 250, 160 200, 175 200
-C 190 200, 195 260, 205 280
-C 210 250, 220 200, 235 200
-C 250 200, 255 260, 265 280
-C 270 250, 280 200, 295 200
-C 310 200, 315 260, 325 280
-C 335 280, 345 255, 355 235
-C 365 210, 380 195, 395 195
-C 405 195, 405 225, 390 245
-C 375 265, 385 280, 410 280
-C 430 280, 445 180, 460 85
-C 468 65, 478 75, 475 105
-C 465 155, 460 235, 468 280
-C 475 285, 485 275, 495 245
-C 505 220, 520 195, 545 195
-C 520 195, 508 230, 512 260
-C 518 280, 545 280, 560 255
-C 570 230, 565 200, 545 195
-C 560 195, 580 220, 595 235
-C 580 240, 568 260, 572 270
-C 578 280, 605 280, 615 260
-C 625 235, 625 180, 625 85
-C 625 70, 628 75, 628 105
-C 628 180, 626 250, 630 280
-C 635 285, 650 270, 660 240
-C 670 215, 680 200, 690 200
-C 700 200, 705 260, 715 280
-C 725 260, 735 215, 745 200
-C 750 220, 750 330, 750 435
-C 750 465, 725 465, 715 445
-C 705 420, 725 385, 755 350
-C 770 320, 785 285, 805 280
-C 820 280, 835 280, 850 280
-C 860 250, 870 200, 880 200
-C 880 250, 875 350, 875 445
-C 875 400, 878 320, 880 280
-C 895 210, 925 210, 930 245
-C 935 280, 905 285, 880 280
-C 895 280, 910 265, 925 245
-C 940 220, 955 200, 970 200
-C 955 200, 940 235, 945 265
-C 950 280, 975 280, 990 260
-C 1000 235, 1000 210, 975 200
-C 995 220, 995 260, 998 280
-C 1005 285, 1020 270, 1035 240
-C 1045 215, 1055 200, 1065 200
-C 1075 200, 1080 260, 1090 280
-C 1100 260, 1110 215, 1120 200
-C 1125 220, 1125 330, 1125 450
-C 1125 490, 1085 490, 1065 455
-C 1045 420, 1085 375, 1130 340
-C 1155 320, 1185 335, 1215 340
-C 1245 350, 1280 380, 1340 380
+M 40 280
+C 120 280, 160 260, 220 260
+C 280 260, 320 290, 380 280
+C 390 250, 395 210, 405 210
+C 415 210, 418 250, 420 280
+C 425 240, 430 210, 440 210
+C 448 210, 450 250, 452 280
+C 455 240, 460 210, 470 210
+C 478 210, 480 260, 485 280
+C 495 280, 510 245, 520 225
+C 525 210, 515 210, 505 225
+C 495 245, 505 280, 520 280
+C 535 280, 550 180, 560 120
+C 565 95, 555 95, 545 125
+C 538 160, 542 245, 550 280
+C 555 285, 560 285, 568 280
+C 578 260, 588 220, 600 220
+C 585 220, 580 250, 580 265
+C 580 285, 595 285, 605 280
+C 615 275, 615 235, 602 225
+C 595 220, 608 220, 618 230
+C 610 240, 605 260, 615 275
+C 625 285, 638 285, 642 270
+C 642 240, 642 160, 645 110
+C 648 95, 655 95, 655 115
+C 655 170, 652 250, 655 280
+C 660 285, 668 285, 675 280
+C 685 255, 690 220, 700 220
+C 708 220, 710 255, 715 275
+C 720 265, 725 235, 730 220
+C 735 220, 738 310, 738 380
+C 738 420, 720 435, 705 415
+C 695 395, 710 350, 735 305
+C 745 285, 755 280, 765 280
+C 772 260, 778 225, 782 225
+C 782 250, 778 340, 778 410
+C 778 350, 780 270, 788 245
+C 795 220, 815 220, 820 245
+C 825 270, 805 285, 790 280
+C 800 280, 810 280, 820 280
+C 830 250, 840 220, 850 220
+C 838 220, 832 250, 832 265
+C 832 285, 845 285, 855 275
+C 860 250, 860 230, 860 250
+C 860 265, 860 280, 868 280
+C 878 255, 882 220, 892 220
+C 900 220, 902 255, 908 275
+C 912 265, 918 235, 922 220
+C 926 220, 928 310, 928 380
+C 928 420, 912 435, 898 415
+C 888 395, 905 350, 930 305
+C 940 285, 955 280, 970 280
+C 1030 280, 1080 260, 1140 260
+C 1200 260, 1260 290, 1320 280
+L 1380 280
 `.replace(/\n/g, " ").trim();
 
-// Color definitions for Blue, Pink, and Purple palette
+// Color definitions: Pure Glowing White Palette matching "Pay with sound" identically
 const STAFF_COLORS = [
-    { base: "rgba(0, 136, 255, 0.48)", pulse: "rgba(0, 140, 255, 1.0)", glow: "rgba(0, 136, 255, 0.9)", name: "Electric Blue" },
-    { base: "rgba(244, 63, 142, 0.48)", pulse: "rgba(255, 46, 147, 1.0)", glow: "rgba(244, 63, 142, 0.9)", name: "Vibrant Pink" },
-    { base: "rgba(139, 92, 246, 0.52)", pulse: "rgba(147, 51, 234, 1.0)", glow: "rgba(139, 92, 246, 0.95)", name: "Royal Purple" },
-    { base: "rgba(217, 70, 239, 0.48)", pulse: "rgba(232, 121, 249, 1.0)", glow: "rgba(217, 70, 239, 0.9)", name: "Deep Pink" },
-    { base: "rgba(37, 99, 235, 0.48)", pulse: "rgba(59, 130, 246, 1.0)", glow: "rgba(37, 99, 235, 0.9)", name: "Cobalt Blue" },
+    { base: "rgba(255, 255, 255, 0.45)", pulse: "rgba(255, 255, 255, 1.0)", glow: "rgba(255, 255, 255, 1.0)", name: "Pure White 1" },
+    { base: "rgba(255, 255, 255, 0.60)", pulse: "rgba(255, 255, 255, 1.0)", glow: "rgba(255, 255, 255, 1.0)", name: "Pure White 2" },
+    { base: "rgba(255, 255, 255, 0.75)", pulse: "rgba(255, 255, 255, 1.0)", glow: "rgba(255, 255, 255, 1.0)", name: "Pure White 3" },
+    { base: "rgba(255, 255, 255, 0.60)", pulse: "rgba(255, 255, 255, 1.0)", glow: "rgba(255, 255, 255, 1.0)", name: "Pure White 4" },
+    { base: "rgba(255, 255, 255, 0.45)", pulse: "rgba(255, 255, 255, 1.0)", glow: "rgba(255, 255, 255, 1.0)", name: "Pure White 5" },
 ];
 
-export function MelodyPayStaffRibbon() {
+interface MelodyPayStaffRibbonProps {
+    className?: string;
+    showControls?: boolean;
+}
+
+export function MelodyPayStaffRibbon({ className = "", showControls = false }: MelodyPayStaffRibbonProps = {}) {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const animIdRef = useRef<number | null>(null);
-    const audioCtxRef = useRef<AudioContext | null>(null);
     const [isPlaying, setIsPlaying] = useState(true);
-    const [isMuted, setIsMuted] = useState(true);
     const [isVisible, setIsVisible] = useState(false);
     const playheadTRef = useRef<number>(0);
-    const lastNoteRef = useRef<number>(-1);
 
-    // Notes mapped across the "melodypay" cursive letters
+    // Notes mapped directly across the "melodypay" cursive letters
     const NOTES: Note[] = [
-        { t: 0.08, lineOffset: 1, symbol: "♪", freq: 1875, label: "F0: 1875Hz", color: "#0088FF" },
-        { t: 0.20, lineOffset: -1, symbol: "♫", freq: 1950, label: "MAGIC: 0x4D", color: "#EC4899" },
-        { t: 0.30, lineOffset: 2, symbol: "♪", freq: 2031, label: "EIP-3009", color: "#8B5CF6" },
-        { t: 0.44, lineOffset: 0, symbol: "♬", freq: 2080, label: "USDC: 6dec", color: "#00E5FF" },
-        { t: 0.55, lineOffset: -2, symbol: "♫", freq: 2150, label: "ARC: 5042002", color: "#D946EF" },
-        { t: 0.67, lineOffset: 1, symbol: "♪", freq: 1980, label: "MONAD: 10143", color: "#8B5CF6" },
-        { t: 0.80, lineOffset: -1, symbol: "♫", freq: 2187, label: "F1: 2187Hz", color: "#F43F5E" },
-        { t: 0.93, lineOffset: 0, symbol: "♪", freq: 2200, label: "CRC-8 OK", color: "#0088FF" },
+        { t: 0.12, lineOffset: 1, symbol: "♪", freq: 1875, label: "F0: 1875Hz", color: "#FFFFFF" },
+        { t: 0.30, lineOffset: -1, symbol: "♫", freq: 1950, label: "MELODY: 0x4D", color: "#FFFFFF" },
+        { t: 0.42, lineOffset: 2, symbol: "♪", freq: 2031, label: "EIP-3009", color: "#FFFFFF" },
+        { t: 0.52, lineOffset: 0, symbol: "♬", freq: 2080, label: "USDC: 6dec", color: "#FFFFFF" },
+        { t: 0.62, lineOffset: -2, symbol: "♫", freq: 2150, label: "ARC: 5042002", color: "#FFFFFF" },
+        { t: 0.72, lineOffset: 1, symbol: "♪", freq: 1980, label: "MONAD: 10143", color: "#FFFFFF" },
+        { t: 0.82, lineOffset: -1, symbol: "♫", freq: 2187, label: "F1: 2187Hz", color: "#FFFFFF" },
+        { t: 0.94, lineOffset: 0, symbol: "♪", freq: 2200, label: "CRC-8 OK", color: "#FFFFFF" },
     ];
-
-    // Chime synthesizer: completely silent per user requirement
-    const playChime = useCallback((_freq: number) => {
-        return;
-    }, []);
 
     // IntersectionObserver: Only render footer animation when scrolled into view!
     useEffect(() => {
@@ -132,7 +138,7 @@ export function MelodyPayStaffRibbon() {
     }, []);
 
     useEffect(() => {
-        if (!isVisible) return; // Pause rendering completely when out of view!
+        if (!isVisible) return;
 
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -142,12 +148,12 @@ export function MelodyPayStaffRibbon() {
         let width = 0;
         let height = 0;
 
-        // Precompute path points once
+        // 1. PRECOMPUTE PATH POINTS & NORMALS EXACTLY ONCE
         const svgPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
         svgPath.setAttribute("d", CURSIVE_MELODYPAY_ALIGNED_PATH);
         const totalLength = svgPath.getTotalLength();
 
-        const samples = 500;
+        const samples = 650;
         const delta = 2.0;
         const precomputedPoints: PathSample[] = [];
 
@@ -162,8 +168,8 @@ export function MelodyPayStaffRibbon() {
             const len = Math.hypot(dx, dy) || 1;
 
             precomputedPoints.push({
-                normX: pt.x / 1400,
-                normY: pt.y / 600,
+                normX: pt.x / 1420,
+                normY: pt.y / 540,
                 nx: -dy / len,
                 ny: dx / len,
                 u: s / samples,
@@ -189,33 +195,126 @@ export function MelodyPayStaffRibbon() {
         window.addEventListener("resize", handleResize);
 
         const numStaffLines = 5;
-        const lineSpacing = 5.8;
+        const lineSpacing = 5.6;
         let frameCount = 0;
+
+        // 1 single graceful traveling wave pulse (matching hero ribbon)
+        const PULSE_OFFSETS = [0];
+        // Slower, calm, meditative musical tempo (~15s per complete traversal at 60 FPS)
+        const speedStep = 0.0011;
 
         const render = () => {
             frameCount++;
             if (isPlaying) {
-                playheadTRef.current = (playheadTRef.current + 0.006) % 1.0;
+                playheadTRef.current = (playheadTRef.current + speedStep) % 1.0;
             }
-
-            ctx.clearRect(0, 0, width, height);
 
             const playheadU = playheadTRef.current;
 
-            // Trigger chimes
-            for (let n = 0; n < NOTES.length; n++) {
-                const note = NOTES[n];
-                if (Math.abs(playheadU - note.t) < 0.008 && lastNoteRef.current !== n) {
-                    lastNoteRef.current = n;
-                    playChime(note.freq);
-                    break;
-                }
-            }
-            if (NOTES.every(n => Math.abs(playheadU - n.t) >= 0.012)) {
-                lastNoteRef.current = -1;
+            ctx.clearRect(0, 0, width, height);
+
+            // 1. ESP32 SOUND WALLET DEVICE (Left)
+            const pStart = precomputedPoints[0];
+            const startX = pStart.normX * width;
+            const startY = pStart.normY * height;
+            const hwW = 70;
+            const hwH = 88;
+            const hwX = startX - hwW - 8;
+            const hwY = startY - hwH / 2;
+
+            ctx.save();
+            ctx.fillStyle = "rgba(18, 18, 22, 0.9)";
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.roundRect(hwX, hwY, hwW, hwH, 8);
+            ctx.fill();
+            ctx.stroke();
+
+            // OLED screen
+            ctx.fillStyle = "#000000";
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.roundRect(hwX + 8, hwY + 10, hwW - 16, 28, 3);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = "#FFFFFF";
+            ctx.font = "bold 7.5px 'JetBrains Mono', monospace";
+            ctx.textAlign = "center";
+            ctx.fillText("0.01 USDC", hwX + hwW / 2, hwY + 22);
+            ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+            ctx.font = "6px 'JetBrains Mono', monospace";
+            ctx.fillText("READY // AIRGAP", hwX + hwW / 2, hwY + 32);
+
+            // Buttons
+            ctx.fillStyle = "#FFFFFF";
+            ctx.beginPath();
+            ctx.arc(hwX + 20, hwY + 54, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+            ctx.beginPath();
+            ctx.arc(hwX + hwW - 20, hwY + 54, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Speaker rings (White acoustic emission waves)
+            const ringColors = ["rgba(255, 255, 255, 0.9)", "rgba(255, 255, 255, 0.6)", "rgba(255, 255, 255, 0.35)"];
+            for (let r = 0; r < 3; r++) {
+                ctx.beginPath();
+                ctx.arc(hwX + hwW / 2, hwY + 72, 3 + r * 3.5, 0, Math.PI * 2);
+                ctx.strokeStyle = ringColors[r];
+                ctx.lineWidth = 1.2;
+                ctx.stroke();
             }
 
-            // Draw 5 continuous staff lines (fast batched stroke)
+            ctx.fillStyle = "#FFFFFF";
+            ctx.font = "bold 8px 'JetBrains Mono', monospace";
+            ctx.fillText("ESP32 SOUND WALLET", hwX + hwW / 2, hwY - 6);
+            ctx.restore();
+
+            // 2. RECEIVER HAND POS (Right)
+            const pEnd = precomputedPoints[samples];
+            const handX = pEnd.normX * width + 8;
+            const handY = pEnd.normY * height;
+
+            ctx.save();
+            ctx.strokeStyle = "#FFFFFF";
+            ctx.lineWidth = 2.0;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+
+            ctx.beginPath();
+            ctx.moveTo(handX + 50, handY + 24);
+            ctx.lineTo(handX + 34, handY + 15);
+            ctx.quadraticCurveTo(handX + 22, handY + 9, handX + 16, handY - 4);
+            ctx.quadraticCurveTo(handX + 9, handY - 13, handX + 18, handY - 18);
+            ctx.quadraticCurveTo(handX + 24, handY - 14, handX + 26, handY - 4);
+            ctx.quadraticCurveTo(handX + 18, handY - 7, handX + 5, handY - 11);
+            ctx.quadraticCurveTo(handX - 2, handY - 11, handX + 4, handY - 5);
+            ctx.quadraticCurveTo(handX - 5, handY - 3, handX - 9, handY);
+            ctx.quadraticCurveTo(handX - 5, handY + 4, handX + 4, handY + 4);
+            ctx.quadraticCurveTo(handX - 2, handY + 7, handX + 5, handY + 11);
+            ctx.quadraticCurveTo(handX + 15, handY + 15, handX + 32, handY + 20);
+            ctx.lineTo(handX + 52, handY + 31);
+            ctx.stroke();
+
+            for (let r = 0; r < 3; r++) {
+                ctx.beginPath();
+                ctx.arc(handX - 9, handY, 5 + r * 3.5, -Math.PI * 0.4, Math.PI * 0.4);
+                ctx.strokeStyle = ringColors[r];
+                ctx.lineWidth = 1.3;
+                ctx.stroke();
+            }
+
+            ctx.fillStyle = "#FFFFFF";
+            ctx.font = "bold 8px 'JetBrains Mono', monospace";
+            ctx.textAlign = "center";
+            ctx.fillText("RECEIVER POS // MIC", handX + 26, handY - 24);
+            ctx.restore();
+
+            // 3. DRAW 5 BASE PARALLEL STAFF LINES (Clean, razor-sharp calligraphy curves)
             for (let l = 0; l < numStaffLines; l++) {
                 const baseOffset = (l - (numStaffLines - 1) / 2) * lineSpacing;
                 const colorConfig = STAFF_COLORS[l % STAFF_COLORS.length];
@@ -230,70 +329,117 @@ export function MelodyPayStaffRibbon() {
                     else ctx.lineTo(px, py);
                 }
                 ctx.strokeStyle = colorConfig.base;
-                ctx.lineWidth = 1.35;
+                ctx.lineWidth = 1.4;
                 ctx.stroke();
+            }
 
-                // Draw wave pulse highlight segment (only ~20 vertices, strict contiguous slices)
-                const pulseWidth = 0.08;
-                const windowSamples = Math.round(pulseWidth * samples);
-                const centerS = Math.round(playheadU * samples);
+            // 4. DRAW TRAVELING WAVE PULSES
+            ctx.save();
+            const pulseWidth = 0.08;
+            const windowSamples = Math.round(pulseWidth * samples);
 
-                const drawSlice = (s0: number, s1: number) => {
-                    if (s0 >= s1) return;
+            const drawPulseSlice = (s0: number, s1: number) => {
+                if (s0 >= s1) return;
+                for (let l = 0; l < numStaffLines; l++) {
+                    const baseOffset = (l - (numStaffLines - 1) / 2) * lineSpacing;
+
                     ctx.beginPath();
                     for (let s = s0; s <= s1; s++) {
-                        const p = precomputedPoints[s];
-                        const px = p.normX * width + p.nx * baseOffset;
-                        const py = p.normY * height + p.ny * baseOffset;
+                        const pt = precomputedPoints[s];
+                        const px = pt.normX * width + pt.nx * baseOffset;
+                        const py = pt.normY * height + pt.ny * baseOffset;
+
                         if (s === s0) ctx.moveTo(px, py);
                         else ctx.lineTo(px, py);
                     }
-                    ctx.save();
-                    ctx.strokeStyle = colorConfig.pulse;
-                    ctx.lineWidth = 3.0;
-                    ctx.shadowColor = colorConfig.glow;
-                    ctx.shadowBlur = 10;
+                    ctx.strokeStyle = "#FFFFFF";
+                    ctx.lineWidth = 3.2;
+                    ctx.shadowColor = "rgba(255, 255, 255, 1.0)";
+                    ctx.shadowBlur = 16;
                     ctx.stroke();
-                    ctx.restore();
-                };
+                }
+            };
+
+            for (let p = 0; p < PULSE_OFFSETS.length; p++) {
+                const pU = (playheadU + PULSE_OFFSETS[p]) % 1.0;
+                const centerS = Math.round(pU * samples);
 
                 const sStart = centerS - windowSamples;
                 const sEnd = centerS + windowSamples;
 
-                if (sStart >= 0 && sEnd <= samples) {
-                    drawSlice(sStart, sEnd);
-                } else if (sStart < 0) {
-                    drawSlice(0, sEnd);
-                    drawSlice(samples + sStart, samples);
+                if (sStart < 0) {
+                    drawPulseSlice(samples + sStart, samples);
+                    drawPulseSlice(0, sEnd);
+                } else if (sEnd > samples) {
+                    drawPulseSlice(sStart, samples);
+                    drawPulseSlice(0, sEnd - samples);
                 } else {
-                    drawSlice(sStart, samples);
-                    drawSlice(0, sEnd - samples);
+                    drawPulseSlice(sStart, sEnd);
                 }
             }
+            ctx.restore();
 
-            // Draw notes
-            for (let i = 0; i < NOTES.length; i++) {
-                const note = NOTES[i];
-                const sampleIndex = Math.min(samples, Math.floor(note.t * samples));
-                const pn = precomputedPoints[sampleIndex];
-                const offset = note.lineOffset * lineSpacing;
-                const noteX = pn.normX * width + pn.nx * offset;
-                const noteY = pn.normY * height + pn.ny * offset;
-
-                const isNearPlayhead = Math.abs(playheadU - note.t) < 0.045;
+            // 5. DRAW GLOWING TRAVELING PEARL
+            const pearlIndex = Math.round(playheadU * samples);
+            const pearlPt = precomputedPoints[Math.min(samples, Math.max(0, pearlIndex))];
+            if (pearlPt) {
+                const px = pearlPt.normX * width;
+                const py = pearlPt.normY * height;
 
                 ctx.save();
-                ctx.font = isNearPlayhead ? "bold 15px sans-serif" : "12px sans-serif";
-                ctx.fillStyle = isNearPlayhead ? note.color : "#1E1B4B";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                if (isNearPlayhead) {
-                    ctx.shadowColor = note.color;
-                    ctx.shadowBlur = 8;
-                }
-                ctx.fillText(note.symbol, noteX, noteY);
+                ctx.beginPath();
+                ctx.arc(px, py, 6.0, 0, Math.PI * 2);
+                ctx.fillStyle = "#FFFFFF";
+                ctx.shadowColor = "#FFFFFF";
+                ctx.shadowBlur = 24;
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(px, py, 13, 0, Math.PI * 2);
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
                 ctx.restore();
             }
+
+            // 6. DRAW FLOATING NOTES IN GLOWING WHITE
+            NOTES.forEach((note) => {
+                const sIdx = Math.round(note.t * samples);
+                const pt = precomputedPoints[Math.min(samples, Math.max(0, sIdx))];
+                if (!pt) return;
+
+                const offset = note.lineOffset * lineSpacing;
+                const floatBob = Math.sin(frameCount * 0.018 + note.t * 8) * 2.5;
+                const nx = pt.normX * width + pt.nx * offset;
+                const ny = pt.normY * height + pt.ny * offset + floatBob;
+
+                const distToPulse = Math.abs(playheadU - note.t);
+                const isLit = distToPulse < 0.04 || distToPulse > 0.96;
+
+                ctx.save();
+                ctx.font = "bold 15px 'JetBrains Mono', sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+
+                if (isLit) {
+                    ctx.shadowColor = "#FFFFFF";
+                    ctx.shadowBlur = 18;
+                    ctx.fillStyle = "#FFFFFF";
+                } else {
+                    ctx.shadowColor = "rgba(255, 255, 255, 0.5)";
+                    ctx.shadowBlur = 6;
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+                }
+
+                ctx.fillText(note.symbol, nx, ny);
+
+                // Frequency badge
+                ctx.font = "bold 6.5px 'JetBrains Mono', monospace";
+                ctx.fillStyle = isLit ? "#FFFFFF" : "rgba(255, 255, 255, 0.6)";
+                ctx.shadowBlur = isLit ? 10 : 0;
+                ctx.fillText(note.label, nx, ny + 13);
+                ctx.restore();
+            });
 
             animIdRef.current = requestAnimationFrame(render);
         };
@@ -301,75 +447,17 @@ export function MelodyPayStaffRibbon() {
         animIdRef.current = requestAnimationFrame(render);
 
         return () => {
-            window.removeEventListener("resize", handleResize);
             if (animIdRef.current) cancelAnimationFrame(animIdRef.current);
-            if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
-                audioCtxRef.current.close().catch(() => {});
-            }
+            window.removeEventListener("resize", handleResize);
         };
-    }, [isPlaying, isMuted, playChime, isVisible]);
-
-    const togglePlaying = () => setIsPlaying(!isPlaying);
-    const toggleMute = () => setIsMuted(!isMuted);
+    }, [isPlaying, isVisible]);
 
     return (
-        <div ref={containerRef} className="w-full h-full relative select-none flex flex-col items-center justify-center">
+        <div ref={containerRef} className={`relative w-full h-full select-none ${className}`}>
             <canvas
                 ref={canvasRef}
                 className="w-full h-full block"
             />
-
-            {/* Subtle control dock */}
-            <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
-                className="absolute bottom-3 left-1/2 -translate-x-1/2 pointer-events-auto flex items-center justify-center gap-3.5 text-xs font-mono bg-[#FFFFFF]/95 backdrop-blur-md px-4 py-1.5 rounded-full border border-[#E2E2DA] shadow-xs z-30"
-            >
-                <motion.button
-                    type="button"
-                    onClick={togglePlaying}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="flex items-center gap-1.5 text-[#111113] hover:text-[#8B5CF6] transition-colors font-medium cursor-pointer"
-                >
-                    {isPlaying ? (
-                        <>
-                            <Pause size={12} className="text-[#8B5CF6]" />
-                            <span className="underline decoration-dotted underline-offset-4">pause</span>
-                        </>
-                    ) : (
-                        <>
-                            <Play size={12} className="text-[#EC4899]" />
-                            <span className="underline decoration-dotted underline-offset-4">play</span>
-                        </>
-                    )}
-                </motion.button>
-
-                <span className="text-[#E2E2DA]">|</span>
-
-                <motion.button
-                    type="button"
-                    onClick={toggleMute}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="flex items-center gap-1 text-[#7A7A85] hover:text-[#111113] transition-colors cursor-pointer"
-                >
-                    {isMuted ? <VolumeX size={12} /> : <Volume2 size={12} className="text-[#0088FF]" />}
-                    <span className="text-[11px]">{isMuted ? "muted" : "chimes on"}</span>
-                </motion.button>
-
-                <span className="text-[#E2E2DA] hidden sm:inline">|</span>
-
-                <div className="flex items-center gap-1.5 text-[11px] text-[#7A7A85] hidden sm:flex">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#EC4899] animate-pulse" />
-                    <span className="text-[#111113]">ESP32</span>
-                    <span className="text-[#C4B5FD]">➔</span>
-                    <span className="font-semibold bg-gradient-to-r from-[#0088FF] via-[#EC4899] to-[#8B5CF6] bg-clip-text text-transparent">melodypay</span>
-                    <span className="text-[#C4B5FD]">➔</span>
-                    <span className="text-[#111113]">Hand POS</span>
-                </div>
-            </motion.div>
         </div>
     );
 }

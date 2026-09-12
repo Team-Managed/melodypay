@@ -22,10 +22,10 @@ interface PathSample {
 // - Ingress from ESP32 Sound Wallet (X: 40, Y: 160)
 // - "Pay": Upper tier (baseline Y ~ 230, X: 90 -> 370)
 // - "with": Middle tier (baseline Y ~ 310, X: 390 -> 760)
-// - "Sound": Lower tier with unmistakable cursive 'S' (baseline Y ~ 390, X: 780 -> 1280)
-//   * 'S' Anatomy: diagonal upstroke (X: 805->860, Y: 375->180) -> apex crest (Y: 170) ->
-//     serpentine waist curving down-left (X: 835, Y: 295) -> wide sweeping lower belly (Y: 390, X: 815->925) ->
-//     inner clasp and flourish into 'o'
+// - "Sound": Lower tier with unmistakable cursive 'S' (baseline Y ~ 385, X: 790 -> 1280)
+//   * 'S' Anatomy: diagonal upstroke (X: 790->845, Y: 380->170) -> apex crest (Y: 158) ->
+//     serpentine waist (X: 842, Y: 278) -> generous right-hand lower belly (X: 892, Y: 355) ->
+//     baseline sweep (Y: 385) -> inner clasp and flourish into 'o' (X: 925, Y: 340)
 // - Egress into Receiving POS Hand (X: 1320, Y: 410)
 // Coordinate space: 1400 x 540
 const CURSIVE_PAYWITHSOUND_PATH = `
@@ -67,16 +67,14 @@ C 655 270, 670 215, 680 185
 C 685 175, 695 175, 695 195
 C 695 235, 690 285, 690 315
 C 690 285, 705 265, 725 265
-C 740 265, 745 295, 750 315
-C 755 325, 765 345, 775 365
-C 785 385, 810 385, 825 365
-C 835 345, 845 250, 860 190
-C 868 165, 895 165, 895 195
-C 895 230, 850 265, 835 295
-C 815 335, 825 390, 885 390
-C 915 390, 930 365, 925 340
-C 920 325, 895 330, 885 345
-C 880 360, 905 360, 925 345
+C 760 335, 772 380, 790 380
+C 805 380, 825 260, 845 170
+C 852 158, 868 158, 868 178
+C 868 208, 842 248, 842 278
+C 842 315, 888 325, 892 355
+C 896 385, 865 388, 835 385
+C 818 385, 814 365, 828 355
+C 848 348, 888 345, 925 340
 C 935 330, 955 330, 965 350
 C 975 370, 970 385, 950 385
 C 930 385, 930 360, 945 345
@@ -119,7 +117,7 @@ export function PayForSoundStaffRibbon({ className = "", showControls = true }: 
     const animIdRef = useRef<number | null>(null);
     const audioCtxRef = useRef<AudioContext | null>(null);
     const [isPlaying, setIsPlaying] = useState(true);
-    const [isMuted, setIsMuted] = useState(false);
+    const [isMuted, setIsMuted] = useState(true);
     const playheadTRef = useRef<number>(0);
     const lastNoteRef = useRef<number>(-1);
 
@@ -135,36 +133,10 @@ export function PayForSoundStaffRibbon({ className = "", showControls = true }: 
         { t: 0.94, lineOffset: 0, symbol: "♪", freq: 2200, label: "CRC-8 OK", color: "#FFFFFF" },
     ];
 
-    // Chime synthesizer
-    const playChime = useCallback((freq: number) => {
-        if (isMuted) return;
-        try {
-            const AudioCtxClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-            if (!AudioCtxClass) return;
-
-            const ctx = audioCtxRef.current || new AudioCtxClass();
-            audioCtxRef.current = ctx;
-            if (ctx.state === "suspended") ctx.resume();
-
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-
-            osc.type = "sine";
-            osc.frequency.setValueAtTime(freq, ctx.currentTime);
-
-            gain.gain.setValueAtTime(0.001, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.05, ctx.currentTime + 0.025);
-            gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
-
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-
-            osc.start();
-            osc.stop(ctx.currentTime + 0.3);
-        } catch {
-            // Audio context guard
-        }
-    }, [isMuted]);
+    // Chime synthesizer: completely silent per user requirement
+    const playChime = useCallback((_freq: number) => {
+        return;
+    }, []);
 
     useEffect(() => {
         const canvas = canvasRef.current;
