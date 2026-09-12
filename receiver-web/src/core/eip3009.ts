@@ -5,6 +5,7 @@ import {
   randomBytes,
   Signature,
   TypedDataEncoder,
+  TypedDataField,
   recoverAddress,
 } from "ethers";
 
@@ -150,9 +151,15 @@ export function getReceiveAuthorizationDigest(
   message: ReceiveWithAuthorizationMessage,
 ): string {
   const normalized = normalizeReceiveMessage(message);
+  const types: Record<string, TypedDataField[]> = {
+    ReceiveWithAuthorization: EIP3009_TYPES.ReceiveWithAuthorization.map((field) => ({
+      name: field.name,
+      type: field.type,
+    })),
+  };
   return TypedDataEncoder.hash(
     domain,
-    { ReceiveWithAuthorization: EIP3009_TYPES.ReceiveWithAuthorization },
+    types,
     normalized,
   );
 }
@@ -163,7 +170,8 @@ export function getReceiveAuthorizationDigest(
 export function splitAuthorizationSignature(
   signature: string | Uint8Array,
 ): AuthorizationSignature {
-  const sig = Signature.from(signature);
+  const sigInput = typeof signature === "string" ? signature : hexlify(signature);
+  const sig = Signature.from(sigInput);
   return {
     v: sig.v,
     r: sig.r,
@@ -183,7 +191,7 @@ export function recoverReceiveAuthorizationSigner(
   const digest = getReceiveAuthorizationDigest(domain, message);
   const rawSig = typeof signature === "object" && "rawSignature" in signature
     ? signature.rawSignature
-    : signature;
+    : (typeof signature === "string" ? signature : hexlify(signature));
 
   return recoverAddress(digest, rawSig);
 }
