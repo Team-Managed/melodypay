@@ -25,8 +25,17 @@ idf.py set-target esp32s3
 idf.py -p COM_PORT flash monitor
 ```
 
-The OLED driver remains serial-only and the production signing backend remains fail-closed until those components are implemented and reviewed.
+The OLED driver remains serial-only. The development NVS signer is enabled only
+after its Keccak, RLP, deterministic ECDSA, and recovery self-tests pass.
 
 ## Current Boundary
 
-The scaffold initializes I2S channels and provides the protocol/state interfaces. Button approval is deferred from the current bench image. The display driver and production signing backend are intentionally fail-closed. Do not fund this firmware with real assets.
+The firmware supports native EIP-1559 signing for the compiled chain policy and
+requires GPIO10 approval before returning a raw transaction. It remains a
+development demo and must not be funded with real assets.
+
+The wallet crypto path is development-only: the private key is retained in
+NVS and is not suitable for real funds. Mainnet requires both the build-time
+`CONFIG_MELODY_ENABLE_MAINNET` gate and a persisted runtime opt-in. The default
+build enables Monad testnet and Ethereum Sepolia; production chains require a
+mainnet-enabled build and explicit runtime opt-in.

@@ -1,5 +1,6 @@
 #include "display.h"
 #include "device_api.h"
+#include "button.h"
 #include "ggwave_transport.h"
 #include "hardware.h"
 #include "keystore.h"
@@ -7,6 +8,7 @@
 
 #include "nvs_flash.h"
 #include "esp_log.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -18,6 +20,100 @@
 #include "esp_heap_caps.h"
 
 static const char *TAG = "melodypay";
+
+typedef enum {
+    UI_HOME = 0,
+    UI_MENU,
+    UI_PAYMENT,
+    UI_RECEIVE,
+} ui_screen_t;
+
+static ui_screen_t ui_screen = UI_HOME;
+static uint8_t ui_selection;
+static volatile bool boot_audio_running;
+static volatile bool boot_audio_done;
+
+static void boot_chime_task(void *argument)
+{
+    (void)argument;
+    while (boot_audio_running) (void)hardware_play_boot_chime();
+    boot_audio_done = true;
+    vTaskDelete(NULL);
+}
+
+static void render_ui(void)
+{
+    if (ui_screen == UI_HOME) display_home_screen(ui_selection);
+    if (ui_screen == UI_MENU) display_menu_screen(ui_selection);
+    if (ui_screen == UI_PAYMENT) display_payment_screen();
+}
+
+static void handle_ui_event(button_event_t event)
+{
+    if (event == BUTTON_EVENT_NONE) return;
+    (void)hardware_play_feedback(event == BUTTON_EVENT_DOUBLE_CLICK);
+    if (ui_screen == UI_HOME) {
+        if (event == BUTTON_EVENT_SINGLE_CLICK) {
+            ui_selection = (uint8_t)((ui_selection + 1) % 3);
+            render_ui();
+        } else if (ui_selection == 0) {
+            ui_screen = UI_PAYMENT;
+            wallet_state_set(WALLET_RECEIVING);
+            render_ui();
+        } else if (ui_selection == 1) {
+            ui_screen = UI_RECEIVE;
+            wallet_state_set(WALLET_RECEIVING);
+            display_receive_screen();
+        } else {
+            ui_screen = UI_MENU;
+            ui_selection = 0;
+            render_ui();
+        }
+        return;
+    }
+
+    if (ui_screen == UI_MENU) {
+        if (event == BUTTON_EVENT_SINGLE_CLICK) {
+            ui_selection = (uint8_t)((ui_selection + 1) % 4);
+            render_ui();
+        } else if (ui_selection == 0) {
+            display_message("STATUS", keystore_is_ready() ? "Signer ready" : "Signer off",
+                            display_is_connected() ? "OLED ready" : "OLED off", "*   *   *");
+            vTaskDelay(pdMS_TO_TICKS(900));
+            render_ui();
+        } else if (ui_selection == 1) {
+            display_message("NETWORK", "Monad testnet", "Ethereum Sepolia", "");
+            vTaskDelay(pdMS_TO_TICKS(900));
+            render_ui();
+        } else if (ui_selection == 2) {
+            display_message("REBOOT", "Restarting...", "MelodyPay", "");
+            (void)hardware_play_feedback(true);
+            vTaskDelay(pdMS_TO_TICKS(500));
+            esp_restart();
+        } else {
+            ui_screen = UI_HOME;
+            ui_selection = 0;
+            render_ui();
+        }
+        return;
+    }
+
+    if (ui_screen == UI_RECEIVE &&
+        (event == BUTTON_EVENT_SINGLE_CLICK || event == BUTTON_EVENT_DOUBLE_CLICK)) {
+        ui_screen = UI_HOME;
+        ui_selection = 0;
+        wallet_state_set(WALLET_IDLE);
+        render_ui();
+        return;
+    }
+
+    if (ui_screen == UI_PAYMENT && event == BUTTON_EVENT_DOUBLE_CLICK) {
+        ui_screen = UI_HOME;
+        ui_selection = 0;
+        wallet_state_set(WALLET_IDLE);
+        render_ui();
+    }
+}
 
 static int16_t mic_sample_to_pcm(int32_t raw)
 {
@@ -34,6 +130,21 @@ static int cmd_tone(int argc, char **argv)
     printf("running 1-second tone and microphone sample test...\n");
     printf("result=%s\n", esp_err_to_name(hardware_run_audio_self_test()));
     return 0;
+}
+
+static int cmd_button_test(int argc, char **argv)
+{
+    const int seconds = argc == 1 ? 10 : atoi(argv[1]);
+    if (argc > 2 || seconds <= 0 || seconds > 60) {
+        printf("usage: button_test [seconds 1-60]\n");
+        return 1;
+    }
+    printf("press GPIO%d within %d seconds to approve...\n", MELODY_APPROVAL_BUTTON_GPIO, seconds);
+    const esp_err_t result = button_wait_for_approval((uint32_t)seconds * 1000);
+    printf("approval=%s result=%s\n",
+           result == ESP_OK ? "approved" : "timeout",
+           esp_err_to_name(result));
+    return result == ESP_OK ? 0 : 1;
 }
 
 static int cmd_mic(int argc, char **argv)
@@ -319,6 +430,15 @@ static int cmd_ggtest(int argc, char **argv)
     return result == 0 ? 0 : 1;
 }
 
+static int cmd_crypto_test(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+    const esp_err_t result = keystore_crypto_self_test();
+    printf("crypto_self_test=%s\n", esp_err_to_name(result));
+    return result == ESP_OK ? 0 : 1;
+}
+
 static int cmd_diag(int argc, char **argv)
 {
     (void)argc;
@@ -390,6 +510,12 @@ static void init_console(void)
         .hint = NULL,
         .func = &cmd_tone,
     };
+    const esp_console_cmd_t button_command = {
+        .command = "button_test",
+        .help = "wait for the GPIO10 approval button",
+        .hint = "[seconds]",
+        .func = &cmd_button_test,
+    };
     const esp_console_cmd_t mic_command = {
         .command = "mic",
         .help = "read microphone samples and peak level",
@@ -426,6 +552,12 @@ static void init_console(void)
         .hint = NULL,
         .func = &cmd_ggtest,
     };
+    const esp_console_cmd_t crypto_test_command = {
+        .command = "crypto_self_test",
+        .help = "run Keccak, signing, and transaction vectors",
+        .hint = NULL,
+        .func = &cmd_crypto_test,
+    };
     const esp_console_cmd_t diag_command = {
         .command = "diag",
         .help = "print microphone and ggwave diagnostics",
@@ -453,12 +585,14 @@ static void init_console(void)
 
     ESP_ERROR_CHECK(esp_console_register_help_command());
     ESP_ERROR_CHECK(esp_console_cmd_register(&tone_command));
+    ESP_ERROR_CHECK(esp_console_cmd_register(&button_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&mic_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&micplay_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&oled_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&screen_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&tx_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&ggtest_command));
+    ESP_ERROR_CHECK(esp_console_cmd_register(&crypto_test_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&diag_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&api_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&acoustic_command));
@@ -467,6 +601,8 @@ static void init_console(void)
     esp_console_repl_t *repl = NULL;
     esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
     repl_config.prompt = "melodypay> ";
+    repl_config.max_cmdline_length = 2048;
+    repl_config.max_cmdline_args = 16;
     repl_config.task_stack_size = 8192;
     esp_console_dev_uart_config_t uart_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_console_new_repl_uart(&uart_config, &repl_config, &repl));
@@ -476,19 +612,37 @@ static void init_console(void)
 void app_main(void)
 {
     ESP_ERROR_CHECK(nvs_flash_init());
+    ESP_ERROR_CHECK(button_init());
     ESP_ERROR_CHECK(hardware_init());
     ESP_ERROR_CHECK(ggwave_transport_init());
     ESP_ERROR_CHECK(display_init());
-    ESP_ERROR_CHECK(keystore_init());
+    const esp_err_t keystore_result = keystore_init();
+    if (keystore_result != ESP_OK) {
+        ESP_LOGE(TAG, "keystore initialization failed: %s; wallet signing disabled", esp_err_to_name(keystore_result));
+    }
     wallet_state_init();
 
-    display_message("MelodyPay", "Audio ready", "Development backend", "USB diagnostics");
+    boot_audio_running = true;
+    boot_audio_done = false;
+    if (xTaskCreate(boot_chime_task, "boot_chime", 3072, NULL, 4, NULL) != pdPASS) {
+        ESP_LOGW(TAG, "boot chime task could not start");
+        boot_audio_running = false;
+        boot_audio_done = true;
+    }
+    display_boot_animation();
+    boot_audio_running = false;
+    while (!boot_audio_done) vTaskDelay(pdMS_TO_TICKS(10));
+    display_home_screen(0);
     ESP_LOGI(TAG, "OLED connected: %s", display_is_connected() ? "yes" : "no");
     ESP_LOGI(TAG, "audio self-test result: %s", esp_err_to_name(hardware_run_audio_self_test()));
     ESP_LOGI(TAG, "wallet state initialized: %d", wallet_state_get());
     init_console();
 
     while (true) {
+        if (wallet_state_get() != WALLET_REVIEW && wallet_state_get() != WALLET_APPROVED &&
+            wallet_state_get() != WALLET_TRANSMITTING) {
+            handle_ui_event(button_poll_event());
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     }
 }

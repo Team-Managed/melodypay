@@ -1,8 +1,12 @@
 #include "display.h"
+#include "oled_animation.h"
+#include "oled_qr.h"
 #include "hardware.h"
 
 #include "driver/i2c_master.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include <ctype.h>
 #include <string.h>
 
@@ -48,6 +52,7 @@ static const uint8_t *glyph_for_char(char character)
         {0x60, 0x18, 0x06, 0x01, 0x00}, // /
         {0x02, 0x01, 0x51, 0x09, 0x06}, // ?
         {0x00, 0x36, 0x00, 0x00, 0x00}, // :
+        {0x04, 0x0e, 0x1f, 0x0e, 0x04}, // *
     };
 
     character = (char)toupper((unsigned char)character);
@@ -62,6 +67,7 @@ static const uint8_t *glyph_for_char(char character)
     if (character == '/') return punctuation[5];
     if (character == '?') return punctuation[6];
     if (character == ':') return punctuation[7];
+    if (character == '*') return punctuation[8];
     return punctuation[6];
 }
 
@@ -100,7 +106,9 @@ static void draw_line(const char *text, uint8_t line)
 {
     if (text == NULL || line >= 4) return;
     const size_t page_offset = (size_t)line * 2 * 128;
-    uint8_t column = 0;
+    size_t text_length = 0;
+    while (text[text_length] != '\0' && text[text_length] != '\n' && text_length < 21) text_length++;
+    uint8_t column = (uint8_t)((21 - text_length) / 2);
     for (size_t index = 0; text[index] != '\0' && text[index] != '\n' && column < 21; index++) {
         const uint8_t *glyph = glyph_for_char(text[index]);
         for (uint8_t glyph_column = 0; glyph_column < 5; glyph_column++) {
@@ -108,6 +116,63 @@ static void draw_line(const char *text, uint8_t line)
         }
         column++;
     }
+}
+
+static void set_pixel(uint8_t x, uint8_t y, bool on)
+{
+    if (x >= 128 || y >= 64) return;
+    const size_t index = (size_t)(y / 8) * 128 + x;
+    if (on) display_buffer[index] |= (uint8_t)(1u << (y % 8));
+    else display_buffer[index] &= (uint8_t)~(1u << (y % 8));
+}
+
+static void draw_box(uint8_t x, uint8_t y, uint8_t width, uint8_t height)
+{
+    for (uint8_t dx = 0; dx < width; dx++) {
+        set_pixel((uint8_t)(x + dx), y, true);
+        set_pixel((uint8_t)(x + dx), (uint8_t)(y + height - 1), true);
+    }
+    for (uint8_t dy = 0; dy < height; dy++) {
+        set_pixel(x, (uint8_t)(y + dy), true);
+        set_pixel((uint8_t)(x + width - 1), (uint8_t)(y + dy), true);
+    }
+}
+
+static void draw_payment_icon(uint8_t x, uint8_t y)
+{
+    for (uint8_t dx = 0; dx < 22; dx++) set_pixel((uint8_t)(x + dx), (uint8_t)(y + 7), true);
+    for (uint8_t i = 0; i < 8; i++) {
+        set_pixel((uint8_t)(x + 15 + i), (uint8_t)(y + i), true);
+        set_pixel((uint8_t)(x + 15 + i), (uint8_t)(y + 14 - i), true);
+    }
+}
+
+static void draw_note_icon(uint8_t x, uint8_t y, bool high)
+{
+    static const uint8_t note_rows[] = {
+        0x06, 0x07, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06,
+        0x3e, 0x3c, 0x30, 0x30, 0x38, 0x1c, 0x1c, 0x0e,
+    };
+    for (uint8_t row = 0; row < 16; row++) {
+        uint8_t bits = note_rows[row];
+        if (!high && row % 3 == 0) bits >>= 1;
+        for (uint8_t column = 0; column < 8; column++) {
+            if (bits & (uint8_t)(1u << (7 - column))) {
+                set_pixel((uint8_t)(x + column), (uint8_t)(y + row), true);
+            }
+        }
+    }
+}
+
+static void draw_selection(uint8_t row)
+{
+    draw_box(27, (uint8_t)(row * 16 - 4), 74, 13);
+}
+
+static void draw_scroll_arrows(bool up, bool down)
+{
+    if (up) for (uint8_t i = 0; i < 5; i++) set_pixel((uint8_t)(124 + i / 2), (uint8_t)(3 + i), true);
+    if (down) for (uint8_t i = 0; i < 5; i++) set_pixel((uint8_t)(124 + i / 2), (uint8_t)(58 - i), true);
 }
 
 esp_err_t display_text(const char *text)
@@ -202,4 +267,54 @@ void display_message(const char *line1, const char *line2, const char *line3, co
     draw_line(line3, 2);
     draw_line(line4, 3);
     if (flush_display_buffer() != ESP_OK) ESP_LOGW(TAG, "text render failed");
+}
+
+void display_boot_animation(void)
+{
+    if (!display_connected) return;
+    for (uint8_t frame = 0; frame < OLED_ANIMATION_FRAME_COUNT; frame++) {
+        memcpy(display_buffer, oled_animation_frames[frame], sizeof(display_buffer));
+        (void)flush_display_buffer();
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
+
+void display_home_screen(uint8_t selection)
+{
+    memset(display_buffer, 0, sizeof(display_buffer));
+    draw_line("MelodyPay", 0);
+    draw_line("PAY", 1);
+    draw_line("RECEIVE", 2);
+    draw_line("MENU", 3);
+    draw_selection((uint8_t)(selection + 1));
+    (void)flush_display_buffer();
+}
+
+void display_menu_screen(uint8_t selection)
+{
+    static const char *labels[] = {"STATUS", "NETWORK", "REBOOT", "BACK"};
+    memset(display_buffer, 0, sizeof(display_buffer));
+    draw_line("MENU", 0);
+    uint8_t first = selection > 1 ? 1 : 0;
+    for (uint8_t row = 0; row < 3; row++) draw_line(labels[first + row], (uint8_t)(row + 1));
+    draw_selection((uint8_t)(selection - first + 1));
+    draw_scroll_arrows(first > 0, first + 3 < 4);
+    (void)flush_display_buffer();
+}
+
+void display_payment_screen(void)
+{
+    memset(display_buffer, 0, sizeof(display_buffer));
+    draw_line("PAYMENT", 0);
+    draw_line("Waiting request", 2);
+    draw_payment_icon(52, 18);
+    draw_note_icon(22, 45, true);
+    draw_note_icon(96, 43, false);
+    (void)flush_display_buffer();
+}
+
+void display_receive_screen(void)
+{
+    memcpy(display_buffer, oled_qr_frame, sizeof(display_buffer));
+    (void)flush_display_buffer();
 }

@@ -20,6 +20,30 @@ export interface DeviceStatus {
   development_key_backend: boolean;
 }
 
+export interface WalletAddress {
+  address: string;
+}
+
+export interface SignedTransaction {
+  raw_transaction: string;
+}
+
+export interface CryptoSelfTestResult {
+  status: "passed" | "failed";
+}
+
+export interface NativeTransferSignRequest extends Record<string, unknown> {
+  chain_id: string;
+  nonce: string;
+  max_priority_fee_per_gas: string;
+  max_fee_per_gas: string;
+  gas_limit: string;
+  to: string;
+  value: string;
+  data: "0x";
+  timeout_seconds?: number;
+}
+
 export class DeviceClient {
   constructor(private readonly connection: DeviceConnection) {}
 
@@ -35,8 +59,20 @@ export class DeviceClient {
     return this.connection.request<DeviceStatus>("wallet.capabilities");
   }
 
-  configureChain(chainId: number): Promise<{ active_chain_id: number }> {
+  configureChain(chainId: number): Promise<{ active_chain_id: number; name: string; symbol: string }> {
     return this.connection.request("wallet.configure", { chain_id: chainId });
+  }
+
+  address(): Promise<WalletAddress> {
+    return this.connection.request("wallet.address");
+  }
+
+  cryptoSelfTest(): Promise<CryptoSelfTestResult> {
+    return this.connection.request("wallet.crypto_self_test");
+  }
+
+  signEip1559(request: NativeTransferSignRequest): Promise<SignedTransaction> {
+    return this.connection.request("wallet.sign", request);
   }
 
   displayText(text: string): Promise<Record<string, never>> {
@@ -49,6 +85,10 @@ export class DeviceClient {
 
   ggwaveSelfTest(): Promise<{ result: number }> {
     return this.connection.request("ggwave.self_test");
+  }
+
+  waitForApproval(timeoutSeconds = 10): Promise<{ decision: "approved" | "timeout" }> {
+    return this.connection.request("wallet.wait_approval", { timeout_seconds: timeoutSeconds });
   }
 
   close(): Promise<void> {

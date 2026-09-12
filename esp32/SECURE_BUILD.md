@@ -1,8 +1,10 @@
 # Firmware Security Boundary
 
-The current firmware tree is a hardware and protocol scaffold. It is not safe for real funds.
+The current firmware includes a software development signer. It is not safe for real funds.
 
-The current `keystore.c` uses ESP32-S3 NVS and `esp_fill_random()` only to exercise first-boot persistence and the state machine. `keystore_sign_digest()` deliberately returns `ESP_ERR_NOT_SUPPORTED`; it must not be replaced with an unreviewed software signer.
+`keystore.c` uses an NVS development key and mbedTLS secp256k1 signing. The
+signer is enabled only after fixed Keccak, EIP-1559 serialization,
+deterministic-signature, and recovery-parity self-tests pass.
 
 Before a production build:
 
@@ -14,3 +16,15 @@ Before a production build:
 6. Run `idf.py build`, unit tests, hardware-in-the-loop audio tests, and an independent security review.
 
 Never fund the development backend with real assets.
+# Secure Build Boundary
+
+The current signing implementation is a software development backend using a
+development key stored in NVS. NVS is not production key custody, and this
+firmware makes no production-security claim.
+
+Mainnet remains rejected unless both `CONFIG_MELODY_ENABLE_MAINNET=y` and the
+runtime `allow_mainnet: true` opt-in are enabled. Testnet signing remains
+subject to crypto initialization, self-tests, validation, and physical approval.
+
+Private key material never leaves the keystore boundary and is not included in
+transaction objects or API responses.

@@ -4,6 +4,7 @@
 #include "esp_check.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
+#include <string.h>
 
 static const char *TAG = "hardware";
 static i2s_chan_handle_t mic_channel;
@@ -142,6 +143,65 @@ esp_err_t hardware_run_audio_self_test(void)
              esp_err_to_name(write_result), esp_err_to_name(read_result),
              (unsigned)samples_read, (long long)peak);
     return read_result;
+}
+
+esp_err_t hardware_play_boot_chime(void)
+{
+    static int16_t melody[25920];
+    static const uint16_t notes[] = {330, 440, 660};
+    const size_t note_samples = MELODY_SAMPLE_RATE * 180 / 1000;
+    memset(melody, 0, sizeof(melody));
+    for (size_t note = 0; note < sizeof(notes) / sizeof(notes[0]); note++) {
+        const size_t offset = note * note_samples;
+        const uint32_t period = MELODY_SAMPLE_RATE / notes[note];
+        for (size_t sample = 0; sample < note_samples; sample++) {
+            melody[offset + sample] = (sample % period) < period / 2 ? 1000 : -1000;
+        }
+    }
+    hardware_mute_mic();
+    esp_err_t result = hardware_play_pcm(melody, sizeof(melody) / sizeof(melody[0]));
+    if (result == ESP_OK) result = hardware_stop_pcm();
+    hardware_unmute_mic();
+    memset(melody, 0, sizeof(melody));
+    return result;
+}
+
+esp_err_t hardware_play_feedback(bool confirm)
+{
+    static int16_t tone[5760];
+    const uint16_t frequency = confirm ? 880 : 440;
+    const uint32_t period = MELODY_SAMPLE_RATE / frequency;
+    memset(tone, 0, sizeof(tone));
+    for (size_t sample = 0; sample < sizeof(tone) / sizeof(tone[0]); sample++) {
+        tone[sample] = (sample % period) < period / 2 ? 850 : -850;
+    }
+    hardware_mute_mic();
+    esp_err_t result = hardware_play_pcm(tone, sizeof(tone) / sizeof(tone[0]));
+    if (result == ESP_OK) result = hardware_stop_pcm();
+    hardware_unmute_mic();
+    memset(tone, 0, sizeof(tone));
+    return result;
+}
+
+esp_err_t hardware_play_success_chime(void)
+{
+    static int16_t melody[25920];
+    static const uint16_t notes[] = {660, 880, 1046};
+    const size_t note_samples = MELODY_SAMPLE_RATE * 180 / 1000;
+    memset(melody, 0, sizeof(melody));
+    for (size_t note = 0; note < sizeof(notes) / sizeof(notes[0]); note++) {
+        const size_t offset = note * note_samples;
+        const uint32_t period = MELODY_SAMPLE_RATE / notes[note];
+        for (size_t sample = 0; sample < note_samples; sample++) {
+            melody[offset + sample] = (sample % period) < period / 2 ? 1050 : -1050;
+        }
+    }
+    hardware_mute_mic();
+    esp_err_t result = hardware_play_pcm(melody, sizeof(melody) / sizeof(melody[0]));
+    if (result == ESP_OK) result = hardware_stop_pcm();
+    hardware_unmute_mic();
+    memset(melody, 0, sizeof(melody));
+    return result;
 }
 
 void hardware_mute_mic(void)

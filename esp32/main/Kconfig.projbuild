@@ -12,4 +12,11 @@ config MELODY_SECURE_ELEMENT_BACKEND
     help
         Must be implemented and reviewed before production signing.
 
+config MELODY_ENABLE_MAINNET
+    bool "Enable mainnet transaction support"
+    default n
+    help
+        Mainnet remains unavailable unless this build-time gate and the
+        runtime allow_mainnet opt-in are both enabled.
+
 endmenu

@@ -21,5 +21,8 @@ esp_err_t hardware_read_mic(int32_t *samples, size_t sample_count, size_t *sampl
 esp_err_t hardware_play_pcm(const int16_t *samples, size_t sample_count);
 esp_err_t hardware_stop_pcm(void);
 esp_err_t hardware_run_audio_self_test(void);
+esp_err_t hardware_play_boot_chime(void);
+esp_err_t hardware_play_feedback(bool confirm);
+esp_err_t hardware_play_success_chime(void);
 void hardware_mute_mic(void);
 void hardware_unmute_mic(void);

@@ -1,6 +1,4 @@
 import {
-  cancel,
-  confirm,
   intro,
   isCancel,
   outro,
@@ -9,10 +7,12 @@ import {
   text,
 } from "@clack/prompts";
 import { ethers } from "ethers";
+import { formatBalanceRows, loadBalanceRows } from "./balances.js";
 import { CLI_CHAINS, getCliChain } from "./chains.js";
 import { getPaymentRequest, validateAndBroadcast, type ReceiverRequest } from "./receiver.js";
 import { DeviceClient } from "./device.js";
 import { connectDevice, listSerialPorts, type DeviceConnection } from "./serial.js";
+import { isBackNavigation } from "./navigation.js";
 
 type Action = "dashboard" | "device" | "status" | "networks" | "payment" | "diagnostics" | "inspect" | "exit";
 
@@ -20,11 +20,7 @@ let deviceConnection: DeviceConnection | null = null;
 let deviceClient: DeviceClient | null = null;
 
 function cancelled<T>(value: T | symbol): value is symbol {
-  if (isCancel(value)) {
-    cancel("Operation cancelled");
-    return true;
-  }
-  return false;
+  return isCancel(value) && isBackNavigation(value);
 }
 
 async function requiredText(message: string, placeholder?: string): Promise<string | null> {
@@ -125,7 +121,40 @@ async function connectWallet() {
   deviceConnection = await connectDevice(selected);
   deviceClient = new DeviceClient(deviceConnection);
   const info = await deviceClient.info();
-  console.log(JSON.stringify(info, null, 2));
+  console.log(`\nWallet connected: ${deviceConnection.path}`);
+  console.log(`Firmware: ${info.firmware} | ${info.chip} | ${info.cores} cores`);
+}
+
+async function walletDashboard() {
+  if (!deviceClient) {
+    console.log("Connect a USB wallet first.");
+    return;
+  }
+  const loader = spinner();
+  loader.start("Reading wallet address and chain balances");
+  try {
+    const { address } = await deviceClient.address();
+    const rows = await loadBalanceRows(address);
+    loader.stop("Wallet balances loaded");
+    console.log("\nMelodyPay Wallet Dashboard");
+    console.log(`Address: ${address}`);
+    console.log(`Device:  ${deviceConnection?.path ?? "disconnected"}`);
+    console.log("\n" + formatBalanceRows(rows));
+    console.log("\nToken registry: no verified ERC-20 tokens configured.");
+    console.log("Add verified token metadata to CLI_TOKENS in cli/src/chains.ts to show token balances.");
+  } catch (error) {
+    loader.stop("Dashboard unavailable", 1);
+    console.error(error instanceof Error ? error.message : error);
+  }
+}
+
+function printDeviceStatus(status: Awaited<ReturnType<DeviceClient["status"]>>) {
+  console.log(`\nWallet state: ${status.wallet_state}`);
+  console.log(`Active chain: ${status.active_chain_id || "not configured"}`);
+  console.log(`Signing:      ${status.signing ? "ready" : "unavailable"}`);
+  console.log(`Address:      ${status.address_derivation ? "ready" : "unavailable"}`);
+  console.log(`Display:      ${status.display_connected ? "connected" : "unavailable"}`);
+  console.log(`Audio:        ${status.audio_available ? "available" : "unavailable"}`);
 }
 
 async function deviceManager() {
@@ -145,7 +174,7 @@ async function deviceManager() {
       if (action === "connect") await connectWallet();
       if (action === "status") {
         if (!deviceClient) throw new Error("Connect a wallet first");
-        console.log(JSON.stringify(await deviceClient.status(), null, 2));
+        printDeviceStatus(await deviceClient.status());
       }
       if (action === "configure") {
         if (!deviceClient) throw new Error("Connect a wallet first");
@@ -169,10 +198,8 @@ async function deviceStatus() {
     return;
   }
   try {
-    console.log(JSON.stringify({
-      connection: deviceConnection?.path,
-      status: await deviceClient.status(),
-    }, null, 2));
+    console.log(`\nConnection: ${deviceConnection?.path ?? "disconnected"}`);
+    printDeviceStatus(await deviceClient.status());
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
   }
@@ -188,6 +215,7 @@ async function diagnostics() {
     options: [
       { value: "audio", label: "Run audio self-test" },
       { value: "ggwave", label: "Run ggwave self-test" },
+      { value: "button", label: "Test approval button" },
       { value: "display", label: "Show text on OLED" },
       { value: "back", label: "Back" },
     ],
@@ -196,6 +224,13 @@ async function diagnostics() {
   try {
     if (action === "audio") console.log(await deviceClient.audioSelfTest());
     if (action === "ggwave") console.log(await deviceClient.ggwaveSelfTest());
+    if (action === "button") {
+      const timeout = await text({ message: "Approval timeout in seconds", initialValue: "10" });
+      if (!cancelled(timeout)) {
+        console.log("Press GPIO10 now...");
+        console.log(await deviceClient.waitForApproval(Number(timeout)));
+      }
+    }
     if (action === "display") {
       const textValue = await requiredText("OLED text", "MelodyPay");
       if (textValue) console.log(await deviceClient.displayText(textValue));
@@ -225,11 +260,7 @@ async function main() {
     if (cancelled(action) || action === "exit") break;
 
     if (action === "dashboard") {
-      console.log(JSON.stringify({
-        connectedDevice: deviceConnection?.path ?? null,
-        supportedChains: CLI_CHAINS.map((chain) => chain.name),
-        hardwareSigning: deviceClient ? (await deviceClient.status()).signing : false,
-      }, null, 2));
+      await walletDashboard();
     }
     if (action === "device") await deviceManager();
     if (action === "status") await deviceStatus();
@@ -238,8 +269,6 @@ async function main() {
     if (action === "inspect") await inspectTransaction();
     if (action === "networks") showNetworks();
 
-    const continueRunning = await confirm({ message: "Return to operator menu?", initialValue: true });
-    if (cancelled(continueRunning) || !continueRunning) break;
   }
 
   outro("MelodyPay receiver stopped");
