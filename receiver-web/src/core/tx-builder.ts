@@ -23,27 +23,6 @@ export interface TxParams {
   maxPriorityFeePerGas?: string; // in gwei
 }
 
-export function getAddress(privateKey: string): string {
-  return new ethers.Wallet(privateKey).address;
-}
-
-export async function signTransaction(params: TxParams, privateKey: string): Promise<string> {
-  const chainId = params.chainId ?? MONAD_CONFIG.chainId;
-  const chain = getChainConfig(chainId);
-  if (!chain) throw new Error(`Unsupported chain: ${chainId}`);
-  const wallet = new ethers.Wallet(privateKey);
-  return wallet.signTransaction({
-    type: 2,
-    chainId,
-    nonce: params.nonce,
-    to: params.to,
-    value: ethers.parseEther(params.value),
-    gasLimit: params.gasLimit ?? chain.gasLimitCap,
-    maxPriorityFeePerGas: ethers.parseUnits(params.maxPriorityFeePerGas ?? "2", "gwei"),
-    maxFeePerGas: ethers.parseUnits(params.maxFeePerGas ?? "150", "gwei"),
-  });
-}
-
 /**
  * Broadcast a signed transaction to Monad testnet.
  * Requires internet. Used by the Relay device.
