@@ -59,30 +59,31 @@
   - **Core 0 (Audio & DSP Worker):** Dedicated task for I2S DMA streaming, RMS noise squelch gating, and ggwave FFT decode/encode.
   - **Core 1 (UI, State & Crypto Worker):** Dedicated task for SSD1306 OLED rendering, button debouncing, wallet state machine, and secp256k1 signing.
 - [ ] Implement half-duplex audio control functions `hardware_mute_mic()` and `hardware_unmute_mic()` to prevent acoustic feedback during speaker output.
-- [ ] Add a diagnostic mode that prints audio, button, and display status over USB serial without touching key material.
-- [ ] Build the empty firmware with `idf.py build`.
+- [x] Add an assembled-hardware self-test that prints audio, button, and display status over USB serial without touching key material.
+- [x] Build the firmware with `idf.py build`.
 
-### Task 2a: Bare-board ESP32-S3 Bring-up
+### Task 2a: ESP32-S3 Bring-up Checkpoint
 
 **Files:**
 - Verify: `esp32/build/melodypay_wallet.bin`
 - Verify: `esp32/main/main.c`
 - Verify: `esp32/main/hardware.c`
 
-This checkpoint was completed on September 12, 2026 using the physical ESP32-S3 N16R8 board on `COM4` with ESP-IDF `v5.5.5`.
+The initial USB-only checkpoint was completed on September 12, 2026 using the physical ESP32-S3 N16R8 board on `COM4` with ESP-IDF `v5.5.5`. The temporary bare-board diagnostic mode has now been removed.
 
 - [x] Build the ESP32-S3 firmware with `idf.py build`.
 - [x] Generate bootloader, partition table, and `melodypay_wallet.bin`.
 - [x] Flash the image with `idf.py -p COM4 flash` and verify esptool hash checks.
-- [x] Boot the board with USB only; no microphone, amplifier, OLED, speaker, or buttons connected.
 - [x] Verify serial output reports ESP32-S3, 16 MB flash, 8 MB PSRAM, and a passing PSRAM memory test.
-- [x] Verify serial output reports `bare-board diagnostic mode` and skips I2S initialization.
+- [x] Verify the temporary USB-only diagnostic firmware booted successfully.
 - [x] Verify NVS development-key initialization and wallet state `0`.
-- [ ] Connect the Approve and Reject buttons and verify edge logs over serial.
-- [ ] Connect the OLED and replace serial-only display output with SSD1306 output.
-- [ ] Disable `MELODY_BARE_BOARD_DIAGNOSTIC`, rebuild, and verify I2S initialization with the physical audio modules.
+- [x] Build and flash the assembled-module firmware and verify I2S initialization without a diagnostic bypass.
+- [x] Detect the SSD1306 at I2C address `0x3c` and send its test pattern.
+- [x] Run the low-volume amplifier write test and receive microphone samples.
+- [ ] Confirm the tone is audible and the OLED pattern is visible.
+- [ ] Press the Approve and Reject buttons on GPIO17/GPIO18 and verify edge logs over serial.
 
-The bare-board image is a development diagnostic only. The development key backend is not safe for real funds, and the secure signing boundary remains fail-closed until a reviewed secp256k1 or secure-element backend is integrated.
+The development key backend is not safe for real funds, and the secure signing boundary remains fail-closed until a reviewed secp256k1 or secure-element backend is integrated.
 
 ### Task 2b: Implement First-Boot Key Generation
 

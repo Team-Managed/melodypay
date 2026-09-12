@@ -1,13 +1,5 @@
 menu "MelodyPay wallet"
 
-config MELODY_BARE_BOARD_DIAGNOSTIC
-    bool "Bare-board diagnostic mode"
-    default y
-    help
-        Skip external I2S hardware initialization and run USB serial, NVS,
-        and button diagnostics. Disable after the audio/display modules are
-        assembled.
-
 config MELODY_DEV_KEY_BACKEND
     bool "Development NVS key backend"
     default y

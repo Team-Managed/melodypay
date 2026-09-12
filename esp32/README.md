@@ -16,23 +16,16 @@ idf.py flash monitor
 
 The pin assignments are centralized in `main/hardware.h` and match `docs/hardware-wiring.md`.
 
-## Bare ESP32-S3 Bring-up
+## Hardware Bring-up
 
-The default `MELODY_BARE_BOARD_DIAGNOSTIC` mode is designed for the board by itself. Connect only a USB data cable; do not connect the microphone, amplifier, OLED, speaker, or buttons yet.
+The firmware now initializes the microphone and amplifier I2S channels on every boot. Connect the assembled modules, verify the rails with a multimeter, then build and flash:
 
 ```bash
 idf.py set-target esp32s3
 idf.py -p COM_PORT flash monitor
 ```
 
-Expected serial behavior:
-
-- NVS initializes the development-only key store.
-- The log reports `bare-board diagnostic mode` and `Audio ready` is not claimed.
-- Approve/Reject GPIO state changes are logged if buttons are later connected.
-- No I2S pins are driven in bare-board mode.
-
-After the modules are assembled and rail voltages are checked, run `idf.py menuconfig`, disable `MelodyPay wallet -> Bare-board diagnostic mode`, then rebuild and flash.
+The OLED driver remains serial-only and the production signing backend remains fail-closed until those components are implemented and reviewed.
 
 ## Current Boundary
 

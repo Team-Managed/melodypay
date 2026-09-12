@@ -18,7 +18,9 @@ void app_main(void)
     ESP_ERROR_CHECK(keystore_init());
     wallet_state_init();
 
-    display_message("MelodyPay", hardware_audio_available() ? "Audio ready" : "Bare board", "Development backend", "USB diagnostics");
+    display_message("MelodyPay", "Audio ready", "Development backend", "USB diagnostics");
+    ESP_LOGI(TAG, "OLED connected: %s", display_is_connected() ? "yes" : "no");
+    ESP_LOGI(TAG, "audio self-test result: %s", esp_err_to_name(hardware_run_audio_self_test()));
     ESP_LOGI(TAG, "wallet state initialized: %d", wallet_state_get());
 
     bool previous_approve = false;

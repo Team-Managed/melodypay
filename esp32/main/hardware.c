@@ -8,7 +8,6 @@
 static const char *TAG = "hardware";
 static i2s_chan_handle_t mic_channel;
 static i2s_chan_handle_t amp_channel;
-static bool audio_available;
 
 static esp_err_t init_buttons(void)
 {
@@ -22,7 +21,6 @@ static esp_err_t init_buttons(void)
     return gpio_config(&config);
 }
 
-#if !CONFIG_MELODY_BARE_BOARD_DIAGNOSTIC
 static esp_err_t init_microphone(void)
 {
     i2s_chan_config_t channel_config = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
@@ -79,27 +77,14 @@ static esp_err_t init_amplifier(void)
     ESP_RETURN_ON_ERROR(i2s_channel_enable(amp_channel), TAG, "amp enable");
     return ESP_OK;
 }
-#endif
 
 esp_err_t hardware_init(void)
 {
     ESP_RETURN_ON_ERROR(init_buttons(), TAG, "buttons");
-#if CONFIG_MELODY_BARE_BOARD_DIAGNOSTIC
-    ESP_LOGW(TAG, "bare-board diagnostic mode: skipping I2S microphone and amplifier");
-    audio_available = false;
-    return ESP_OK;
-#else
     ESP_RETURN_ON_ERROR(init_microphone(), TAG, "microphone");
     ESP_RETURN_ON_ERROR(init_amplifier(), TAG, "amplifier");
-    audio_available = true;
     ESP_LOGI(TAG, "audio and button hardware initialized");
     return ESP_OK;
-#endif
-}
-
-bool hardware_audio_available(void)
-{
-    return audio_available;
 }
 
 esp_err_t hardware_read_mic(int32_t *samples, size_t sample_count, size_t *samples_read, uint32_t timeout_ms)
@@ -116,6 +101,32 @@ esp_err_t hardware_play_pcm(const int16_t *samples, size_t sample_count)
     if (amp_channel == NULL) return ESP_ERR_NOT_SUPPORTED;
     size_t bytes_written = 0;
     return i2s_channel_write(amp_channel, samples, sample_count * sizeof(int16_t), &bytes_written, portMAX_DELAY);
+}
+
+esp_err_t hardware_run_audio_self_test(void)
+{
+    static int16_t tone[4800];
+    for (size_t index = 0; index < 4800; index++) {
+        tone[index] = ((index % 109) < 54) ? 1200 : -1200;
+    }
+
+    hardware_mute_mic();
+    esp_err_t write_result = hardware_play_pcm(tone, 4800);
+    hardware_unmute_mic();
+    if (write_result != ESP_OK) return write_result;
+
+    int32_t samples[256];
+    size_t samples_read = 0;
+    esp_err_t read_result = hardware_read_mic(samples, 256, &samples_read, 250);
+    int64_t peak = 0;
+    for (size_t index = 0; index < samples_read; index++) {
+        int64_t value = samples[index] < 0 ? -(int64_t)samples[index] : samples[index];
+        if (value > peak) peak = value;
+    }
+    ESP_LOGI(TAG, "audio self-test: tone_write=%s mic_read=%s samples=%u peak=%lld",
+             esp_err_to_name(write_result), esp_err_to_name(read_result),
+             (unsigned)samples_read, (long long)peak);
+    return read_result;
 }
 
 void hardware_mute_mic(void)
