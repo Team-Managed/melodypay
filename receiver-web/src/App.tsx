@@ -25,7 +25,7 @@ export default function App() {
     return (
         <ReactLenis root>
             <BrowserRouter>
-                <div className="min-h-screen bg-[#FBFBF9] text-[#111113] relative overflow-hidden flex flex-col font-sans selection:bg-[#0088FF]/20 selection:text-[#111113]">
+                <div className="min-h-screen bg-[#FBFBF9] text-[#111113] relative overflow-x-clip flex flex-col font-sans selection:bg-[#0088FF]/20 selection:text-[#111113]">
                     <StudioHeader />
                     <main className="flex-1 flex flex-col">
                         <AnimatedRoutes />
