@@ -42,11 +42,17 @@ MelodyPay signer backend = ESP32 sound wallet | Ledger clear-signing device
 
 The receiver remains keyless. Ledger is used on the payer/operator side only and must visibly confirm the same chain, token, recipient, amount, and expiry shown by MelodyPay.
 
-## Smart Contract
+## Smart Contracts
 
-`contracts/src/MelodyPaySubnameRegistrar.sol` adapts the ENSv2 contract-developer tutorial's simplified subname registrar. It registers and renews merchant subnames under a project-owned ENSv2 UserRegistry, collects a testnet ERC-20 registration fee, grants the intended registration roles, and emits `NameRegistered` / `NameRenewed` events.
+MelodyPay utilizes two specialized contracts across chains:
 
-The registrar does not custody payment funds and does not execute customer payment calls. It exists to create a verifiable merchant namespace used by the receiver. ENSv2's own Permissioned Registry and Resolver remain the source of truth.
+1. `contracts/src/MelodyPaySubnameRegistrar.sol` (Ethereum Sepolia):
+   Registers and renews merchant subnames (e.g. `cafe.melodypay.eth`) under `melodypay.eth` via official ENS NameWrapper. Collects a 1.0 USDC or native ETH registration fee (via Chainlink AggregatorV3 price feed) forwarded directly to project treasury (`0x0E6937A18De79Ed54692E65F7A0DA5A81B8D7BCF`), issues emancipated ERC-1155 wrapped subnames (`PARENT_CANNOT_CONTROL = 65536`), configures PublicResolver forward records, and emits `NameRegistered` / `NameRenewed` events.
+
+2. `contracts/src/MelodyPaySettlement.sol` (Arc Network):
+   Settles acoustic sound payments authorized via EIP-3009 using Arc's canonical native USDC precompile (`0x3600000000000000000000000000000000000000`). Provides POS invoice/order tracking (`orderId => settlement nonce`), dual replay protection, and emits `SoundPaymentSettled` receipt events for terminals and printers. Supports both direct peer-to-peer (`transferWithAuthorization`) and receiver-routed (`receiveWithAuthorization`) settlement.
+
+The contracts are non-custodial and do not store customer funds. ENS remains the source of truth for identity, while Arc settles payments natively.
 
 ## End-to-end Flow
 

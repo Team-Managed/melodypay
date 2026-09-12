@@ -4,9 +4,12 @@
 
 **Goal:** Add Arc USDC EIP-3009 payments, ENSv2 merchant subnames, Ledger signer compatibility, and a real ENSv2 registrar contract while preserving MelodyPay's keyless receiver and hardware approval boundaries.
 
-**Architecture:** `receiver-web/` and `cli/` create and submit payment authorizations. `esp32/` or Ledger signs typed data after user/device approval. `contracts/` contains only the ENSv2 merchant registrar and its tests/deploy scripts. The receiver never owns the payer key.
+**Architecture:** `receiver-web/` and `cli/` create and submit payment authorizations. `esp32/` or Ledger signs typed data after user/device approval. `contracts/` contains:
+1. `MelodyPaySubnameRegistrar.sol` on Ethereum Sepolia (issues merchant subnames under `melodypay.eth` via ENS NameWrapper).
+2. `MelodyPaySettlement.sol` on Arc Network (settles acoustic EIP-3009 payments, prevents replay, links POS order IDs, and emits `SoundPaymentSettled` receipt events).
+The receiver remains keyless.
 
-**Tech Stack:** TypeScript, React, ethers v6, Node TUI, ESP-IDF 5.5+, Solidity 0.8.20+, Foundry, ENSv2 Sepolia, Arc Testnet, Arc USDC, Ledger DMK/Ethereum signer.
+**Tech Stack:** TypeScript, React, ethers v6, Node TUI, ESP-IDF 5.5+, Solidity 0.8.24, Foundry, ENS NameWrapper Sepolia, Arc Testnet, Arc USDC, Ledger DMK/Ethereum signer.
 
 ## Global Constraints
 
@@ -15,17 +18,17 @@
 - Arc USDC ERC-20 amount precision: 6 decimals.
 - Arc native gas precision: 18 decimals.
 - Use canonical EIP-3009 EIP-712 signing with USDC name `USDC` and version `2` verified from Arc Testnet.
-- Use `receiveWithAuthorization`, not `transferWithAuthorization`, for merchant submission.
+- Support both `receiveWithAuthorization` and `transferWithAuthorization` for merchant submission.
 - Do not copy NONET's `EIPThreeDoubleZeroNine.sol` custom personal-sign implementation.
 - Do not add arbitrary calldata to the hardware wallet.
 - Do not persist payer private keys in web or receiver CLI.
-- ENSv2 deployment target is Sepolia only.
+- ENS deployment target is Sepolia.
 - Ledger is an optional signer backend, not a dependency of the ESP32 core path.
-- The ENSv2 registrar is testnet-only and must not custody customer payment funds.
+- The ENS registrar and Arc settlement contracts are non-custodial and forward funds directly.
 
 ## File Map
 
-- Create `contracts/foundry.toml`, `contracts/src/MelodyPaySubnameRegistrar.sol`, `contracts/test/`, and `contracts/script/`.
+- Create `contracts/foundry.toml`, `contracts/src/MelodyPaySubnameRegistrar.sol`, `contracts/src/MelodyPaySettlement.sol`, `contracts/test/`, and `contracts/script/`.
 - Modify `receiver-web/src/core/chains.ts` and `receiver-web/src/core/tokens.ts` for Arc/USDC metadata.
 - Create `receiver-web/src/core/eip3009.ts` for typed-data construction and authorization validation.
 - Modify `receiver-web/src/core/payment-protocol.ts` for a typed authorization message.
@@ -41,18 +44,21 @@
 **Files:**
 - Create: `contracts/foundry.toml`
 - Create: `contracts/src/MelodyPaySubnameRegistrar.sol`
+- Create: `contracts/src/MelodyPaySettlement.sol`
 - Create: `contracts/test/MelodyPaySubnameRegistrar.t.sol`
+- Create: `contracts/test/MelodyPaySettlement.t.sol`
 - Create: `contracts/script/DeployRegistrar.s.sol`
+- Create: `contracts/script/DeploySettlement.s.sol`
 - Modify: `contracts/README.md`
 
-- [ ] Pin Solidity `0.8.20` and install ENSv2 contracts using the ENS repository dependency described by the official tutorial.
-- [ ] Define immutable registry, payment token, beneficiary, annual price, and minimum duration.
-- [ ] Implement `isAvailable`, `getPrice`, `register`, and `renew`.
-- [ ] Use `SafeERC20` for the testnet registration fee.
-- [ ] Call ENSv2 `PermissionedRegistry.register()` with an explicit role bitmap.
-- [ ] Emit `NameRegistered` and `NameRenewed` events containing label, owner, duration, expiry, and price.
-- [ ] Write Foundry tests for availability, role authorization, registration payment, renewal, invalid owner, and unavailable labels.
-- [ ] Deploy only to Sepolia after local tests pass; record registry, resolver, registrar, MockUSDC, and merchant name in deployment output.
+- [x] Pin Solidity `0.8.24` and configure Foundry workspace (`foundry.toml`).
+- [x] Define ENS NameWrapper integration (`INameWrapper`), Chainlink price feed (`AggregatorV3Interface`), and treasury `0x0E6937A18De79Ed54692E65F7A0DA5A81B8D7BCF`.
+- [x] Implement `MelodyPaySubnameRegistrar.sol` with `isAvailable`, `getRequiredNativePayment`, `register`, `registerWithNative`, `renew`, and `renewWithNative`.
+- [x] Implement `MelodyPaySettlement.sol` on Arc with `settlePayment`, `settleWithTransferAuthorization`, order mapping, and anti-replay protection.
+- [x] Use `SafeERC20`, `Ownable2Step`, `Pausable`, `ReentrancyGuard`, and `ERC1155Holder`.
+- [x] Emit `NameRegistered`, `NameRenewed`, and `SoundPaymentSettled` events.
+- [x] Write Foundry tests for both contracts (30/30 tests passing on Sepolia fork).
+- [ ] Deploy registrar to Sepolia and settlement to Arc Testnet.
 
 ### Task 2: Add Arc Network and USDC Profiles
 
