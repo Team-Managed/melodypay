@@ -138,32 +138,6 @@ static void draw_box(uint8_t x, uint8_t y, uint8_t width, uint8_t height)
     }
 }
 
-static void draw_payment_icon(uint8_t x, uint8_t y)
-{
-    for (uint8_t dx = 0; dx < 22; dx++) set_pixel((uint8_t)(x + dx), (uint8_t)(y + 7), true);
-    for (uint8_t i = 0; i < 8; i++) {
-        set_pixel((uint8_t)(x + 15 + i), (uint8_t)(y + i), true);
-        set_pixel((uint8_t)(x + 15 + i), (uint8_t)(y + 14 - i), true);
-    }
-}
-
-static void draw_note_icon(uint8_t x, uint8_t y, bool high)
-{
-    static const uint8_t note_rows[] = {
-        0x06, 0x07, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06,
-        0x3e, 0x3c, 0x30, 0x30, 0x38, 0x1c, 0x1c, 0x0e,
-    };
-    for (uint8_t row = 0; row < 16; row++) {
-        uint8_t bits = note_rows[row];
-        if (!high && row % 3 == 0) bits >>= 1;
-        for (uint8_t column = 0; column < 8; column++) {
-            if (bits & (uint8_t)(1u << (7 - column))) {
-                set_pixel((uint8_t)(x + column), (uint8_t)(y + row), true);
-            }
-        }
-    }
-}
-
 static void draw_selection(uint8_t row)
 {
     draw_box(27, (uint8_t)(row * 16 - 4), 74, 13);
@@ -304,13 +278,7 @@ void display_menu_screen(uint8_t selection)
 
 void display_payment_screen(void)
 {
-    memset(display_buffer, 0, sizeof(display_buffer));
-    draw_line("PAYMENT", 0);
-    draw_line("Waiting request", 2);
-    draw_payment_icon(52, 18);
-    draw_note_icon(22, 45, true);
-    draw_note_icon(96, 43, false);
-    (void)flush_display_buffer();
+    display_message("PAYMENT", "Waiting request", "Single click = back", "");
 }
 
 void display_receive_screen(void)

@@ -107,6 +107,7 @@ static esp_err_t listen_audio_text(char *output, size_t capacity, uint32_t timeo
     unsigned total_chunks = 0;
     const int64_t deadline = esp_timer_get_time() + (int64_t)timeout_ms * 1000;
     while (esp_timer_get_time() < deadline) {
+        if (button_poll_event() != BUTTON_EVENT_NONE) return ESP_ERR_INVALID_STATE;
         size_t sample_count = 0;
         if (hardware_read_mic(raw_samples, 512, &sample_count, 100) != ESP_OK) continue;
         for (size_t index = 0; index < sample_count; index++) samples[index] = mic_sample_to_pcm(raw_samples[index]);
