@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, useLocation, Link } from "react-router-do
 import { AnimatePresence, motion } from "framer-motion";
 import { Home } from "./pages/Home";
 import { ReceivePayment } from "./pages/ReceivePayment";
+import { AudioTest } from "./pages/AudioTest";
 import { InstallPrompt } from "./components/InstallPrompt";
 import ReactLenis from "lenis/react";
 
@@ -44,7 +45,13 @@ function Navbar() {
                 <Link to="/receive" className="text-app-dark hover:opacity-80 transition-opacity font-semibold ml-4">
                     Receive payment
                 </Link>
+                <Link to="/audio-test" className="text-app-dark hover:opacity-80 transition-opacity font-semibold">
+                    Audio bench
+                </Link>
             </div>
+            <Link to="/audio-test" className="md:hidden text-sm font-semibold text-app-dark">
+                Audio bench
+            </Link>
         </nav>
     );
 }
@@ -59,6 +66,11 @@ function AnimatedRoutes() {
                 <Route path="/receive" element={
                     <PageWrapper>
                         <ReceivePayment />
+                    </PageWrapper>
+                } />
+                <Route path="/audio-test" element={
+                    <PageWrapper>
+                        <AudioTest />
                     </PageWrapper>
                 } />
             </Routes>

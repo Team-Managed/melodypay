@@ -19,6 +19,7 @@ let configuredSampleRate: number | null = null;
 
 const SAMPLE_RATE = 48000;
 const MAX_PAYLOAD_BYTES = 140;
+const HARDWARE_FRAME_BYTES = 64;
 
 /**
  * Get the ProtocolId enum object from the ggwave module.
@@ -121,6 +122,104 @@ export function decode(samples: Float32Array): string | null {
     return new TextDecoder("utf-8").decode(new Uint8Array(result));
   }
   return null;
+}
+
+export interface HardwareGGWaveSession {
+  encode(frame: Uint8Array): Float32Array;
+  decode(samples: Float32Array): Uint8Array | null;
+  dispose(): void;
+}
+
+const HARDWARE_PROTOCOL_NAMES = [
+  "GGWAVE_PROTOCOL_AUDIBLE_NORMAL",
+  "GGWAVE_PROTOCOL_AUDIBLE_FAST",
+  "GGWAVE_PROTOCOL_AUDIBLE_FASTEST",
+  "GGWAVE_PROTOCOL_ULTRASOUND_NORMAL",
+  "GGWAVE_PROTOCOL_ULTRASOUND_FAST",
+  "GGWAVE_PROTOCOL_ULTRASOUND_FASTEST",
+  "GGWAVE_PROTOCOL_DT_NORMAL",
+  "GGWAVE_PROTOCOL_DT_FAST",
+  "GGWAVE_PROTOCOL_DT_FASTEST",
+  "GGWAVE_PROTOCOL_MT_NORMAL",
+  "GGWAVE_PROTOCOL_MT_FAST",
+  "GGWAVE_PROTOCOL_MT_FASTEST",
+];
+
+function bytesToWaveform(waveform: Int8Array): Float32Array {
+  const buffer = new ArrayBuffer(waveform.byteLength);
+  new Int8Array(buffer).set(waveform);
+  return new Float32Array(buffer);
+}
+
+function samplesToBytes(samples: Float32Array): Int8Array {
+  return new Int8Array(samples.buffer, samples.byteOffset, samples.byteLength);
+}
+
+function frameToString(frame: Uint8Array): string {
+  if (frame.length !== HARDWARE_FRAME_BYTES) {
+    throw new Error(`Hardware frame must be ${HARDWARE_FRAME_BYTES} bytes`);
+  }
+
+  const wireFrame = frame.slice();
+  const payloadLength = wireFrame[0];
+  wireFrame.fill(0x20, payloadLength + 1);
+  return new TextDecoder("utf-8").decode(wireFrame);
+}
+
+export async function createHardwareGGWaveSession(
+  sampleRateInp: number,
+  sampleRateOut: number,
+): Promise<HardwareGGWaveSession> {
+  const ggwaveFactory = (window as any).ggwave_factory;
+  if (!ggwaveFactory) {
+    throw new Error("ggwave is unavailable. Make sure ggwave.js is loaded.");
+  }
+
+  const module = await ggwaveFactory();
+  const parameters = module.getDefaultParameters();
+  parameters.payloadLength = HARDWARE_FRAME_BYTES;
+  parameters.sampleRateInp = sampleRateInp;
+  parameters.sampleRateOut = sampleRateOut;
+  parameters.sampleRate = SAMPLE_RATE;
+  parameters.sampleFormatInp = module.SampleFormat.GGWAVE_SAMPLE_FORMAT_F32;
+  parameters.sampleFormatOut = module.SampleFormat.GGWAVE_SAMPLE_FORMAT_F32;
+  parameters.operatingMode = module.GGWAVE_OPERATING_MODE_RX_AND_TX;
+
+  const audibleFastest = module.ProtocolId.GGWAVE_PROTOCOL_AUDIBLE_FASTEST;
+  for (const protocolName of HARDWARE_PROTOCOL_NAMES) {
+    const protocol = module.ProtocolId[protocolName];
+    if (protocol !== undefined) {
+      module.rxToggleProtocol(protocol, 0);
+      module.txToggleProtocol(protocol, 0);
+    }
+  }
+  module.rxToggleProtocol(audibleFastest, 1);
+  module.txToggleProtocol(audibleFastest, 1);
+
+  const instance = module.init(parameters);
+  if (instance < 0) {
+    throw new Error("Could not initialize the hardware ggwave profile.");
+  }
+
+  let disposed = false;
+  return {
+    encode(frame) {
+      if (disposed) throw new Error("Hardware ggwave session is closed");
+      const waveform = module.encode(instance, frameToString(frame), audibleFastest, 100);
+      return bytesToWaveform(waveform);
+    },
+    decode(samples) {
+      if (disposed) return null;
+      const result = module.decode(instance, samplesToBytes(samples));
+      if (!result || result.length !== HARDWARE_FRAME_BYTES) return null;
+      return new Uint8Array(result).slice();
+    },
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      module.free(instance);
+    },
+  };
 }
 
 export { SAMPLE_RATE };
