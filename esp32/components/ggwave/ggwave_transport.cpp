@@ -6,7 +6,7 @@
 
 namespace {
 
-constexpr int kGgwaveVolume = 25;
+constexpr int kGgwaveVolume = 75;
 GGWave wave;
 bool initialized = false;
 
