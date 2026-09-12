@@ -4,6 +4,7 @@
 #include "ggwave_transport.h"
 #include "hardware.h"
 #include "keystore.h"
+#include "evm_tx.h"
 #include "wallet_state.h"
 
 #include "nvs_flash.h"
@@ -20,6 +21,7 @@
 #include "esp_heap_caps.h"
 
 static const char *TAG = "melodypay";
+static int16_t mic_sample_to_pcm(int32_t raw);
 
 typedef enum {
     UI_HOME = 0,
@@ -32,6 +34,227 @@ static ui_screen_t ui_screen = UI_HOME;
 static uint8_t ui_selection;
 static volatile bool boot_audio_running;
 static volatile bool boot_audio_done;
+
+static void bytes_to_hex(const uint8_t *bytes, size_t length, char *output)
+{
+    static const char hex[] = "0123456789abcdef";
+    for (size_t index = 0; index < length; index++) {
+        output[index * 2] = hex[bytes[index] >> 4];
+        output[index * 2 + 1] = hex[bytes[index] & 0x0f];
+    }
+    output[length * 2] = '\0';
+}
+
+static bool decimal_to_units(const char *text, uint8_t scale, uint8_t output[32])
+{
+    memset(output, 0, 32);
+    uint8_t fractional_digits = 0;
+    bool decimal_seen = false;
+    bool digit_seen = false;
+    for (const char *cursor = text; *cursor != '\0'; cursor++) {
+        if (*cursor == '.') {
+            if (decimal_seen) return false;
+            decimal_seen = true;
+            continue;
+        }
+        if (*cursor < '0' || *cursor > '9') return false;
+        if (decimal_seen && ++fractional_digits > scale) return false;
+        digit_seen = true;
+        uint16_t carry = (uint16_t)(*cursor - '0');
+        for (int index = 31; index >= 0; index--) {
+            const uint16_t value = (uint16_t)output[index] * 10 + carry;
+            output[index] = (uint8_t)value;
+            carry = value >> 8;
+        }
+        if (carry != 0) return false;
+    }
+    if (!digit_seen) return false;
+    for (uint8_t padding = fractional_digits; padding < scale; padding++) {
+        uint16_t carry = 0;
+        for (int index = 31; index >= 0; index--) {
+            const uint16_t value = (uint16_t)output[index] * 10 + carry;
+            output[index] = (uint8_t)value;
+            carry = value >> 8;
+        }
+        if (carry != 0) return false;
+    }
+    return true;
+}
+
+static esp_err_t send_audio_text(const char *text)
+{
+    const size_t length = strlen(text);
+    if (length == 0 || length >= GGWAVE_TRANSPORT_PAYLOAD_BYTES) return ESP_ERR_INVALID_SIZE;
+    const size_t sample_count = ggwave_transport_encode_size((const uint8_t *)text, length);
+    if (sample_count == 0) return ESP_FAIL;
+    int16_t *samples = heap_caps_malloc(sample_count * sizeof(int16_t), MALLOC_CAP_8BIT);
+    if (samples == NULL) return ESP_ERR_NO_MEM;
+    const int encoded = ggwave_transport_encode((const uint8_t *)text, length, samples, sample_count);
+    esp_err_t result = encoded > 0 ? hardware_play_pcm(samples, (size_t)encoded) : ESP_FAIL;
+    if (result == ESP_OK) result = hardware_stop_pcm();
+    heap_caps_free(samples);
+    return result;
+}
+
+static esp_err_t listen_audio_text(char *output, size_t capacity, uint32_t timeout_ms)
+{
+    static int32_t raw_samples[512];
+    static int16_t samples[512];
+    static uint8_t payload[GGWAVE_TRANSPORT_PAYLOAD_BYTES];
+    char assembled[256] = {0};
+    size_t assembled_length = 0;
+    unsigned expected_chunk = 0;
+    unsigned total_chunks = 0;
+    const int64_t deadline = esp_timer_get_time() + (int64_t)timeout_ms * 1000;
+    while (esp_timer_get_time() < deadline) {
+        size_t sample_count = 0;
+        if (hardware_read_mic(raw_samples, 512, &sample_count, 100) != ESP_OK) continue;
+        for (size_t index = 0; index < sample_count; index++) samples[index] = mic_sample_to_pcm(raw_samples[index]);
+        const int decoded = ggwave_transport_decode(samples, sample_count, payload, sizeof(payload));
+        if (decoded > 0) {
+            payload[decoded] = '\0';
+            unsigned chunk = 0;
+            unsigned total = 0;
+            int prefix_length = 0;
+            if (sscanf((char *)payload, "TX%u/%u|%n", &chunk, &total, &prefix_length) == 2) {
+                if (total == 0 || total > 16 || chunk != expected_chunk + 1 ||
+                    assembled_length + (size_t)decoded - (size_t)prefix_length >= sizeof(assembled)) {
+                    assembled_length = 0;
+                    expected_chunk = 0;
+                    total_chunks = 0;
+                    continue;
+                }
+                if (total_chunks == 0) total_chunks = total;
+                if (total != total_chunks) continue;
+                memcpy(assembled + assembled_length, payload + prefix_length, (size_t)decoded - (size_t)prefix_length);
+                assembled_length += (size_t)decoded - (size_t)prefix_length;
+                expected_chunk = chunk;
+                if (expected_chunk == total_chunks) {
+                    if (assembled_length >= capacity) return ESP_ERR_INVALID_SIZE;
+                    memcpy(output, assembled, assembled_length);
+                    output[assembled_length] = '\0';
+                    return ESP_OK;
+                }
+                continue;
+            }
+            if ((size_t)decoded < capacity) {
+                memcpy(output, payload, (size_t)decoded);
+                output[decoded] = '\0';
+                return ESP_OK;
+            }
+        }
+    }
+    return ESP_ERR_TIMEOUT;
+}
+
+static esp_err_t run_hardware_payment_sender(void)
+{
+    uint8_t address[20];
+    char address_hex[43];
+    esp_err_t result = keystore_get_address(address);
+    if (result != ESP_OK) return result;
+    bytes_to_hex(address, sizeof(address), address_hex + 2);
+    address_hex[0] = '0';
+    address_hex[1] = 'x';
+    char address_message[64];
+    snprintf(address_message, sizeof(address_message), "ADDR|%s", address_hex);
+    display_payment_screen();
+    wallet_state_set(WALLET_RECEIVING);
+    for (uint8_t attempt = 0; attempt < 3; attempt++) {
+        result = send_audio_text(address_message);
+        if (result != ESP_OK) return result;
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+    char request[GGWAVE_TRANSPORT_PAYLOAD_BYTES] = {0};
+    result = listen_audio_text(request, sizeof(request), 60000);
+    if (result != ESP_OK) return result;
+    char *fields[12] = {0};
+    size_t field_count = 0;
+    for (char *field = strtok(request, "|"); field != NULL && field_count < 12; field = strtok(NULL, "|")) {
+        fields[field_count++] = field;
+    }
+    const bool pay2 = field_count > 0 && strcmp(fields[0], "PAY2") == 0;
+    if ((!pay2 && (field_count != 4 || strcmp(fields[0], "PAY") != 0)) || (pay2 && field_count != 10)) {
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+    const char *recipient = pay2 ? fields[2] : fields[1];
+    const char *amount = pay2 ? fields[3] : fields[2];
+    const char *nonce_text = pay2 ? fields[4] : fields[3];
+    if (strlen(recipient) != 42 || recipient[0] != '0' || recipient[1] != 'x') return ESP_ERR_INVALID_ARG;
+    uint8_t recipient_bytes[20];
+    for (size_t index = 0; index < 20; index++) {
+        const char high = recipient[index * 2 + 2];
+        const char low = recipient[index * 2 + 3];
+        const int high_value = high <= '9' ? high - '0' : (high | 0x20) - 'a' + 10;
+        const int low_value = low <= '9' ? low - '0' : (low | 0x20) - 'a' + 10;
+        if (high_value < 0 || high_value > 15 || low_value < 0 || low_value > 15) return ESP_ERR_INVALID_ARG;
+        recipient_bytes[index] = (uint8_t)((high_value << 4) | low_value);
+    }
+    uint8_t value[32];
+    if (!decimal_to_units(amount, 18, value)) return ESP_ERR_INVALID_ARG;
+    char *end = NULL;
+    const uint64_t nonce = strtoull(nonce_text, &end, 10);
+    if (end == nonce_text || *end != '\0') return ESP_ERR_INVALID_ARG;
+    evm_native_transfer_t transfer = {0};
+    if (pay2) {
+        end = NULL;
+        transfer.chain_id = strtoull(fields[1], &end, 10);
+        if (end == fields[1] || *end != '\0') return ESP_ERR_INVALID_ARG;
+    } else {
+        transfer.chain_id = 10143;
+    }
+    transfer.nonce = nonce;
+    if (pay2) {
+        end = NULL;
+        const unsigned long gas_limit = strtoul(fields[9], &end, 10);
+        if (end == fields[9] || *end != '\0' || gas_limit > UINT32_MAX) return ESP_ERR_INVALID_ARG;
+        transfer.gas_limit = (uint32_t)gas_limit;
+    } else {
+        transfer.gas_limit = 21000;
+    }
+    memcpy(transfer.recipient, recipient_bytes, sizeof(recipient_bytes));
+    memcpy(transfer.value, value, sizeof(value));
+    if (pay2) {
+        if (!decimal_to_units(fields[8], 9, transfer.max_priority_fee_per_gas) ||
+            !decimal_to_units(fields[7], 9, transfer.max_fee_per_gas)) return ESP_ERR_INVALID_ARG;
+    } else {
+        transfer.max_priority_fee_per_gas[28] = 0x77;
+        transfer.max_priority_fee_per_gas[29] = 0x35;
+        transfer.max_priority_fee_per_gas[30] = 0x94;
+        transfer.max_priority_fee_per_gas[31] = 0x00;
+        transfer.max_fee_per_gas[27] = 0x22;
+        transfer.max_fee_per_gas[28] = 0xec;
+        transfer.max_fee_per_gas[29] = 0xb2;
+        transfer.max_fee_per_gas[30] = 0x5c;
+        transfer.max_fee_per_gas[31] = 0x00;
+    }
+    wallet_state_set(WALLET_REVIEW);
+    display_message("PAYMENT", "Review on device", "Press button", "to approve");
+    result = button_wait_for_approval(60000);
+    if (result != ESP_OK) return result;
+    wallet_state_set(WALLET_TRANSMITTING);
+    uint8_t signed_transaction[256];
+    size_t signed_length = 0;
+    result = evm_sign_eip1559(&transfer, signed_transaction, sizeof(signed_transaction), &signed_length);
+    if (result != ESP_OK) return result;
+    char signed_hex[513];
+    bytes_to_hex(signed_transaction, signed_length, signed_hex);
+    const size_t chunk_size = 48;
+    const size_t total = (strlen(signed_hex) + chunk_size - 1) / chunk_size;
+    for (size_t index = 0; index < total; index++) {
+        char chunk[GGWAVE_TRANSPORT_PAYLOAD_BYTES];
+        snprintf(chunk, sizeof(chunk), "TX%u/%u|%.*s", (unsigned)(index + 1), (unsigned)total,
+                 (int)chunk_size, signed_hex + index * chunk_size);
+        result = send_audio_text(chunk);
+        if (result != ESP_OK) break;
+        vTaskDelay(pdMS_TO_TICKS(300));
+    }
+    memset(signed_transaction, 0, sizeof(signed_transaction));
+    memset(signed_hex, 0, sizeof(signed_hex));
+    wallet_state_set(WALLET_IDLE);
+    display_message("PAYMENT", "Transaction sent", "Awaiting receipt", "");
+    return result;
+}
 
 static void boot_chime_task(void *argument)
 {
@@ -58,7 +281,14 @@ static void handle_ui_event(button_event_t event)
             render_ui();
         } else if (ui_selection == 0) {
             ui_screen = UI_PAYMENT;
-            wallet_state_set(WALLET_RECEIVING);
+            const esp_err_t payment_result = run_hardware_payment_sender();
+            if (payment_result != ESP_OK) {
+                display_message("PAYMENT", "Flow stopped", esp_err_to_name(payment_result), "");
+                vTaskDelay(pdMS_TO_TICKS(1200));
+            }
+            ui_screen = UI_HOME;
+            ui_selection = 0;
+            wallet_state_set(WALLET_IDLE);
             render_ui();
         } else if (ui_selection == 1) {
             ui_screen = UI_RECEIVE;

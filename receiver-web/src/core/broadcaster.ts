@@ -82,8 +82,9 @@ export async function playChunkedPayload(
   payload: string,
   gapMs: number = 300,
   protocolName?: string,
+  maxPayload: number = 56,
 ): Promise<void> {
-  const chunks = splitLegacyPayload(payload);
+  const chunks = splitLegacyPayload(payload, maxPayload);
   for (let index = 0; index < chunks.length; index += 1) {
     const chunk = chunks[index];
     await playPayload(chunk, protocolName);

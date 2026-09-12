@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { CHAIN_CONFIGS, getChainConfig } from "../core/chains";
 import { startChunkedListening, startListening } from "../core/listener";
-import { playPayload } from "../core/broadcaster";
+import { playChunkedPayload, playPayload } from "../core/broadcaster";
 import {
     broadcastTransaction,
     getFeeData,
@@ -161,7 +161,8 @@ export function ReceivePayment() {
                     for (let attempt = 1; attempt <= 3; attempt += 1) {
                         if (cancelledRef.current) return;
                         setStatus(`Sending payment request (${attempt}/3)...`);
-                        await playPayload(paymentRequest);
+                        if (chain.chainId === 10143) await playPayload(paymentRequest);
+                        else await playChunkedPayload(paymentRequest);
                         if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 1000));
                     }
 
