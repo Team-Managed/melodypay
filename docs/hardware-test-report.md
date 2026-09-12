@@ -20,13 +20,17 @@ The firmware was built, flashed, and booted successfully.
 | I2S amplifier channel | Pass | `tone_write=ESP_OK` |
 | OLED I2C | Pass | SSD1306 detected at address `0x3c` |
 | NVS development backend | Pass | Development key backend initialized |
+| Native ggwave initialization | Pass | Fixed 64-byte frame mode initialized without panic |
+| ggwave transmit command | Pass | `tx hello` encoded 46,080 I2S samples and returned `ESP_OK` |
+| ggwave receive command | Pass | `rx 2` sampled and decoded for two seconds without panic |
 | Stability | Pass | No brownout or panic during the test window |
 
 ## Manual Checks Remaining
 
 - Confirm the short test tone is audible through the speaker.
 - Confirm the OLED checkerboard test pattern is visible.
+- Run a physical two-device acoustic loopback test; the current runtime test had no external payload source.
 - Button validation is deferred; GPIO17/GPIO18 are reserved for the future approval flow.
 - Keep the volume low; the amplifier can exceed the small speaker's continuous rating.
 
-This confirms electrical initialization and data-path availability. It does not validate ggwave decode reliability, secure signing, or production key custody.
+This confirms electrical initialization, native ggwave setup, waveform transmission, and receive-loop stability. It does not validate acoustic decode reliability, secure signing, or production key custody.

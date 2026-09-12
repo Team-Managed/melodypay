@@ -1,0 +1,3 @@
+[submodule "esp32/components/ggwave/vendor/ggwave"]
+	path = esp32/components/ggwave/vendor/ggwave
+	url = https://github.com/ggerganov/ggwave.git

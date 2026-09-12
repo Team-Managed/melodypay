@@ -8,6 +8,7 @@
 static const char *TAG = "hardware";
 static i2s_chan_handle_t mic_channel;
 static i2s_chan_handle_t amp_channel;
+static bool amp_enabled;
 
 static esp_err_t init_microphone(void)
 {
@@ -63,6 +64,7 @@ static esp_err_t init_amplifier(void)
     };
     ESP_RETURN_ON_ERROR(i2s_channel_init_std_mode(amp_channel, &config), TAG, "amp mode");
     ESP_RETURN_ON_ERROR(i2s_channel_enable(amp_channel), TAG, "amp enable");
+    amp_enabled = true;
     return ESP_OK;
 }
 
@@ -86,6 +88,10 @@ esp_err_t hardware_read_mic(int32_t *samples, size_t sample_count, size_t *sampl
 esp_err_t hardware_play_pcm(const int16_t *samples, size_t sample_count)
 {
     if (amp_channel == NULL) return ESP_ERR_NOT_SUPPORTED;
+    if (!amp_enabled) {
+        ESP_RETURN_ON_ERROR(i2s_channel_enable(amp_channel), TAG, "amp re-enable");
+        amp_enabled = true;
+    }
     size_t bytes_written = 0;
     return i2s_channel_write(amp_channel, samples, sample_count * sizeof(int16_t), &bytes_written, portMAX_DELAY);
 }
@@ -101,7 +107,10 @@ esp_err_t hardware_run_audio_self_test(void)
     esp_err_t write_result = hardware_play_pcm(tone, 48000);
     static const int16_t silence[48000] = {0};
     if (write_result == ESP_OK) write_result = hardware_play_pcm(silence, 48000);
-    if (amp_channel != NULL) (void)i2s_channel_disable(amp_channel);
+    if (amp_channel != NULL) {
+        (void)i2s_channel_disable(amp_channel);
+        amp_enabled = false;
+    }
     hardware_unmute_mic();
     if (write_result != ESP_OK) return write_result;
 
