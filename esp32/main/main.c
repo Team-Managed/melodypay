@@ -34,12 +34,71 @@ static int cmd_mic(int argc, char **argv)
     int32_t samples[256];
     size_t count = 0;
     esp_err_t result = hardware_read_mic(samples, 256, &count, 500);
-    int64_t peak = 0;
+    int64_t raw_peak = 0;
+    int64_t pcm_peak = 0;
     for (size_t index = 0; index < count; index++) {
         int64_t value = samples[index] < 0 ? -(int64_t)samples[index] : samples[index];
-        if (value > peak) peak = value;
+        if (value > raw_peak) raw_peak = value;
+        int16_t pcm = (int16_t)(samples[index] >> 14);
+        int64_t pcm_value = pcm < 0 ? -(int64_t)pcm : pcm;
+        if (pcm_value > pcm_peak) pcm_peak = pcm_value;
     }
-    printf("result=%s samples=%u peak=%lld\n", esp_err_to_name(result), (unsigned)count, (long long)peak);
+    printf("result=%s samples=%u raw_peak=%lld pcm_peak=%lld\n", esp_err_to_name(result),
+           (unsigned)count, (long long)raw_peak, (long long)pcm_peak);
+    return result == ESP_OK ? 0 : 1;
+}
+
+static int cmd_micplay(int argc, char **argv)
+{
+    const int seconds = argc == 1 ? 2 : atoi(argv[1]);
+    if (argc > 2 || seconds <= 0 || seconds > 5) {
+        printf("usage: micplay [seconds 1-5]\n");
+        return 1;
+    }
+
+    const size_t capacity = (size_t)seconds * MELODY_SAMPLE_RATE;
+    int16_t *recording = heap_caps_malloc(capacity * sizeof(int16_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (recording == NULL) recording = heap_caps_malloc(capacity * sizeof(int16_t), MALLOC_CAP_8BIT);
+    if (recording == NULL) {
+        printf("recording allocation failed for %u samples\n", (unsigned)capacity);
+        return 1;
+    }
+
+    printf("recording microphone for %d seconds; speak near the INMP441...\n", seconds);
+    size_t captured = 0;
+    int64_t raw_peak = 0;
+    int64_t pcm_peak = 0;
+    while (captured < capacity) {
+        int32_t raw[256];
+        size_t read_count = 0;
+        esp_err_t result = hardware_read_mic(raw, 256, &read_count, 500);
+        if (result != ESP_OK) {
+            printf("microphone read failed: %s\n", esp_err_to_name(result));
+            heap_caps_free(recording);
+            return 1;
+        }
+        const size_t remaining = capacity - captured;
+        if (read_count > remaining) read_count = remaining;
+        for (size_t index = 0; index < read_count; index++) {
+            int64_t raw_value = raw[index] < 0 ? -(int64_t)raw[index] : raw[index];
+            if (raw_value > raw_peak) raw_peak = raw_value;
+            recording[captured + index] = (int16_t)(raw[index] >> 14);
+            int64_t pcm_value = recording[captured + index] < 0
+                ? -(int64_t)recording[captured + index]
+                : recording[captured + index];
+            if (pcm_value > pcm_peak) pcm_peak = pcm_value;
+        }
+        captured += read_count;
+    }
+
+    printf("captured=%u raw_peak=%lld pcm_peak=%lld; playing recording...\n",
+           (unsigned)captured, (long long)raw_peak, (long long)pcm_peak);
+    hardware_mute_mic();
+    esp_err_t result = hardware_play_pcm(recording, captured);
+    if (result == ESP_OK) result = hardware_stop_pcm();
+    hardware_unmute_mic();
+    heap_caps_free(recording);
+    printf("result=%s\n", esp_err_to_name(result));
     return result == ESP_OK ? 0 : 1;
 }
 
@@ -49,6 +108,29 @@ static int cmd_oled(int argc, char **argv)
     (void)argv;
     esp_err_t result = display_test_pattern();
     printf("oled_connected=%s pattern_result=%s\n", display_is_connected() ? "yes" : "no", esp_err_to_name(result));
+    return result == ESP_OK ? 0 : 1;
+}
+
+static int cmd_screen(int argc, char **argv)
+{
+    if (argc < 2) {
+        printf("usage: screen <text>\n");
+        return 1;
+    }
+
+    char text[256] = {0};
+    size_t length = 0;
+    for (int index = 1; index < argc && length + 1 < sizeof(text); index++) {
+        if (index > 1 && length + 1 < sizeof(text)) text[length++] = ' ';
+        const size_t remaining = sizeof(text) - length - 1;
+        const size_t part_length = strlen(argv[index]);
+        const size_t copied = part_length < remaining ? part_length : remaining;
+        memcpy(text + length, argv[index], copied);
+        length += copied;
+    }
+
+    esp_err_t result = display_text(text);
+    printf("screen_result=%s text=%s\n", esp_err_to_name(result), text);
     return result == ESP_OK ? 0 : 1;
 }
 
@@ -91,6 +173,15 @@ static int cmd_tx(int argc, char **argv)
     return result == ESP_OK ? 0 : 1;
 }
 
+static int cmd_ggtest(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+    const int result = ggwave_transport_self_test();
+    printf("ggwave_self_test=%d\n", result);
+    return result == 0 ? 0 : 1;
+}
+
 static int cmd_rx(int argc, char **argv)
 {
     const int seconds = argc == 1 ? 10 : atoi(argv[1]);
@@ -111,7 +202,7 @@ static int cmd_rx(int argc, char **argv)
             printf("microphone read failed: %s\n", esp_err_to_name(result));
             return 1;
         }
-        for (size_t index = 0; index < samples_read; index++) samples[index] = (int16_t)(raw_samples[index] >> 11);
+        for (size_t index = 0; index < samples_read; index++) samples[index] = (int16_t)(raw_samples[index] >> 14);
 
         const int decoded = ggwave_transport_decode(samples, samples_read, payload, sizeof(payload));
         if (decoded > 0) {
@@ -140,17 +231,35 @@ static void init_console(void)
         .hint = NULL,
         .func = &cmd_mic,
     };
+    const esp_console_cmd_t micplay_command = {
+        .command = "micplay",
+        .help = "record the microphone, then play it back",
+        .hint = "[seconds]",
+        .func = &cmd_micplay,
+    };
     const esp_console_cmd_t oled_command = {
         .command = "oled",
         .help = "redraw OLED test pattern",
         .hint = NULL,
         .func = &cmd_oled,
     };
+    const esp_console_cmd_t screen_command = {
+        .command = "screen",
+        .help = "display typed text on the OLED",
+        .hint = "<text>",
+        .func = &cmd_screen,
+    };
     const esp_console_cmd_t tx_command = {
         .command = "tx",
         .help = "transmit a text payload over audio",
         .hint = NULL,
         .func = &cmd_tx,
+    };
+    const esp_console_cmd_t ggtest_command = {
+        .command = "ggtest",
+        .help = "encode and decode a ggwave waveform in memory",
+        .hint = NULL,
+        .func = &cmd_ggtest,
     };
     const esp_console_cmd_t rx_command = {
         .command = "rx",
@@ -162,8 +271,11 @@ static void init_console(void)
     ESP_ERROR_CHECK(esp_console_register_help_command());
     ESP_ERROR_CHECK(esp_console_cmd_register(&tone_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&mic_command));
+    ESP_ERROR_CHECK(esp_console_cmd_register(&micplay_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&oled_command));
+    ESP_ERROR_CHECK(esp_console_cmd_register(&screen_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&tx_command));
+    ESP_ERROR_CHECK(esp_console_cmd_register(&ggtest_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&rx_command));
 
     esp_console_repl_t *repl = NULL;

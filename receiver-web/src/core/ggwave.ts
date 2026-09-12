@@ -205,7 +205,7 @@ export async function createHardwareGGWaveSession(
   return {
     encode(frame) {
       if (disposed) throw new Error("Hardware ggwave session is closed");
-      const waveform = module.encode(instance, frameToString(frame), audibleFastest, 100);
+      const waveform = module.encode(instance, frameToString(frame), audibleFastest, 25);
       return bytesToWaveform(waveform);
     },
     decode(samples) {

@@ -1,12 +1,14 @@
 #include "ggwave_transport.h"
 
 #include <cstring>
+#include <cstdlib>
 
 #include "ggwave/ggwave.h"
 
 namespace {
 
-constexpr int kGgwaveVolume = 100;
+// Keep the protocol waveform below the small bench speaker's clipping point.
+constexpr int kGgwaveVolume = 25;
 GGWave wave;
 bool initialized = false;
 
@@ -91,4 +93,24 @@ extern "C" int ggwave_transport_decode(const int16_t *samples, size_t sample_cou
     if (decoded_size > payload_capacity) return -static_cast<int>(decoded_size);
     std::memcpy(payload, received.data() + 1, decoded_size);
     return static_cast<int>(decoded_size);
+}
+
+extern "C" int ggwave_transport_self_test(void)
+{
+    static const uint8_t expected[] = {'h', 'e', 'l', 'l', 'o'};
+    const size_t sample_count = ggwave_transport_encode_size(expected, sizeof(expected));
+    if (sample_count == 0) return -1;
+
+    auto *waveform = static_cast<int16_t *>(std::malloc(sample_count * sizeof(int16_t)));
+    if (waveform == nullptr) return -2;
+    const int encoded = ggwave_transport_encode(expected, sizeof(expected), waveform, sample_count);
+    uint8_t decoded[GGWAVE_TRANSPORT_PAYLOAD_BYTES] = {0};
+    const int decoded_size = encoded > 0
+        ? ggwave_transport_decode(waveform, static_cast<size_t>(encoded), decoded, sizeof(decoded))
+        : -3;
+    std::free(waveform);
+
+    if (decoded_size != static_cast<int>(sizeof(expected)) ||
+        std::memcmp(decoded, expected, sizeof(expected)) != 0) return -4;
+    return 0;
 }

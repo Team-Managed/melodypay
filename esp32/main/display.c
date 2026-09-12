@@ -3,11 +3,67 @@
 
 #include "driver/i2c_master.h"
 #include "esp_log.h"
+#include <ctype.h>
+#include <string.h>
 
 static const char *TAG = "display";
 static i2c_master_bus_handle_t display_bus;
 static i2c_master_dev_handle_t display_device;
 static bool display_connected;
+static uint8_t display_buffer[8 * 128];
+
+static const uint8_t letter_glyphs[26][5] = {
+    {0x7e, 0x11, 0x11, 0x7e, 0x00}, {0x7f, 0x49, 0x49, 0x36, 0x00},
+    {0x3e, 0x41, 0x41, 0x22, 0x00}, {0x7f, 0x41, 0x41, 0x3e, 0x00},
+    {0x7f, 0x49, 0x49, 0x41, 0x00}, {0x7f, 0x09, 0x09, 0x01, 0x00},
+    {0x3e, 0x41, 0x49, 0x7a, 0x00}, {0x7f, 0x08, 0x08, 0x7f, 0x00},
+    {0x41, 0x7f, 0x41, 0x00, 0x00}, {0x20, 0x40, 0x41, 0x3f, 0x00},
+    {0x7f, 0x08, 0x14, 0x63, 0x00}, {0x7f, 0x40, 0x40, 0x00, 0x00},
+    {0x7f, 0x06, 0x18, 0x06, 0x7f}, {0x7f, 0x06, 0x18, 0x7f, 0x00},
+    {0x3e, 0x41, 0x41, 0x3e, 0x00}, {0x7f, 0x09, 0x09, 0x06, 0x00},
+    {0x3e, 0x41, 0x61, 0x7e, 0x00}, {0x7f, 0x09, 0x19, 0x66, 0x00},
+    {0x46, 0x49, 0x49, 0x31, 0x00}, {0x01, 0x7f, 0x01, 0x00, 0x00},
+    {0x3f, 0x40, 0x40, 0x3f, 0x00}, {0x1f, 0x60, 0x60, 0x1f, 0x00},
+    {0x7f, 0x30, 0x0c, 0x30, 0x7f}, {0x63, 0x1c, 0x1c, 0x63, 0x00},
+    {0x07, 0x78, 0x07, 0x00, 0x00}, {0x61, 0x51, 0x49, 0x47, 0x00},
+};
+
+static const uint8_t digit_glyphs[10][5] = {
+    {0x3e, 0x41, 0x41, 0x3e, 0x00}, {0x42, 0x7f, 0x40, 0x00, 0x00},
+    {0x62, 0x51, 0x49, 0x46, 0x00}, {0x22, 0x49, 0x49, 0x36, 0x00},
+    {0x18, 0x14, 0x12, 0x7f, 0x00}, {0x2f, 0x49, 0x49, 0x31, 0x00},
+    {0x3e, 0x49, 0x49, 0x30, 0x00}, {0x01, 0x71, 0x09, 0x07, 0x00},
+    {0x36, 0x49, 0x49, 0x36, 0x00}, {0x06, 0x49, 0x49, 0x3e, 0x00},
+};
+
+static const uint8_t *glyph_for_char(char character)
+{
+    static const uint8_t blank[5] = {0, 0, 0, 0, 0};
+    static const uint8_t punctuation[][5] = {
+        {0x00, 0x00, 0x5f, 0x00, 0x00}, // !
+        {0x00, 0x40, 0x00, 0x00, 0x00}, // .
+        {0x00, 0x20, 0x40, 0x00, 0x00}, // ,
+        {0x08, 0x08, 0x08, 0x00, 0x00}, // -
+        {0x40, 0x40, 0x40, 0x40, 0x40}, // _
+        {0x60, 0x18, 0x06, 0x01, 0x00}, // /
+        {0x02, 0x01, 0x51, 0x09, 0x06}, // ?
+        {0x00, 0x36, 0x00, 0x00, 0x00}, // :
+    };
+
+    character = (char)toupper((unsigned char)character);
+    if (character >= 'A' && character <= 'Z') return letter_glyphs[character - 'A'];
+    if (character >= '0' && character <= '9') return digit_glyphs[character - '0'];
+    if (character == ' ') return blank;
+    if (character == '!') return punctuation[0];
+    if (character == '.') return punctuation[1];
+    if (character == ',') return punctuation[2];
+    if (character == '-') return punctuation[3];
+    if (character == '_') return punctuation[4];
+    if (character == '/') return punctuation[5];
+    if (character == '?') return punctuation[6];
+    if (character == ':') return punctuation[7];
+    return punctuation[6];
+}
 
 static esp_err_t send_command(uint8_t command)
 {
@@ -25,6 +81,57 @@ esp_err_t display_test_pattern(void)
         if (i2c_master_transmit(display_device, data, sizeof(data), 100) != ESP_OK) return ESP_FAIL;
     }
     return ESP_OK;
+}
+
+static esp_err_t flush_display_buffer(void)
+{
+    uint8_t packet[129];
+    packet[0] = 0x40;
+    for (uint8_t page = 0; page < 8; page++) {
+        if (send_command((uint8_t)(0xb0 | page)) != ESP_OK) return ESP_FAIL;
+        if (send_command(0x00) != ESP_OK || send_command(0x10) != ESP_OK) return ESP_FAIL;
+        memcpy(packet + 1, display_buffer + page * 128, 128);
+        if (i2c_master_transmit(display_device, packet, sizeof(packet), 100) != ESP_OK) return ESP_FAIL;
+    }
+    return ESP_OK;
+}
+
+static void draw_line(const char *text, uint8_t line)
+{
+    if (text == NULL || line >= 4) return;
+    const size_t page_offset = (size_t)line * 2 * 128;
+    uint8_t column = 0;
+    for (size_t index = 0; text[index] != '\0' && text[index] != '\n' && column < 21; index++) {
+        const uint8_t *glyph = glyph_for_char(text[index]);
+        for (uint8_t glyph_column = 0; glyph_column < 5; glyph_column++) {
+            display_buffer[page_offset + column * 6 + glyph_column] = glyph[glyph_column];
+        }
+        column++;
+    }
+}
+
+esp_err_t display_text(const char *text)
+{
+    if (!display_connected || text == NULL) return ESP_ERR_NOT_SUPPORTED;
+    memset(display_buffer, 0, sizeof(display_buffer));
+
+    uint8_t line = 0;
+    uint8_t column = 0;
+    for (size_t index = 0; text[index] != '\0' && line < 4; index++) {
+        if (text[index] == '\n' || column == 21) {
+            line++;
+            column = 0;
+            if (text[index] == '\n') continue;
+            if (line >= 4) break;
+        }
+        const uint8_t *glyph = glyph_for_char(text[index]);
+        const size_t page_offset = (size_t)line * 2 * 128;
+        for (uint8_t glyph_column = 0; glyph_column < 5; glyph_column++) {
+            display_buffer[page_offset + column * 6 + glyph_column] = glyph[glyph_column];
+        }
+        column++;
+    }
+    return flush_display_buffer();
 }
 
 esp_err_t display_init(void)
@@ -88,4 +195,11 @@ bool display_is_connected(void)
 void display_message(const char *line1, const char *line2, const char *line3, const char *line4)
 {
     ESP_LOGI(TAG, "%s | %s | %s | %s", line1 ? line1 : "", line2 ? line2 : "", line3 ? line3 : "", line4 ? line4 : "");
+    if (!display_connected) return;
+    memset(display_buffer, 0, sizeof(display_buffer));
+    draw_line(line1, 0);
+    draw_line(line2, 1);
+    draw_line(line3, 2);
+    draw_line(line4, 3);
+    if (flush_display_buffer() != ESP_OK) ESP_LOGW(TAG, "text render failed");
 }
