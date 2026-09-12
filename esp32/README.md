@@ -29,4 +29,4 @@ The OLED driver remains serial-only and the production signing backend remains f
 
 ## Current Boundary
 
-The scaffold initializes buttons and I2S channels and provides the protocol/state interfaces. The display driver and production signing backend are intentionally fail-closed. Do not fund this firmware with real assets.
+The scaffold initializes I2S channels and provides the protocol/state interfaces. Button approval is deferred from the current bench image. The display driver and production signing backend are intentionally fail-closed. Do not fund this firmware with real assets.

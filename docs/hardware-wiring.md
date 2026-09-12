@@ -87,7 +87,7 @@ Suggested physical placement, matching your latest photo and the printed row num
 ```text
 Rows  1-4:   OLED header vertically on the left side
 Rows  1-7:   MAX98357A header vertically on the right side
-Rows 14,20:  Approve and Reject buttons across the center trench
+Rows 14,20:  Future button positions; leave empty for current testing
 Rows 25-46:  ESP32-S3 across the center trench
 Rows 58-60:  INMP441 straddling the center trench
 ```
@@ -99,8 +99,8 @@ Suggested module pin rows:
 | Rows | Module pins | Placement |
 |---|---|---|
 | 1, 2, 3, 4 | OLED `VDD`, `GND`, `SCK`, `SDA` | One pin per numbered row on the left; do not put all four across one row |
-| 14 | Approve switch | Across the center trench |
-| 20 | Reject switch | Across the center trench |
+| 14 | Future Approve switch | Leave disconnected for current testing |
+| 20 | Future Reject switch | Leave disconnected for current testing |
 | 58-60 | INMP441 pin rows | Straddle the center trench if the two pin columns are across the gap |
 | 1-7 | MAX98357A `BCLK`, `LRC`, `DIN`, `VIN`, `GND`, `SD`, `GAIN` | One pin per numbered row on the right where possible |
 
@@ -113,7 +113,7 @@ Your current placement has useful spare space:
 - The ESP32-S3 is correctly over the center trench.
 - A free column beside each ESP32 header is enough for jumper wires. Use the same numbered row as the signal pin; do not use a different row.
 - The OLED and MAX98357A are correctly placed near the top, with their pin rows separated vertically.
-- The buttons are correctly in the middle. Confirm each button crosses the center trench.
+- The button positions are intentionally empty during current audio/payment testing.
 - The round INMP441 at the bottom should remain across the center trench if its two pin columns are separated by that gap.
 - The red speaker wires already attached to the MAX98357A screw terminal should remain connected only to the speaker output `+` and `-`.
 
@@ -135,7 +135,7 @@ Do not wire everything and power it for the first time. Build and test in this o
 
 1. Insert the ESP32-S3 and connect only USB, 3V3, and GND rails.
 2. Add the OLED. Test that it receives 3.3 V and is detected at I2C address `0x3C`.
-3. Add the Approve and Reject buttons. Test each GPIO with the internal pull-up enabled.
+3. Leave the future approval buttons disconnected.
 4. Add the INMP441. Confirm its `VDD` is 3.3 V before connecting USB.
 5. Add the MAX98357A power and I2S wires, but leave the speaker disconnected.
 6. Connect the speaker between amplifier `+` and `-`, never to GND.
@@ -165,10 +165,10 @@ Do not wire everything and power it for the first time. Build and test in this o
 | OLED `SDA` | GPIO 8 | I2C data |
 | OLED `VDD` | 3V3 | OLED power |
 | OLED `GND` | GND | Common ground |
-| Approve button | GPIO 17 and GND | Active-low input |
-| Reject button | GPIO 18 and GND | Active-low input |
+| Future Approve button | GPIO 17 and GND | Deferred; not connected in the current bench firmware |
+| Future Reject button | GPIO 18 and GND | Deferred; not connected in the current bench firmware |
 
-The firmware should configure GPIO 17 and GPIO 18 as `INPUT_PULLUP`. No external resistor is required for this first prototype.
+The current diagnostic/payment image does not initialize or read the buttons. Physical approval must be restored before any production signing flow.
 
 ## Breadboard Layout
 
@@ -179,7 +179,7 @@ Create separate power rails:
 ```text
 ESP32 3V3  ---> 3.3 V rail ---> INMP441 VDD, OLED VDD, MAX98357A SD
 ESP32 5V   ---> 5 V rail   ---> MAX98357A VIN
-ESP32 GND  ---> GND rail  ---> every module GND, INMP441 L/R, buttons
+ESP32 GND  ---> GND rail  ---> every module GND and INMP441 L/R
 ```
 
 Do not bridge the 3.3 V rail to the 5 V rail. On your board, each side's red and blue rail runs continuously from the top to the bottom.
@@ -196,7 +196,7 @@ Do not bridge the 3.3 V rail to the 5 V rail. On your board, each side's red and
 8. Wire the MAX98357A I2S pins to GPIO 15, GPIO 16, and GPIO 7.
 9. Connect MAX98357A `VIN` to 5V, `GND` to GND, `SD` to 3V3, and leave `GAIN` unconnected.
 10. Connect the speaker between the amplifier `+` and `-` output terminals.
-11. Insert each tactile switch across the breadboard center trench. Connect one contact side to its GPIO and the opposite contact side to GND.
+11. Leave the tactile switches disconnected for the current diagnostic/payment image.
 12. Inspect every connection and measure the rails with a multimeter before connecting USB.
 
 ## Tactile Switch Orientation
@@ -236,6 +236,8 @@ JYZ contact pair B, one leg -> female Dupont wire -> GND rail
 ```
 
 Leave the other two switch legs unconnected. Secure the female Dupont connectors to the switch legs with tape during testing so they cannot fall off. This is a temporary bench connection; soldered wires or a pre-headered button module are better for repeatable testing.
+
+The photographed JYZ switch confirms that the two tabs on the left side are one contact pair and the two tabs on the right side are the other contact pair. Therefore, for Approve connect one left tab to GND and one right tab to GPIO17. For Reject use one left tab to GND and one right tab to GPIO18. Reversing left and right is electrically equivalent.
 
 Do not plug all four switch legs into one `a-e` or `f-j` row. That can short the two contacts together and make the button appear permanently pressed. If the switch does fit across the center trench, one contact pair must be on the left half and the other pair on the right half.
 

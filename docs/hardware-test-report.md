@@ -26,7 +26,7 @@ The firmware was built, flashed, and booted successfully.
 
 - Confirm the short test tone is audible through the speaker.
 - Confirm the OLED checkerboard test pattern is visible.
-- Press Approve on GPIO17 and Reject on GPIO18 and verify serial edge logs.
+- Button validation is deferred; GPIO17/GPIO18 are reserved for the future approval flow.
 - Keep the volume low; the amplifier can exceed the small speaker's continuous rating.
 
 This confirms electrical initialization and data-path availability. It does not validate ggwave decode reliability, secure signing, or production key custody.

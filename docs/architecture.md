@@ -5,7 +5,7 @@
 Online receiver  ------------------------------------>  ESP32-S3 wallet
   - recipient address                                      - INMP441 mic
   - chain and RPC                                          - OLED review
-  - nonce and fee data                                      - Approve / Reject
+  - nonce and fee data                                      - Physical approval (production; deferred in bench mode)
   - no sender private key                                   - local signing
 
 Online receiver  <------------------------------------  ESP32-S3 wallet
@@ -19,7 +19,7 @@ Online receiver  ------------------------------->  selected EVM RPC
 
 - The receiver is an untrusted transaction-request generator and broadcaster.
 - The wallet independently checks the chain policy, recipient, amount, fees, nonce, and calldata.
-- The physical approval button is required before a signature is produced.
+- The physical approval button will be required before a production signature is produced; it is deferred in the current bench flow.
 - The audio channel transports data; it does not grant signing authority.
 
 ## Current Implementation Boundary

@@ -9,18 +9,6 @@ static const char *TAG = "hardware";
 static i2s_chan_handle_t mic_channel;
 static i2s_chan_handle_t amp_channel;
 
-static esp_err_t init_buttons(void)
-{
-    const gpio_config_t config = {
-        .pin_bit_mask = (1ULL << MELODY_APPROVE_GPIO) | (1ULL << MELODY_REJECT_GPIO),
-        .mode = GPIO_MODE_INPUT,
-        .pull_up_en = GPIO_PULLUP_ENABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE,
-    };
-    return gpio_config(&config);
-}
-
 static esp_err_t init_microphone(void)
 {
     i2s_chan_config_t channel_config = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
@@ -80,10 +68,9 @@ static esp_err_t init_amplifier(void)
 
 esp_err_t hardware_init(void)
 {
-    ESP_RETURN_ON_ERROR(init_buttons(), TAG, "buttons");
     ESP_RETURN_ON_ERROR(init_microphone(), TAG, "microphone");
     ESP_RETURN_ON_ERROR(init_amplifier(), TAG, "amplifier");
-    ESP_LOGI(TAG, "audio and button hardware initialized");
+    ESP_LOGI(TAG, "audio hardware initialized");
     return ESP_OK;
 }
 
@@ -140,14 +127,4 @@ void hardware_mute_mic(void)
 void hardware_unmute_mic(void)
 {
     if (mic_channel != NULL) (void)i2s_channel_enable(mic_channel);
-}
-
-bool hardware_approve_pressed(void)
-{
-    return gpio_get_level(MELODY_APPROVE_GPIO) == 0;
-}
-
-bool hardware_reject_pressed(void)
-{
-    return gpio_get_level(MELODY_REJECT_GPIO) == 0;
 }

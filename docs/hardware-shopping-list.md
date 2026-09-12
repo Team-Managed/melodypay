@@ -11,7 +11,7 @@ Prices below are the prices supplied for this project from the Indian retailer l
 | 1 | I2S amplifier | Generic MAX98357A I2S amplifier breakout | ₹170 listed | Preferred over the ₹699 DFRobot version for a bench prototype. |
 | 1 | Speaker | 0.5 W, 28 mm, 8 ohm speaker | ₹29 listed | Sufficient for short-range indoor ggwave testing. |
 | 1 | Display | 0.96 inch SSD1306 128x64 I2C OLED | ₹162 | Correct size for the prototype. Use multiple screens for a full address. |
-| 2 | Buttons | 12x12x7.3 mm tactile switches | ₹144 for 25 | Use two: Approve and Reject. |
+| 2 | Buttons | 12x12x7.3 mm tactile switches | ₹144 for 25 | Future production approval controls; not required for current bench flow. |
 | 1 | Breadboard | 830-point solderless breadboard | Check listing | Needed to assemble and change the circuit cleanly. |
 | 1 pack | Jumper wires | Male-male and male-female Dupont wires | Check listing | Buy both types; module headers vary. |
 | 1 | USB cable | Data-capable USB cable matching the DevKit connector | Check listing | Required for flashing and serial logs; charge-only cables fail. |
@@ -101,8 +101,8 @@ This estimate excludes the secure element. The secure element belongs in the nex
 | **SSD1306 (OLED)** | Serial Data | `SDA` | **GPIO 8** | I2C Data (requires 3.3V pull-ups on breakout) |
 | | Serial Clock | `SCL` | **GPIO 9** | I2C Clock |
 | | Power & Ground | `VCC`, `GND` | **3.3V & GND** | Standard 3.3V logic |
-| **Tactile Buttons** | Approve Button | Pin 1 / Pin 2 | **GPIO 17 & GND** | Active LOW, internal ESP32 pull-up enabled |
-| | Reject Button | Pin 1 / Pin 2 | **GPIO 18 & GND** | Active LOW, internal ESP32 pull-up enabled |
+| **Tactile Buttons** | Future Approve Button | Pin 1 / Pin 2 | **GPIO 17 & GND** | Deferred; not part of current bench flow |
+| | Future Reject Button | Pin 1 / Pin 2 | **GPIO 18 & GND** | Deferred; not part of current bench flow |
 
 ---
 

@@ -12,16 +12,6 @@
 
 static const char *TAG = "melodypay";
 
-static int cmd_buttons(int argc, char **argv)
-{
-    (void)argc;
-    (void)argv;
-    printf("approve_gpio=%d state=%s reject_gpio=%d state=%s\n",
-           MELODY_APPROVE_GPIO, hardware_approve_pressed() ? "PRESSED" : "released",
-           MELODY_REJECT_GPIO, hardware_reject_pressed() ? "PRESSED" : "released");
-    return 0;
-}
-
 static int cmd_tone(int argc, char **argv)
 {
     (void)argc;
@@ -58,12 +48,6 @@ static int cmd_oled(int argc, char **argv)
 
 static void init_console(void)
 {
-    const esp_console_cmd_t buttons_command = {
-        .command = "buttons",
-        .help = "read Approve/Reject GPIO states",
-        .hint = NULL,
-        .func = &cmd_buttons,
-    };
     const esp_console_cmd_t tone_command = {
         .command = "tone",
         .help = "play a one-second tone and sample the microphone",
@@ -84,7 +68,6 @@ static void init_console(void)
     };
 
     ESP_ERROR_CHECK(esp_console_register_help_command());
-    ESP_ERROR_CHECK(esp_console_cmd_register(&buttons_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&tone_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&mic_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&oled_command));
@@ -111,21 +94,7 @@ void app_main(void)
     ESP_LOGI(TAG, "wallet state initialized: %d", wallet_state_get());
     init_console();
 
-    bool previous_approve = false;
-    bool previous_reject = false;
     while (true) {
-        const bool approve = hardware_approve_pressed();
-        const bool reject = hardware_reject_pressed();
-        if (approve && !previous_approve) {
-            ESP_LOGI(TAG, "approve button pressed");
-        }
-        if (reject && !previous_reject) {
-            wallet_state_set(WALLET_IDLE);
-            display_message("Rejected", "No signature", "", "");
-            ESP_LOGI(TAG, "reject button pressed");
-        }
-        previous_approve = approve;
-        previous_reject = reject;
         vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
