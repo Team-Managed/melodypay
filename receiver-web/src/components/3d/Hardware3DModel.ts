@@ -333,6 +333,14 @@ export function buildHardware3DAssembly(): Hardware3DAssembly {
     const appBase = new THREE.Mesh(buttonBaseGeo, buttonBaseMat);
     approveGroup.add(appBase);
 
+    const btnPinGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.45, 8);
+    const btnPinMat = new THREE.MeshStandardMaterial({ color: 0xCBD5E1, metalness: 0.9, roughness: 0.2 });
+    [[-0.38, -0.38], [0.38, -0.38], [-0.38, 0.38], [0.38, 0.38]].forEach(([px, pz]) => {
+        const pin = new THREE.Mesh(btnPinGeo, btnPinMat);
+        pin.position.set(px, -0.25, pz);
+        approveGroup.add(pin);
+    });
+
     const appCapMat = new THREE.MeshStandardMaterial({
         color: 0x10B981,
         emissive: 0x059669,
@@ -363,6 +371,12 @@ export function buildHardware3DAssembly(): Hardware3DAssembly {
     const declineGroup = new THREE.Group();
     const decBase = new THREE.Mesh(buttonBaseGeo, buttonBaseMat);
     declineGroup.add(decBase);
+
+    [[-0.38, -0.38], [0.38, -0.38], [-0.38, 0.38], [0.38, 0.38]].forEach(([px, pz]) => {
+        const pin = new THREE.Mesh(btnPinGeo, btnPinMat);
+        pin.position.set(px, -0.25, pz);
+        declineGroup.add(pin);
+    });
 
     const decCapMat = new THREE.MeshStandardMaterial({
         color: 0xEF4444,
@@ -506,9 +520,12 @@ export function buildHardware3DAssembly(): Hardware3DAssembly {
         0x836EF9, // Purple (OLED SCL)
         0xEF4444, // Red (Power 3.3V)
         0x2563EB, // Blue (GND)
-        0x10B981, // Emerald Green (Approve button signal)
+        0x10B981, // Emerald Green (Approve button signal - GPIO 18)
+        0xEA580C, // Bright Orange/Amber (Decline red button signal - GPIO 19)
+        0x3B82F6, // Blue (Decline button GND rail return)
         0xF59E0B, // Amber (INMP441 I2S WS)
         0xEC4899, // Pink (INMP441 I2S SD)
+        0xA855F7, // Violet (Speaker DAC)
     ];
 
     const wirePoints: [THREE.Vector3, THREE.Vector3, THREE.Vector3, THREE.Vector3][] = [
@@ -540,21 +557,35 @@ export function buildHardware3DAssembly(): Hardware3DAssembly {
             new THREE.Vector3(0.4, 1.1, -1.6),
             new THREE.Vector3(0.6, 0.65, -1.15)
         ],
-        // Wire 5: Approve Button to ESP32
+        // Wire 5: Approve Button (Green) to ESP32 (GPIO 18)
         [
-            new THREE.Vector3(3.6, 0.65, -1.2),
-            new THREE.Vector3(2.6, 1.5, -0.6),
-            new THREE.Vector3(1.6, 1.2, -0.4),
+            new THREE.Vector3(3.6, 0.65, -1.4),
+            new THREE.Vector3(2.6, 1.5, -0.8),
+            new THREE.Vector3(1.6, 1.2, -0.6),
             new THREE.Vector3(1.0, 0.65, -1.15)
         ],
-        // Wire 6: INMP441 Microphone to ESP32 I2S
+        // Wire 6: Decline Button (Red) to ESP32 (GPIO 19)
+        [
+            new THREE.Vector3(3.6, 0.65, 1.4),
+            new THREE.Vector3(2.8, 1.45, 1.3),
+            new THREE.Vector3(1.8, 1.25, 1.2),
+            new THREE.Vector3(1.2, 0.65, 1.15)
+        ],
+        // Wire 7: Decline Button GND return to Breadboard Rail
+        [
+            new THREE.Vector3(4.4, 0.65, 1.4),
+            new THREE.Vector3(4.6, 1.0, 2.2),
+            new THREE.Vector3(4.2, 0.8, 2.8),
+            new THREE.Vector3(3.8, 0.45, 3.2)
+        ],
+        // Wire 8: INMP441 Microphone to ESP32 I2S
         [
             new THREE.Vector3(-3.2, 0.65, 1.6),
             new THREE.Vector3(-2.2, 1.5, 1.8),
             new THREE.Vector3(-1.0, 1.3, 1.4),
             new THREE.Vector3(-0.4, 0.65, 1.15)
         ],
-        // Wire 7: Speaker to ESP32 DAC
+        // Wire 9: Speaker to ESP32 DAC
         [
             new THREE.Vector3(1.6, 0.8, 1.2),
             new THREE.Vector3(1.2, 1.4, 0.8),

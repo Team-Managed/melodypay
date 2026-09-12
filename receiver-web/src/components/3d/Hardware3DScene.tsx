@@ -7,6 +7,7 @@ interface Hardware3DSceneProps {
     isHeroRotating?: boolean;
     className?: string;
     onPartSelect?: (partName: string) => void;
+    activePartKey?: string; // e.g. "mcu" | "mic" | "buttons" | "amp" | "oled"
 }
 
 export function Hardware3DScene({
@@ -14,21 +15,21 @@ export function Hardware3DScene({
     isHeroRotating = true,
     className = "w-full h-full",
     onPartSelect,
+    activePartKey,
 }: Hardware3DSceneProps) {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const assemblyRef = useRef<Hardware3DAssembly | null>(null);
-    const mouseRef = useRef<{ x: number; y: number; targetX: number; targetY: number }>({
-        x: 0,
-        y: 0,
-        targetX: 0,
-        targetY: 0,
-    });
+    const activePartRef = useRef<string | undefined>(activePartKey);
     const progressRef = useRef<number>(explosionProgress);
 
     useEffect(() => {
         progressRef.current = explosionProgress;
     }, [explosionProgress]);
+
+    useEffect(() => {
+        activePartRef.current = activePartKey;
+    }, [activePartKey]);
 
     useEffect(() => {
         const container = containerRef.current;
@@ -74,7 +75,7 @@ export function Hardware3DScene({
         scene.add(keyLight);
 
         // Rim Backlight (Monad purple / electric violet backlight)
-        const rimLight = new THREE.DirectionalLight(0x836EF9, 5.5);
+        const rimLight = new THREE.DirectionalLight(0x836EF9, 4.5);
         rimLight.position.set(-8, 6, -8);
         scene.add(rimLight);
 
@@ -82,6 +83,12 @@ export function Hardware3DScene({
         const cyanFill = new THREE.PointLight(0x00E5FF, 2.5, 20);
         cyanFill.position.set(6, -4, 8);
         scene.add(cyanFill);
+
+        // Dynamic Spotlight for component highlighting
+        const highlightSpot = new THREE.SpotLight(0x059669, 0, 18, Math.PI / 4.5, 0.4, 1.2);
+        highlightSpot.position.set(0, 7, 5);
+        scene.add(highlightSpot);
+        scene.add(highlightSpot.target);
 
         // Bottom bounce light
         const bottomBounce = new THREE.DirectionalLight(0x3B82F6, 1.2);
@@ -99,14 +106,47 @@ export function Hardware3DScene({
         assembly.root.scale.set(0.95, 0.95, 0.95);
 
         // Orient model so the FRONT FACE stands upright facing the user:
-        // x tilt: ~1.28 rad (~74° upright from horizontal sleeping state)
-        // y tilt: -0.22 rad (subtle 12° isometric angle for 3D depth and metallic highlights)
-        // z tilt: 0 (natural horizontal breadboard orientation, all screen text readable)
         assembly.root.rotation.x = 1.28;
         assembly.root.rotation.y = -0.22;
         assembly.root.rotation.z = 0;
         assembly.root.position.set(0, 0, 0);
         pivotGroup.add(assembly.root);
+
+        // Holographic Highlight Beacon Group (added to assembly root so it follows orientation)
+        const beaconGroup = new THREE.Group();
+        assembly.root.add(beaconGroup);
+
+        // Inner pulsing ring
+        const beaconRingGeo = new THREE.RingGeometry(0.32, 0.42, 32);
+        const beaconRingMat = new THREE.MeshBasicMaterial({
+            color: 0x059669,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.85,
+        });
+        const beaconRing = new THREE.Mesh(beaconRingGeo, beaconRingMat);
+        beaconRing.rotation.x = -Math.PI / 2;
+        beaconGroup.add(beaconRing);
+
+        // Outer radiating ping ring
+        const pingRingGeo = new THREE.RingGeometry(0.42, 0.48, 32);
+        const pingRingMat = new THREE.MeshBasicMaterial({
+            color: 0x34D399,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.6,
+        });
+        const pingRing = new THREE.Mesh(pingRingGeo, pingRingMat);
+        pingRing.rotation.x = -Math.PI / 2;
+        beaconGroup.add(pingRing);
+
+        // Downward pointing diamond marker
+        const pinGeo = new THREE.ConeGeometry(0.12, 0.28, 4);
+        const pinMat = new THREE.MeshBasicMaterial({ color: 0x059669 });
+        const pinMesh = new THREE.Mesh(pinGeo, pinMat);
+        pinMesh.rotation.x = Math.PI; // point downwards
+        pinMesh.position.set(0, 0.22, 0);
+        beaconGroup.add(pinMesh);
 
         // 6. RESIZE OBSERVER & HANDLER
         const handleResize = () => {
@@ -120,16 +160,6 @@ export function Hardware3DScene({
         const resizeObserver = new ResizeObserver(handleResize);
         resizeObserver.observe(container);
         window.addEventListener("resize", handleResize);
-
-        // 7. LIVE PRODUCT DEMO MOUSE TRACKING
-        const handleMouseMove = (e: MouseEvent) => {
-            // Global screen coordinates normalized around center (-1 to 1)
-            const nx = (e.clientX / window.innerWidth) * 2 - 1;
-            const ny = -((e.clientY / window.innerHeight) * 2 - 1);
-            mouseRef.current.targetX = nx;
-            mouseRef.current.targetY = ny;
-        };
-        window.addEventListener("mousemove", handleMouseMove);
 
         // 8. RAYCASTING INTERACTION
         const raycaster = new THREE.Raycaster();
@@ -165,41 +195,76 @@ export function Hardware3DScene({
             const elapsedTime = clock.getElapsedTime();
             const p = progressRef.current;
 
-            // Fluid spring lerp interpolation for live product demo feel
-            mouseRef.current.x += (mouseRef.current.targetX - mouseRef.current.x) * 0.08;
-            mouseRef.current.y += (mouseRef.current.targetY - mouseRef.current.y) * 0.08;
-
-            // Live Product Demo Upright Pivot Rotation:
+            // Stable Upright Pivot (Does not follow mouse)
             if (p <= 0.02) {
-                // Moving the cursor changes the 3D orientation in real-time (yaw, pitch, roll)
-                const targetRotY = -0.22 + mouseRef.current.x * 0.48;
-                const targetRotX = mouseRef.current.y * 0.28 + Math.sin(elapsedTime * 1.5) * 0.015;
-                const targetRotZ = -mouseRef.current.x * 0.08;
-
-                pivotGroup.rotation.y = targetRotY;
-                pivotGroup.rotation.x = targetRotX;
-                pivotGroup.rotation.z = targetRotZ;
-                pivotGroup.position.y = Math.sin(elapsedTime * 1.8) * 0.08;
+                pivotGroup.rotation.set(0, -0.22, 0);
+                pivotGroup.position.y = Math.sin(elapsedTime * 1.2) * 0.04;
             } else {
-                // In Exploded Features mode: angle upright device to reveal separated 3D layers
-                const targetRotX = 0.18 + mouseRef.current.y * 0.15;
-                const targetRotY = 0.42 + mouseRef.current.x * 0.15;
-                pivotGroup.rotation.x += (targetRotX - pivotGroup.rotation.x) * 0.08;
-                pivotGroup.rotation.y += (targetRotY - pivotGroup.rotation.y) * 0.08;
-                pivotGroup.rotation.z += (0 - pivotGroup.rotation.z) * 0.08;
-                pivotGroup.position.y += (-0.1 - pivotGroup.position.y) * 0.08;
+                pivotGroup.rotation.set(0.18, 0.42, 0);
+                pivotGroup.position.y = -0.1;
             }
 
-            // Interpolate each part along its explosion vector based on p
-            assembly.parts.forEach(part => {
-                // Position interpolation: anchor -> exploded
-                part.group.position.lerpVectors(part.anchorPos, part.explodedPos, p);
+            // Identify active part from activePartKey
+            const activeKey = (activePartRef.current || "").toLowerCase();
+            let activePart = null;
+            if (activeKey.includes("mcu") || activeKey.includes("esp32")) {
+                activePart = assembly.parts.find(p => p.name === "esp32");
+            } else if (activeKey.includes("mic") || activeKey.includes("inmp")) {
+                activePart = assembly.parts.find(p => p.name.includes("mic"));
+            } else if (activeKey.includes("button")) {
+                activePart = assembly.parts.find(p => p.name.includes("approve") || p.name.includes("button"));
+            } else if (activeKey.includes("amp") || activeKey.includes("speaker")) {
+                activePart = assembly.parts.find(p => p.name.includes("speaker"));
+            } else if (activeKey.includes("oled") || activeKey.includes("display")) {
+                activePart = assembly.parts.find(p => p.name === "oled");
+            }
 
-                // Rotation interpolation
-                part.group.rotation.x = part.anchorRot.x + (part.explodedRot.x - part.anchorRot.x) * p;
-                part.group.rotation.y = part.anchorRot.y + (part.explodedRot.y - part.anchorRot.y) * p;
-                part.group.rotation.z = part.anchorRot.z + (part.explodedRot.z - part.anchorRot.z) * p;
+            // Interpolate each part: position + active component elevation
+            assembly.parts.forEach(part => {
+                const isThisPartActive = 
+                    (activeKey.includes("mcu") && part.name === "esp32") ||
+                    (activeKey.includes("mic") && part.name.includes("mic")) ||
+                    (activeKey.includes("button") && part.name.includes("button")) ||
+                    (activeKey.includes("amp") && part.name.includes("speaker")) ||
+                    (activeKey.includes("oled") && part.name === "oled");
+
+                if (p <= 0.02) {
+                    // Elevated hover highlight when part is selected
+                    const targetY = isThisPartActive ? part.anchorPos.y + 0.35 : part.anchorPos.y;
+                    part.group.position.y += (targetY - part.group.position.y) * 0.12;
+
+                    const targetScale = isThisPartActive ? 1.05 : 1.0;
+                    part.group.scale.x += (targetScale - part.group.scale.x) * 0.12;
+                    part.group.scale.y += (targetScale - part.group.scale.y) * 0.12;
+                    part.group.scale.z += (targetScale - part.group.scale.z) * 0.12;
+                } else {
+                    part.group.position.lerpVectors(part.anchorPos, part.explodedPos, p);
+                    part.group.rotation.x = part.anchorRot.x + (part.explodedRot.x - part.anchorRot.x) * p;
+                    part.group.rotation.y = part.anchorRot.y + (part.explodedRot.y - part.anchorRot.y) * p;
+                    part.group.rotation.z = part.anchorRot.z + (part.explodedRot.z - part.anchorRot.z) * p;
+                }
             });
+
+            // Position & animate the beacon indicator
+            if (activePart && p <= 0.02) {
+                beaconGroup.visible = true;
+                const targetBeaconPos = new THREE.Vector3(
+                    activePart.anchorPos.x,
+                    activePart.group.position.y + 0.72 + Math.sin(elapsedTime * 3.5) * 0.05,
+                    activePart.anchorPos.z
+                );
+                beaconGroup.position.lerp(targetBeaconPos, 0.15);
+
+                const pingProgress = (elapsedTime * 2.2) % 1.0;
+                pingRing.scale.set(1 + pingProgress * 0.8, 1 + pingProgress * 0.8, 1);
+                pingRingMat.opacity = (1.0 - pingProgress) * 0.65;
+
+                highlightSpot.target.position.copy(activePart.group.position);
+                highlightSpot.intensity = 5.5 + Math.sin(elapsedTime * 3) * 1.5;
+            } else {
+                beaconGroup.visible = false;
+                highlightSpot.intensity = 0;
+            }
 
             // Update real-time textures & pulse rings
             assembly.updateOLEDTexture(elapsedTime);
@@ -215,7 +280,6 @@ export function Hardware3DScene({
             cancelAnimationFrame(animId);
             resizeObserver.disconnect();
             window.removeEventListener("resize", handleResize);
-            window.removeEventListener("mousemove", handleMouseMove);
             canvas.removeEventListener("click", handleClick);
             renderer.dispose();
         };
