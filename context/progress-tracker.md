@@ -29,4 +29,6 @@
 - [x] Write and run Foundry test suite: 30 tests passing (21 for Registrar, 9 for Settlement).
 - [x] Update `contracts/README.md`.
 - [x] Synchronize spec and plan documents (`2026-09-12-arc-ens-ledger-eip3009-design.md` and `2026-09-12-arc-ens-ledger-eip3009.md`).
-- [ ] Sequential git commits via `/git-commit`.
+- [x] Commit Task 1 via `/git-commit`.
+- [x] Task 2: Add Arc Network and USDC Profiles (`receiver-web/src/core/chains.ts`, `tokens.ts`, `cli/src/chains.ts`, `tests/arc-config.test.ts`, and `README.md`).
+- [ ] Task 3: Implement Canonical EIP-3009 Typed Data (`receiver-web/src/core/eip3009.ts`, `tests/eip3009.test.ts`).

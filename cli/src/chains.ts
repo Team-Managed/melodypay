@@ -8,6 +8,13 @@ export interface CliChain {
 
 export const CLI_CHAINS: readonly CliChain[] = [
   {
+    chainId: 5042002,
+    name: "Arc Testnet",
+    symbol: "USDC",
+    rpcUrl: "https://rpc.testnet.arc.io",
+    explorerUrl: "https://testnet.arcscan.app",
+  },
+  {
     chainId: 10143,
     name: "Monad Testnet",
     symbol: "MON",

@@ -12,6 +12,15 @@ export interface ChainConfig {
 
 export const CHAIN_CONFIGS: readonly ChainConfig[] = [
   {
+    chainId: 5042002,
+    name: "Arc Testnet",
+    nativeSymbol: "USDC",
+    rpcUrl: "https://rpc.testnet.arc.io",
+    explorerUrl: "https://testnet.arcscan.app",
+    gasLimitCap: 100000,
+    maxNormalFeeWei: parseUnits("0.05", 18),
+  },
+  {
     chainId: 10143,
     name: "Monad Testnet",
     nativeSymbol: "MON",
