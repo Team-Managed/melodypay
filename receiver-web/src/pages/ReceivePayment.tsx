@@ -152,8 +152,8 @@ export function ReceivePayment() {
                             nonce,
                             requestId,
                             PAYMENT_TTL_SECONDS,
-                            feeData.maxFeePerGas.toString(),
-                            feeData.maxPriorityFeePerGas.toString(),
+                            ethers.formatUnits(feeData.maxFeePerGas, "gwei"),
+                            ethers.formatUnits(feeData.maxPriorityFeePerGas, "gwei"),
                             gasLimit,
                         ].join("|");
 

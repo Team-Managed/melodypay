@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Wallet, parseEther, parseUnits } from "ethers";
 import {
+  signTransaction,
   validateSignedNativeTransfer,
   type NativeTransferExpectation,
 } from "../receiver-web/src/core/tx-builder";
@@ -33,6 +34,20 @@ const expected: NativeTransferExpectation = {
 };
 
 describe("signed native transfer validation", () => {
+  it("creates a signed native transfer for the mobile sender flow", async () => {
+    const signed = await signTransaction({
+      to: expected.recipient,
+      value: "0.01",
+      chainId: expected.chainId,
+      nonce: expected.nonce,
+      gasLimit: Number(expected.gasLimit),
+      maxPriorityFeePerGas: "2",
+      maxFeePerGas: "150",
+    }, privateKey);
+
+    await expect(validateSignedNativeTransfer(signed, expected)).resolves.toBeDefined();
+  });
+
   it("accepts a transaction matching the payment request", async () => {
     await expect(validateSignedNativeTransfer(await makeSignedTransaction(), expected)).resolves.toBeDefined();
   });
