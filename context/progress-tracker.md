@@ -1,8 +1,8 @@
 # MelodyPay Progress Tracker
 
 ## Current Phase
-- **Phase**: Smart Contract Implementation for ENS Merchant Subname Registrar (Sepolia) & Arc Canonical USDC Settlement Integration.
-- **Active Branch**: `feat/smart-contracts-implementation` (base: `origin/main` at `3ccfb70`).
+- **Phase**: UI/UX Design and Frontend Implementation.
+- **Active Branch**: `feat/ui-ux` (base: `feat/smart-contracts-implementation` at `25428d7`).
 
 ## Architecture Decisions & Consensus
 1. **Arc Network Payments**:
@@ -34,5 +34,14 @@
 - [x] Task 3: Implement Canonical EIP-3009 Typed Data (`receiver-web/src/core/eip3009.ts`, `receiver-web/src/core/payment-protocol.ts`, `tests/eip3009.test.ts`).
 - [x] Task 4: Add Arc EIP-3009 Receiver Flow in Web & CLI (`receiver-web/src/pages/ReceivePayment.tsx`, `receiver-web/src/core/tx-builder.ts`, `cli/src/receiver.ts`, `tests/arc-receiver-flow.test.ts`).
 - [x] Task 5: Add ESP32 EIP-3009 Signing Boundary (`esp32/components/eip3009/`).
-- [ ] Task 6: Integrate ENSv2 Merchant Resolution (`receiver-web/src/core/ensv2.ts`, `cli/src/ens.ts`, `tests/ensv2-resolution.test.ts`).
-- [ ] Task 7: Integrate Ledger Signer Backend (`cli/src/signers/ledger.ts`, `tests/ledger-signer.test.ts`).
+- [x] Task 8: Industrial Studio Light Mode UI/UX Revamp:
+  - [x] Light Mode Editorial Revamp (`Home.tsx`, `StudioHeader.tsx`, `PayForSoundStaffRibbon.tsx`):
+    - Background panoramic landscape banner (`/image copy 3.png`) spanning full-width with clean cut to split editorial text.
+    - Beautiful, 100% recognizable cursive script typography for "Pay with sound" rendered in luminous white with soft drop-shadow.
+    - Three distinct, parallel undulating musical stave lines with a traveling acoustic wave pulse, glowing light pearl, and floating musical notes.
+    - Completely removed all floating pill badges (the `EVM LIVE` badge in the navbar and the `AIR-GAPPED ACOUSTIC WIRE` badge over the hero image) and removed the header logo icon for clean, minimal typography.
+    - Hero copy updated to be short and crisp: "Sound waves as an air-gapped financial wire. Offline hardware signs transactions with physical button confirmation, settled instantly on-chain via keyless terminals."
+    - Refined headline scale to a crisp editorial hierarchy (`text-2xl sm:text-3xl lg:text-4xl xl:text-[2.75rem]`).
+  - [x] 32/32 unit tests passing and clean Vite HMR verified.
+- [ ] Task 9: Integrate ENSv2 Merchant Resolution (`receiver-web/src/core/ensv2.ts`, `cli/src/ens.ts`, `tests/ensv2-resolution.test.ts`).
+- [ ] Task 10: Integrate Ledger Signer Backend (`cli/src/signers/ledger.ts`, `tests/ledger-signer.test.ts`).
