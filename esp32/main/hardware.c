@@ -112,6 +112,9 @@ esp_err_t hardware_run_audio_self_test(void)
 
     hardware_mute_mic();
     esp_err_t write_result = hardware_play_pcm(tone, 4800);
+    static const int16_t silence[4800] = {0};
+    if (write_result == ESP_OK) write_result = hardware_play_pcm(silence, 4800);
+    if (amp_channel != NULL) (void)i2s_channel_disable(amp_channel);
     hardware_unmute_mic();
     if (write_result != ESP_OK) return write_result;
 
