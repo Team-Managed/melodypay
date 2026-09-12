@@ -30,5 +30,6 @@
 - [x] Update `contracts/README.md`.
 - [x] Synchronize spec and plan documents (`2026-09-12-arc-ens-ledger-eip3009-design.md` and `2026-09-12-arc-ens-ledger-eip3009.md`).
 - [x] Commit Task 1 via `/git-commit`.
-- [x] Task 2: Add Arc Network and USDC Profiles (`receiver-web/src/core/chains.ts`, `tokens.ts`, `cli/src/chains.ts`, `tests/arc-config.test.ts`, and `README.md`).
-- [ ] Task 3: Implement Canonical EIP-3009 Typed Data (`receiver-web/src/core/eip3009.ts`, `tests/eip3009.test.ts`).
+- [x] Task 2: Add Arc Network and USDC Profiles (`receiver-web/src/core/chains.ts`, `tokens.ts`, `cli/src/chains.ts`, `tests/arc-config.test.ts`).
+- [x] Task 3: Implement Canonical EIP-3009 Typed Data (`receiver-web/src/core/eip3009.ts`, `receiver-web/src/core/payment-protocol.ts`, `tests/eip3009.test.ts`).
+- [ ] Task 4: Add Arc EIP-3009 Receiver Flow in Web & CLI (`receiver-web/src/pages/ReceivePayment.tsx`, `receiver-web/src/core/tx-builder.ts`, `cli/src/receiver.ts`, `tests/arc-receiver-flow.test.ts`).

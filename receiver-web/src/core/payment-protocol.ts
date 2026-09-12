@@ -1,4 +1,4 @@
-import { getAddress, getBytes, isAddress } from "ethers";
+import { getAddress, getBytes, hexlify, isAddress } from "ethers";
 
 export const PROTOCOL_MAGIC = 0x4d;
 export const PROTOCOL_VERSION = 0x01;
@@ -13,6 +13,7 @@ export enum MessageType {
   Receipt = 0x04,
   Rejected = 0x05,
   Error = 0x06,
+  SignedAuthorization = 0x07,
 }
 
 export type AudioProfile = 2 | 5;
@@ -272,3 +273,72 @@ export function decodePaymentRequest(message: AssembledMessage): {
     },
   };
 }
+
+export interface SignedAuthorizationPayload {
+  authorizer: string;
+  recipient: string;
+  value: bigint;
+  validAfter: bigint;
+  validBefore: bigint;
+  nonce: string;
+  v: number;
+  r: string;
+  s: string;
+}
+
+export function encodeSignedAuthorization(
+  payload: SignedAuthorizationPayload,
+  messageId: number,
+): Uint8Array[] {
+  const nonceBytes = getBytes(payload.nonce);
+  if (nonceBytes.length !== 32) throw new Error("Nonce must be 32 bytes");
+
+  const rBytes = getBytes(payload.r);
+  if (rBytes.length !== 32) throw new Error("Signature r must be 32 bytes");
+
+  const sBytes = getBytes(payload.s);
+  if (sBytes.length !== 32) throw new Error("Signature s must be 32 bytes");
+
+  const body = concatBytes(
+    addressBytes(payload.authorizer),
+    addressBytes(payload.recipient),
+    writeUint(payload.value, 32),
+    writeUint(payload.validAfter, 8),
+    writeUint(payload.validBefore, 8),
+    nonceBytes,
+    new Uint8Array([payload.v & 0xff]),
+    rBytes,
+    sBytes,
+  );
+
+  return encodeMessage(MessageType.SignedAuthorization, body, messageId);
+}
+
+export function decodeSignedAuthorization(message: AssembledMessage): {
+  messageType: MessageType.SignedAuthorization;
+  payload: SignedAuthorizationPayload;
+} {
+  if (message.messageType !== MessageType.SignedAuthorization) {
+    throw new Error("Expected a signed authorization message");
+  }
+  if (message.body.length !== 185) {
+    throw new Error(`Invalid signed authorization body length: ${message.body.length}`);
+  }
+
+  const body = message.body;
+  return {
+    messageType: MessageType.SignedAuthorization,
+    payload: {
+      authorizer: addressFromBytes(body.slice(0, 20)),
+      recipient: addressFromBytes(body.slice(20, 40)),
+      value: readUint(body, 40, 32),
+      validAfter: readUint(body, 72, 8),
+      validBefore: readUint(body, 80, 8),
+      nonce: hexlify(body.slice(88, 120)),
+      v: body[120],
+      r: hexlify(body.slice(121, 153)),
+      s: hexlify(body.slice(153, 185)),
+    },
+  };
+}
+
