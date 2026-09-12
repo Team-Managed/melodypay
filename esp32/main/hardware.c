@@ -105,15 +105,15 @@ esp_err_t hardware_play_pcm(const int16_t *samples, size_t sample_count)
 
 esp_err_t hardware_run_audio_self_test(void)
 {
-    static int16_t tone[4800];
-    for (size_t index = 0; index < 4800; index++) {
+    static int16_t tone[48000];
+    for (size_t index = 0; index < 48000; index++) {
         tone[index] = ((index % 109) < 54) ? 1200 : -1200;
     }
 
     hardware_mute_mic();
-    esp_err_t write_result = hardware_play_pcm(tone, 4800);
-    static const int16_t silence[4800] = {0};
-    if (write_result == ESP_OK) write_result = hardware_play_pcm(silence, 4800);
+    esp_err_t write_result = hardware_play_pcm(tone, 48000);
+    static const int16_t silence[48000] = {0};
+    if (write_result == ESP_OK) write_result = hardware_play_pcm(silence, 48000);
     if (amp_channel != NULL) (void)i2s_channel_disable(amp_channel);
     hardware_unmute_mic();
     if (write_result != ESP_OK) return write_result;

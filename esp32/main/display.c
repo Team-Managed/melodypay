@@ -15,7 +15,7 @@ static esp_err_t send_command(uint8_t command)
     return i2c_master_transmit(display_device, packet, sizeof(packet), 100);
 }
 
-static esp_err_t draw_test_pattern(void)
+esp_err_t display_test_pattern(void)
 {
     uint8_t data[129] = {0x40};
     for (uint8_t page = 0; page < 8; page++) {
@@ -76,7 +76,7 @@ esp_err_t display_init(void)
 
     display_connected = true;
     ESP_LOGI(TAG, "SSD1306 detected at 0x%02x", address);
-    if (draw_test_pattern() != ESP_OK) ESP_LOGW(TAG, "SSD1306 test pattern failed");
+    if (display_test_pattern() != ESP_OK) ESP_LOGW(TAG, "SSD1306 test pattern failed");
     return ESP_OK;
 }
 
