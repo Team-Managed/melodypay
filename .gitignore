@@ -5,3 +5,6 @@ dist
 esp32/build
 esp32/sdkconfig
 esp32/sdkconfig.old
+contracts/out
+contracts/cache
+
