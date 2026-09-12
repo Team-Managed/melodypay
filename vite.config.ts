@@ -3,6 +3,21 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  server: {
+    host: "0.0.0.0",
+    allowedHosts: true,
+    cors: true,
+    hmr: {
+      host: "engaged-griffon-crucial.ngrok-free.app",
+      protocol: "wss",
+      clientPort: 443,
+    },
+  },
+  preview: {
+    host: "0.0.0.0",
+    allowedHosts: true,
+    cors: true,
+  },
   plugins: [
     react(),
     VitePWA({

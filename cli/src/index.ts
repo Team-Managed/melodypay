@@ -11,8 +11,13 @@ import {
 import { ethers } from "ethers";
 import { CLI_CHAINS, getCliChain } from "./chains.js";
 import { getPaymentRequest, validateAndBroadcast, type ReceiverRequest } from "./receiver.js";
+import { DeviceClient } from "./device.js";
+import { connectDevice, listSerialPorts, type DeviceConnection } from "./serial.js";
 
-type Action = "payment" | "inspect" | "networks" | "exit";
+type Action = "dashboard" | "device" | "status" | "networks" | "payment" | "diagnostics" | "inspect" | "exit";
+
+let deviceConnection: DeviceConnection | null = null;
+let deviceClient: DeviceClient | null = null;
 
 function cancelled<T>(value: T | symbol): value is symbol {
   if (isCancel(value)) {
@@ -100,6 +105,106 @@ function showNetworks() {
   }
 }
 
+async function connectWallet() {
+  const ports = await listSerialPorts();
+  if (ports.length === 0) {
+    console.log("No serial devices detected. Connect the ESP32 and try again.");
+    return;
+  }
+  const selected = await select({
+    message: "Select USB wallet",
+    options: ports.map((port) => ({
+      value: port.path,
+      label: port.path,
+      hint: [port.manufacturer, port.serialNumber, port.productId].filter(Boolean).join(" | ") || "serial device",
+    })),
+  });
+  if (cancelled(selected)) return;
+
+  deviceConnection?.close();
+  deviceConnection = await connectDevice(selected);
+  deviceClient = new DeviceClient(deviceConnection);
+  const info = await deviceClient.info();
+  console.log(JSON.stringify(info, null, 2));
+}
+
+async function deviceManager() {
+  for (;;) {
+    const action = await select({
+      message: deviceConnection ? `USB wallet connected (${deviceConnection.path})` : "USB wallet manager",
+      options: [
+        { value: "connect", label: deviceConnection ? "Reconnect wallet" : "Connect wallet" },
+        { value: "status", label: "Show device status" },
+        { value: "configure", label: "Configure active chain" },
+        { value: "disconnect", label: "Disconnect wallet" },
+        { value: "back", label: "Back" },
+      ],
+    });
+    if (cancelled(action) || action === "back") return;
+    try {
+      if (action === "connect") await connectWallet();
+      if (action === "status") {
+        if (!deviceClient) throw new Error("Connect a wallet first");
+        console.log(JSON.stringify(await deviceClient.status(), null, 2));
+      }
+      if (action === "configure") {
+        if (!deviceClient) throw new Error("Connect a wallet first");
+        const chainId = await chooseChain();
+        if (chainId !== null) console.log(JSON.stringify(await deviceClient.configureChain(chainId), null, 2));
+      }
+      if (action === "disconnect") {
+        await deviceClient?.close();
+        deviceClient = null;
+        deviceConnection = null;
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : error);
+    }
+  }
+}
+
+async function deviceStatus() {
+  if (!deviceClient) {
+    console.log("No USB wallet connected.");
+    return;
+  }
+  try {
+    console.log(JSON.stringify({
+      connection: deviceConnection?.path,
+      status: await deviceClient.status(),
+    }, null, 2));
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error);
+  }
+}
+
+async function diagnostics() {
+  if (!deviceClient) {
+    console.log("Connect a USB wallet first.");
+    return;
+  }
+  const action = await select({
+    message: "Device diagnostics",
+    options: [
+      { value: "audio", label: "Run audio self-test" },
+      { value: "ggwave", label: "Run ggwave self-test" },
+      { value: "display", label: "Show text on OLED" },
+      { value: "back", label: "Back" },
+    ],
+  });
+  if (cancelled(action) || action === "back") return;
+  try {
+    if (action === "audio") console.log(await deviceClient.audioSelfTest());
+    if (action === "ggwave") console.log(await deviceClient.ggwaveSelfTest());
+    if (action === "display") {
+      const textValue = await requiredText("OLED text", "MelodyPay");
+      if (textValue) console.log(await deviceClient.displayText(textValue));
+    }
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error);
+  }
+}
+
 async function main() {
   intro("MelodyPay Receiver CLI | keyless operator terminal");
 
@@ -107,7 +212,11 @@ async function main() {
     const action = await select<Action>({
       message: "Select an operation",
       options: [
+        { value: "dashboard", label: "Dashboard", hint: "show current receiver and wallet state" },
+        { value: "device", label: "USB wallet manager", hint: "connect, configure, disconnect" },
+        { value: "status", label: "Wallet/device status" },
         { value: "payment", label: "Payment terminal", hint: "create request, validate, broadcast" },
+        { value: "diagnostics", label: "Audio/OLED diagnostics" },
         { value: "inspect", label: "Inspect signed transaction", hint: "offline parsing only" },
         { value: "networks", label: "Network profiles", hint: "show configured EVM chains" },
         { value: "exit", label: "Exit" },
@@ -115,7 +224,17 @@ async function main() {
     });
     if (cancelled(action) || action === "exit") break;
 
+    if (action === "dashboard") {
+      console.log(JSON.stringify({
+        connectedDevice: deviceConnection?.path ?? null,
+        supportedChains: CLI_CHAINS.map((chain) => chain.name),
+        hardwareSigning: deviceClient ? (await deviceClient.status()).signing : false,
+      }, null, 2));
+    }
+    if (action === "device") await deviceManager();
+    if (action === "status") await deviceStatus();
     if (action === "payment") await paymentTerminal();
+    if (action === "diagnostics") await diagnostics();
     if (action === "inspect") await inspectTransaction();
     if (action === "networks") showNetworks();
 

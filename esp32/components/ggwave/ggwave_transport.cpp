@@ -4,13 +4,18 @@
 #include <cstdlib>
 
 #include "ggwave/ggwave.h"
+#include "esp_log.h"
 
 namespace {
 
 // Keep the protocol waveform below the small bench speaker's clipping point.
 constexpr int kGgwaveVolume = 25;
+static const char *TAG = "ggwave";
 GGWave wave;
 bool initialized = false;
+uint32_t decode_calls = 0;
+uint32_t decode_failures = 0;
+uint32_t decoded_frames = 0;
 
 esp_err_t prepare(void)
 {
@@ -35,6 +40,12 @@ esp_err_t prepare(void)
     GGWave::Protocols::rx().toggle(GGWAVE_PROTOCOL_AUDIBLE_FASTEST, true);
 
     initialized = wave.prepare(parameters, true);
+    if (initialized) {
+        ESP_LOGI(TAG, "initialized sample_rate=48000 input=I16 output=I16 frame=512 payload=64 volume=%d heap=%d",
+                 kGgwaveVolume, wave.heapSize());
+    } else {
+        ESP_LOGE(TAG, "initialization failed");
+    }
     return initialized ? ESP_OK : ESP_ERR_NO_MEM;
 }
 
@@ -82,7 +93,11 @@ extern "C" int ggwave_transport_decode(const int16_t *samples, size_t sample_cou
                                          uint8_t *payload, size_t payload_capacity)
 {
     if (samples == nullptr || payload == nullptr || payload_capacity == 0 || prepare() != ESP_OK) return -1;
-    if (!wave.decode(samples, static_cast<uint32_t>(sample_count * sizeof(int16_t)))) return 0;
+    decode_calls++;
+    if (!wave.decode(samples, static_cast<uint32_t>(sample_count * sizeof(int16_t)))) {
+        decode_failures++;
+        return 0;
+    }
 
     GGWave::TxRxData received;
     const int received_size = wave.rxTakeData(received);
@@ -92,7 +107,15 @@ extern "C" int ggwave_transport_decode(const int16_t *samples, size_t sample_cou
     if (decoded_size == 0 || decoded_size >= GGWAVE_TRANSPORT_PAYLOAD_BYTES) return 0;
     if (decoded_size > payload_capacity) return -static_cast<int>(decoded_size);
     std::memcpy(payload, received.data() + 1, decoded_size);
+    decoded_frames++;
     return static_cast<int>(decoded_size);
+}
+
+extern "C" void ggwave_transport_log_status(void)
+{
+    ESP_LOGI(TAG, "status initialized=%d heap=%d decode_calls=%u decode_failures=%u decoded_frames=%u",
+             initialized ? 1 : 0, wave.heapSize(), (unsigned)decode_calls,
+             (unsigned)decode_failures, (unsigned)decoded_frames);
 }
 
 extern "C" int ggwave_transport_self_test(void)
@@ -112,5 +135,7 @@ extern "C" int ggwave_transport_self_test(void)
 
     if (decoded_size != static_cast<int>(sizeof(expected)) ||
         std::memcmp(decoded, expected, sizeof(expected)) != 0) return -4;
+    ESP_LOGI(TAG, "self-test samples=%u encoded=%d decoded=%d result=pass",
+             (unsigned)sample_count, encoded, decoded_size);
     return 0;
 }

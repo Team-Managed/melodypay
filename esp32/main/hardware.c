@@ -65,6 +65,10 @@ static esp_err_t init_amplifier(void)
     ESP_RETURN_ON_ERROR(i2s_channel_init_std_mode(amp_channel, &config), TAG, "amp mode");
     ESP_RETURN_ON_ERROR(i2s_channel_enable(amp_channel), TAG, "amp enable");
     amp_enabled = true;
+    ESP_LOGI(TAG, "mic_config rate=%d bits=32 mono=left bclk=%d ws=%d data=%d",
+             MELODY_SAMPLE_RATE, MELODY_MIC_BCLK_GPIO, MELODY_MIC_WS_GPIO, MELODY_MIC_DATA_GPIO);
+    ESP_LOGI(TAG, "amp_config rate=%d bits=16 slot=left bclk=%d ws=%d data=%d",
+             MELODY_SAMPLE_RATE, MELODY_AMP_BCLK_GPIO, MELODY_AMP_LRC_GPIO, MELODY_AMP_DATA_GPIO);
     return ESP_OK;
 }
 

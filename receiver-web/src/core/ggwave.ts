@@ -181,6 +181,7 @@ export async function createHardwareGGWaveSession(
   parameters.sampleRateInp = sampleRateInp;
   parameters.sampleRateOut = sampleRateOut;
   parameters.sampleRate = SAMPLE_RATE;
+  parameters.samplesPerFrame = 512;
   parameters.sampleFormatInp = module.SampleFormat.GGWAVE_SAMPLE_FORMAT_F32;
   parameters.sampleFormatOut = module.SampleFormat.GGWAVE_SAMPLE_FORMAT_F32;
   parameters.operatingMode = module.GGWAVE_OPERATING_MODE_RX_AND_TX;
