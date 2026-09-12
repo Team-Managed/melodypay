@@ -83,7 +83,8 @@ static int cmd_tx(int argc, char **argv)
 
     printf("transmitting %u bytes as %d samples...\n", (unsigned)payload_size, encoded_samples);
     hardware_mute_mic();
-    const esp_err_t result = hardware_play_pcm(waveform, (size_t)encoded_samples);
+    esp_err_t result = hardware_play_pcm(waveform, (size_t)encoded_samples);
+    if (result == ESP_OK) result = hardware_stop_pcm();
     hardware_unmute_mic();
     heap_caps_free(waveform);
     printf("result=%s\n", esp_err_to_name(result));

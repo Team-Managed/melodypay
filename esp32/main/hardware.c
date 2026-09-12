@@ -96,6 +96,21 @@ esp_err_t hardware_play_pcm(const int16_t *samples, size_t sample_count)
     return i2s_channel_write(amp_channel, samples, sample_count * sizeof(int16_t), &bytes_written, portMAX_DELAY);
 }
 
+esp_err_t hardware_stop_pcm(void)
+{
+    if (amp_channel == NULL || !amp_enabled) return ESP_OK;
+
+    static const int16_t silence[256] = {0};
+    size_t bytes_written = 0;
+    esp_err_t result = i2s_channel_write(amp_channel, silence, sizeof(silence), &bytes_written, portMAX_DELAY);
+    if (result != ESP_OK) return result;
+
+    vTaskDelay(pdMS_TO_TICKS(10));
+    result = i2s_channel_disable(amp_channel);
+    if (result == ESP_OK) amp_enabled = false;
+    return result;
+}
+
 esp_err_t hardware_run_audio_self_test(void)
 {
     static int16_t tone[48000];
@@ -107,10 +122,7 @@ esp_err_t hardware_run_audio_self_test(void)
     esp_err_t write_result = hardware_play_pcm(tone, 48000);
     static const int16_t silence[48000] = {0};
     if (write_result == ESP_OK) write_result = hardware_play_pcm(silence, 48000);
-    if (amp_channel != NULL) {
-        (void)i2s_channel_disable(amp_channel);
-        amp_enabled = false;
-    }
+    if (write_result == ESP_OK) write_result = hardware_stop_pcm();
     hardware_unmute_mic();
     if (write_result != ESP_OK) return write_result;
 
