@@ -1,6 +1,8 @@
 #include "display.h"
 #include "oled_animation.h"
 #include "oled_qr.h"
+#include "oled_success_warp.h"
+#include "oled_success_check.h"
 #include "hardware.h"
 
 #include "driver/i2c_master.h"
@@ -8,6 +10,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <ctype.h>
+#include <stdio.h>
 #include <string.h>
 
 static const char *TAG = "display";
@@ -295,5 +298,51 @@ void display_payment_menu_screen(uint8_t selection)
 void display_receive_screen(void)
 {
     memcpy(display_buffer, oled_qr_frame, sizeof(display_buffer));
+    (void)flush_display_buffer();
+}
+
+static void draw_checkmark(uint8_t x, uint8_t y)
+{
+    for (uint8_t index = 0; index < 12; index++) {
+        set_pixel((uint8_t)(x + index), (uint8_t)(y + 10 + index / 2), true);
+        set_pixel((uint8_t)(x + 10 + index), (uint8_t)(y + 16 - index), true);
+    }
+}
+
+void display_success_warp_animation(void)
+{
+    if (!display_connected) return;
+    for (uint8_t frame = 0; frame < OLED_SUCCESS_WARP_FRAME_COUNT; frame++) {
+        memcpy(display_buffer, oled_success_warp_frames[frame], sizeof(display_buffer));
+        (void)flush_display_buffer();
+        vTaskDelay(pdMS_TO_TICKS(90));
+    }
+}
+
+void display_success_check_animation(void)
+{
+    if (!display_connected) return;
+    for (uint8_t frame = 0; frame < OLED_SUCCESS_CHECK_FRAME_COUNT; frame++) {
+        memcpy(display_buffer, oled_success_check_frames[frame], sizeof(display_buffer));
+        (void)flush_display_buffer();
+        vTaskDelay(pdMS_TO_TICKS(80));
+    }
+}
+
+void display_success_screen(const char *amount, const char *symbol, const char *address)
+{
+    char amount_line[32];
+    char address_line[24];
+    snprintf(amount_line, sizeof(amount_line), "%s %s", amount ? amount : "", symbol ? symbol : "TOKEN");
+    if (address != NULL && strlen(address) >= 12) {
+        snprintf(address_line, sizeof(address_line), "%.8s...%.6s", address, address + strlen(address) - 6);
+    } else {
+        snprintf(address_line, sizeof(address_line), "Wallet ready");
+    }
+    memset(display_buffer, 0, sizeof(display_buffer));
+    draw_checkmark(54, 1);
+    draw_line("SUCCESS", 1);
+    draw_line(amount_line, 2);
+    draw_line(address_line, 3);
     (void)flush_display_buffer();
 }
