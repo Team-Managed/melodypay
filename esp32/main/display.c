@@ -129,6 +129,18 @@ static void set_pixel(uint8_t x, uint8_t y, bool on)
     else display_buffer[index] &= (uint8_t)~(1u << (y % 8));
 }
 
+static void copy_xbmp_frame(const uint8_t *frame)
+{
+    memset(display_buffer, 0, sizeof(display_buffer));
+    for (uint8_t y = 0; y < 64; y++) {
+        for (uint8_t x = 0; x < 128; x++) {
+            const size_t source_index = (size_t)y * 16 + x / 8;
+            const bool on = (frame[source_index] & (uint8_t)(1u << (x % 8))) != 0;
+            if (on) set_pixel(x, y, true);
+        }
+    }
+}
+
 static void draw_box(uint8_t x, uint8_t y, uint8_t width, uint8_t height)
 {
     for (uint8_t dx = 0; dx < width; dx++) {
@@ -313,7 +325,7 @@ void display_success_warp_frame(uint8_t frame)
 {
     if (!display_connected) return;
     if (frame >= OLED_SUCCESS_WARP_FRAME_COUNT) frame = OLED_SUCCESS_WARP_FRAME_COUNT - 1;
-    memcpy(display_buffer, oled_success_warp_frames[frame], sizeof(display_buffer));
+    copy_xbmp_frame(oled_success_warp_frames[frame]);
     (void)flush_display_buffer();
 }
 
@@ -321,7 +333,7 @@ void display_success_check_frame(uint8_t frame)
 {
     if (!display_connected) return;
     if (frame >= OLED_SUCCESS_CHECK_FRAME_COUNT) frame = OLED_SUCCESS_CHECK_FRAME_COUNT - 1;
-    memcpy(display_buffer, oled_success_check_frames[frame], sizeof(display_buffer));
+    copy_xbmp_frame(oled_success_check_frames[frame]);
     (void)flush_display_buffer();
 }
 

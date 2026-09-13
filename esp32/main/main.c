@@ -74,6 +74,21 @@ static void show_payment_success(void)
     vTaskDelay(pdMS_TO_TICKS(2500));
 }
 
+static void run_debug_success_animation(bool check)
+{
+    success_audio_running = true;
+    success_audio_done = false;
+    success_audio_phase = check ? 2 : 1;
+    if (xTaskCreate(success_chime_task, "debug_chime", 3072, NULL, 4, NULL) != pdPASS) {
+        success_audio_running = false;
+        success_audio_done = true;
+    }
+    if (check) display_success_check_animation();
+    else display_success_warp_animation();
+    success_audio_running = false;
+    while (!success_audio_done) vTaskDelay(pdMS_TO_TICKS(10));
+}
+
 static void bytes_to_hex(const uint8_t *bytes, size_t length, char *output)
 {
     static const char hex[] = "0123456789abcdef";
@@ -720,6 +735,22 @@ static int cmd_oled_check(int argc, char **argv)
     return 0;
 }
 
+static int cmd_oled_warp_sound(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+    run_debug_success_animation(false);
+    return 0;
+}
+
+static int cmd_oled_check_sound(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+    run_debug_success_animation(true);
+    return 0;
+}
+
 static int cmd_oled_success(int argc, char **argv)
 {
     (void)argc;
@@ -945,6 +976,18 @@ static void init_console(void)
         .hint = "[frame]",
         .func = &cmd_oled_check,
     };
+    const esp_console_cmd_t warp_sound_command = {
+        .command = "oled_warp_sound",
+        .help = "play the warp animation with its chime",
+        .hint = NULL,
+        .func = &cmd_oled_warp_sound,
+    };
+    const esp_console_cmd_t check_sound_command = {
+        .command = "oled_check_sound",
+        .help = "play the checkmark animation with its chime",
+        .hint = NULL,
+        .func = &cmd_oled_check_sound,
+    };
     const esp_console_cmd_t success_command = {
         .command = "oled_success",
         .help = "show the final payment success layout",
@@ -1003,6 +1046,8 @@ static void init_console(void)
     ESP_ERROR_CHECK(esp_console_cmd_register(&screen_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&warp_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&check_command));
+    ESP_ERROR_CHECK(esp_console_cmd_register(&warp_sound_command));
+    ESP_ERROR_CHECK(esp_console_cmd_register(&check_sound_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&success_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&tx_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&ggtest_command));
