@@ -57,6 +57,16 @@ button_event_t button_poll_event(void)
     return BUTTON_EVENT_NONE;
 }
 
+esp_err_t button_wait_for_release(uint32_t timeout_ms)
+{
+    if (!initialized) return ESP_ERR_INVALID_STATE;
+    const int64_t deadline = esp_timer_get_time() + (int64_t)timeout_ms * 1000;
+    while (button_is_pressed() && esp_timer_get_time() < deadline) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    return button_is_pressed() ? ESP_ERR_TIMEOUT : ESP_OK;
+}
+
 bool button_is_pressed(void)
 {
     return initialized && gpio_get_level(MELODY_APPROVAL_BUTTON_GPIO) == 0;

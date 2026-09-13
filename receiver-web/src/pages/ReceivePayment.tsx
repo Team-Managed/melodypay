@@ -11,8 +11,7 @@ import {
     Search,
 } from "lucide-react";
 import { CHAIN_CONFIGS, getChainConfig } from "../core/chains";
-import { startChunkedListening, startListening } from "../core/listener";
-import { playChunkedPayload, playPayload } from "../core/broadcaster";
+import { startHardwareChunkedListening, startHardwareListening, playHardwareChunkedPayload, playHardwarePayload } from "../core/hardware-audio";
 import {
     broadcastTransaction,
     getFeeData,
@@ -113,7 +112,7 @@ export function ReceivePayment() {
             setStep("waiting-sender");
             setStatus("Listening for the hardware wallet...");
 
-            const { stop } = await startListening(async (data) => {
+            const { stop } = await startHardwareListening(async ({ text: data }) => {
                 if (cancelledRef.current || !data.startsWith("ADDR|")) return;
 
                 const senderText = data.slice("ADDR|".length).trim();
@@ -161,8 +160,8 @@ export function ReceivePayment() {
                     for (let attempt = 1; attempt <= 3; attempt += 1) {
                         if (cancelledRef.current) return;
                         setStatus(`Sending payment request (${attempt}/3)...`);
-                        if (chain.chainId === 10143) await playPayload(paymentRequest);
-                        else await playChunkedPayload(paymentRequest);
+                        if (chain.chainId === 10143) await playHardwarePayload(paymentRequest);
+                        else await playHardwareChunkedPayload(paymentRequest);
                         if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 1000));
                     }
 
@@ -175,7 +174,7 @@ export function ReceivePayment() {
                         }
                     }, PAYMENT_TTL_SECONDS * 1000);
 
-                    const { stop: stopChunked } = await startChunkedListening(
+                    const { stop: stopChunked } = await startHardwareChunkedListening(
                         async (signedTx) => {
                             if (cancelledRef.current || !signedTx.startsWith("0x")) return;
                             const pending = pendingRef.current;

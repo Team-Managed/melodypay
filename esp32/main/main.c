@@ -282,8 +282,14 @@ static void handle_ui_event(button_event_t event)
             render_ui();
         } else if (ui_selection == 0) {
             ui_screen = UI_PAYMENT;
+            if (button_wait_for_release(1000) != ESP_OK) {
+                ui_screen = UI_HOME;
+                ui_selection = 0;
+                render_ui();
+                return;
+            }
             const esp_err_t payment_result = run_hardware_payment_sender();
-            if (payment_result != ESP_OK) {
+            if (payment_result != ESP_OK && payment_result != ESP_ERR_INVALID_STATE) {
                 display_message("PAYMENT", "Flow stopped", esp_err_to_name(payment_result), "");
                 vTaskDelay(pdMS_TO_TICKS(1200));
             }

@@ -101,6 +101,28 @@ esp_err_t hardware_play_pcm(const int16_t *samples, size_t sample_count)
     return i2s_channel_write(amp_channel, samples, sample_count * sizeof(int16_t), &bytes_written, portMAX_DELAY);
 }
 
+esp_err_t hardware_play_pcm_interruptible(const int16_t *samples, size_t sample_count,
+                                          hardware_cancel_fn_t should_cancel, void *context)
+{
+    if (amp_channel == NULL) return ESP_ERR_NOT_SUPPORTED;
+    if (!amp_enabled) {
+        ESP_RETURN_ON_ERROR(i2s_channel_enable(amp_channel), TAG, "amp re-enable");
+        amp_enabled = true;
+    }
+    for (size_t offset = 0; offset < sample_count; offset += 256) {
+        if (should_cancel != NULL && should_cancel(context)) {
+            (void)hardware_stop_pcm();
+            return ESP_ERR_INVALID_STATE;
+        }
+        const size_t count = sample_count - offset > 256 ? 256 : sample_count - offset;
+        size_t bytes_written = 0;
+        esp_err_t result = i2s_channel_write(amp_channel, samples + offset,
+                                             count * sizeof(int16_t), &bytes_written, portMAX_DELAY);
+        if (result != ESP_OK) return result;
+    }
+    return hardware_stop_pcm();
+}
+
 esp_err_t hardware_stop_pcm(void)
 {
     if (amp_channel == NULL || !amp_enabled) return ESP_OK;

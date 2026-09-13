@@ -17,3 +17,4 @@ esp_err_t button_init(void);
 bool button_is_pressed(void);
 esp_err_t button_wait_for_approval(uint32_t timeout_ms);
 button_event_t button_poll_event(void);
+esp_err_t button_wait_for_release(uint32_t timeout_ms);

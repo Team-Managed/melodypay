@@ -278,7 +278,7 @@ void display_menu_screen(uint8_t selection)
 
 void display_payment_screen(void)
 {
-    display_message("PAYMENT", "Waiting request", "Single click = back", "");
+    display_message("PAYMENT", "Waiting request", "Audio link ready", "");
 }
 
 void display_receive_screen(void)

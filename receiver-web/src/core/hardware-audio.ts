@@ -7,6 +7,7 @@ import {
   unpackHardwarePayload,
   type HardwarePayload,
 } from "./hardware-ggwave-frame";
+import { splitLegacyPayload } from "./broadcaster";
 
 const HARDWARE_SAMPLE_RATE = 48000;
 
@@ -45,6 +46,14 @@ export async function playHardwarePayload(text: string): Promise<void> {
   } finally {
     session?.dispose();
     closeAudioContext(audioContext);
+  }
+}
+
+export async function playHardwareChunkedPayload(text: string, gapMs = 300): Promise<void> {
+  const chunks = splitLegacyPayload(text, 56);
+  for (let index = 0; index < chunks.length; index += 1) {
+    await playHardwarePayload(chunks[index]);
+    if (index < chunks.length - 1) await new Promise((resolve) => setTimeout(resolve, gapMs));
   }
 }
 
@@ -104,4 +113,30 @@ export async function startHardwareListening(
     stop();
     throw error;
   }
+}
+
+export async function startHardwareChunkedListening(
+  onComplete: (payload: string) => void,
+  onStatus?: (message: string) => void,
+): Promise<{ stop: () => void }> {
+  const chunks = new Map<number, string>();
+  let expectedTotal = 0;
+  return startHardwareListening((decoded) => {
+    const match = decoded.text.match(/^TX(\d+)\/(\d+)\|(.*)$/);
+    if (!match) {
+      onComplete(decoded.text);
+      return;
+    }
+    const index = Number(match[1]);
+    const total = Number(match[2]);
+    if (!Number.isInteger(index) || !Number.isInteger(total) || index < 1 || index > total || total > 16) return;
+    if (expectedTotal !== 0 && expectedTotal !== total) chunks.clear();
+    expectedTotal = total;
+    chunks.set(index, match[3]);
+    onStatus?.(`Received transaction chunk ${chunks.size}/${total}`);
+    if (chunks.size !== total || !Array.from({ length: total }, (_, offset) => chunks.has(offset + 1)).every(Boolean)) return;
+    onComplete(Array.from({ length: total }, (_, offset) => chunks.get(offset + 1) ?? "").join(""));
+    chunks.clear();
+    expectedTotal = 0;
+  });
 }
