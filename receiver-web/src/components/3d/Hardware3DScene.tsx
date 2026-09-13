@@ -41,7 +41,7 @@ export function Hardware3DScene({
 
         // 2. CAMERA SETUP - eye-level viewing with crisp framing
         const camera = new THREE.PerspectiveCamera(38, container.clientWidth / container.clientHeight, 0.1, 100);
-        camera.position.set(0, 0.4, 19.8);
+        camera.position.set(0, 0.35, 16.8);
         camera.lookAt(0, 0.1, 0);
 
         // 3. RENDERER SETUP
@@ -102,8 +102,8 @@ export function Hardware3DScene({
         const assembly = buildHardware3DAssembly();
         assemblyRef.current = assembly;
 
-        // Scale to 0.95 for commanding visual presence while remaining safely within canvas bounds
-        assembly.root.scale.set(0.95, 0.95, 0.95);
+        // Scale to 1.15 for commanding, detailed visual presence
+        assembly.root.scale.set(1.15, 1.15, 1.15);
 
         // Orient model so the FRONT FACE stands upright facing the user:
         assembly.root.rotation.x = 1.28;

@@ -581,7 +581,7 @@ export function Home() {
                 {/* Pinned Sticky on desktop, Natural height and zero clipping on mobile/tablet */}
                 <div className="relative lg:sticky lg:top-0 min-h-fit lg:h-screen w-full flex flex-col justify-start lg:justify-center py-10 sm:py-14 lg:py-6 pt-12 sm:pt-16 lg:pt-22 pb-10 sm:pb-14 lg:pb-6 overflow-visible lg:overflow-hidden">
                     <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-16 w-full flex flex-col justify-center">
-                        {/* Section Header - Properly scaled so it never slices or collides */}
+                        {/* Section Header - Centered in between */}
                         <div className="text-center max-w-2xl mx-auto mb-5 sm:mb-6 lg:mb-8">
                             <span className="text-xs sm:text-sm font-mono text-emerald-700 uppercase tracking-widest block mb-1.5 font-semibold">
                                 // PHYSICAL ARCHITECTURE
@@ -619,9 +619,9 @@ export function Home() {
                         </div>
 
                         {/* 2-COLUMN SHOWCASE: STAIRCASE FEATURES (LEFT) + 3D MODEL (RIGHT) */}
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12 items-center w-full min-h-0">
-                            {/* LEFT COLUMN: SCROLLING STAIRCASE OF FEATURES */}
-                            <div className="lg:col-span-5 relative flex items-center min-h-[180px] sm:min-h-[220px] lg:h-[300px]">
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center w-full min-h-0">
+                            {/* LEFT COLUMN: SCROLLING STAIRCASE OF FEATURES (LEFT-ALIGNED) */}
+                            <div className="lg:col-span-5 relative flex items-center min-h-[180px] sm:min-h-[220px] lg:h-[320px]">
                                 {/* Delicate Vertical Staircase Step Rail (Desktop only) */}
                                 <div className="hidden lg:flex absolute left-0 top-3 bottom-3 w-8 flex-col justify-between items-center z-10 select-none">
                                     {PROTOTYPE_FEATURES.map((feat, idx) => {
@@ -682,21 +682,21 @@ export function Home() {
                                             initial="enter"
                                             animate="center"
                                             exit="exit"
-                                            className="w-full flex flex-col justify-center text-center lg:text-left"
+                                            className="w-full flex flex-col justify-center text-left items-start"
                                         >
-                                            <span className="text-xs sm:text-sm font-mono font-bold text-emerald-700 uppercase tracking-widest block mb-1.5">
+                                            <span className="text-xs sm:text-sm font-mono font-bold text-emerald-700 uppercase tracking-widest block mb-1.5 text-left">
                                                 {currentFeature.step} &mdash; {currentFeature.tag}
                                             </span>
 
-                                            <h3 className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-extrabold text-[#111113] font-sans tracking-tight mb-1.5">
+                                            <h3 className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-extrabold text-[#111113] font-sans tracking-tight mb-1.5 text-left">
                                                 {currentFeature.title}
                                             </h3>
 
-                                            <div className="text-xs sm:text-sm text-[#4B4B52] font-mono mb-3">
+                                            <div className="text-xs sm:text-sm text-[#4B4B52] font-mono mb-3 text-left">
                                                 {currentFeature.subtitle}
                                             </div>
 
-                                            <p className="text-sm sm:text-base text-[#333338] leading-relaxed font-sans max-w-lg mx-auto lg:mx-0">
+                                            <p className="text-sm sm:text-base text-[#333338] leading-relaxed font-sans max-w-lg text-left">
                                                 {currentFeature.desc}
                                             </p>
                                         </motion.div>
@@ -704,8 +704,8 @@ export function Home() {
                                 </div>
                             </div>
 
-                            {/* RIGHT COLUMN: 3D HARDWARE MODEL */}
-                            <div className="lg:col-span-7 h-[260px] sm:h-[320px] lg:h-[380px] xl:h-[420px] flex items-center justify-center relative pointer-events-auto">
+                            {/* RIGHT COLUMN: 3D HARDWARE MODEL (ENLARGED & COMMANDING) */}
+                            <div className="lg:col-span-7 h-[300px] sm:h-[380px] lg:h-[460px] xl:h-[520px] flex items-center justify-center relative pointer-events-auto">
                                 <div className="w-full h-full relative flex items-center justify-center select-none">
                                     <Hardware3DScene
                                         activePartKey={currentFeature.partKey}
