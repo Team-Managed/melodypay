@@ -203,6 +203,7 @@ export function ReceivePayment() {
                                 setStatus(`Broadcasting ${ethers.formatEther(parsed.value)} ${chain.nativeSymbol}...`);
                                 const hash = await broadcastTransaction(signedTx, chain.chainId);
                                 if (cancelledRef.current) return;
+                                await playHardwareChunkedPayload(`RECEIPT|${hash}`);
                                 setTxHash(hash);
                                 setStep("done");
                                 setStatus(`${ethers.formatEther(parsed.value)} ${chain.nativeSymbol} submitted.`);

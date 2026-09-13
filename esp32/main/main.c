@@ -262,9 +262,17 @@ static esp_err_t run_hardware_payment_sender(void)
     }
     memset(signed_transaction, 0, sizeof(signed_transaction));
     memset(signed_hex, 0, sizeof(signed_hex));
+    if (result != ESP_OK) return result;
+    display_payment_menu_screen(0);
+    char receipt[128] = {0};
+    result = listen_audio_text(receipt, sizeof(receipt), 60000);
+    if (result == ESP_ERR_TIMEOUT) return ESP_ERR_INVALID_STATE;
+    if (result != ESP_OK || strncmp(receipt, "RECEIPT|", 8) != 0) return result == ESP_OK ? ESP_ERR_INVALID_RESPONSE : result;
     wallet_state_set(WALLET_IDLE);
-    display_message("PAYMENT", "Transaction sent", "Awaiting receipt", "");
-    return result;
+    display_message("PAYMENT", "Complete", "Receipt received", "");
+    (void)hardware_play_success_chime();
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    return ESP_OK;
 }
 
 static void boot_chime_task(void *argument)

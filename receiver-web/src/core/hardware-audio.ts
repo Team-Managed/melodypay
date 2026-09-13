@@ -59,6 +59,7 @@ export async function playHardwareChunkedPayload(text: string, gapMs = 300): Pro
 
 export async function startHardwareListening(
   onPayload: (payload: HardwarePayload) => void,
+  deliverOnce = true,
 ): Promise<{ stop: () => void }> {
   const audioContext = new AudioContext({ sampleRate: HARDWARE_SAMPLE_RATE });
   let stream: MediaStream | null = null;
@@ -96,12 +97,12 @@ export async function startHardwareListening(
     muteNode.gain.value = 0;
 
     processor.onaudioprocess = (event) => {
-      if (stopped || delivered || !session) return;
+      if (stopped || (delivered && deliverOnce) || !session) return;
       const frame = session.decode(event.inputBuffer.getChannelData(0));
       if (!frame) return;
       const payload = unpackHardwarePayload(frame);
       if (!payload) return;
-      delivered = true;
+      if (deliverOnce) delivered = true;
       onPayload(payload);
     };
 
@@ -138,5 +139,5 @@ export async function startHardwareChunkedListening(
     onComplete(Array.from({ length: total }, (_, offset) => chunks.get(offset + 1) ?? "").join(""));
     chunks.clear();
     expectedTotal = 0;
-  });
+  }, false);
 }
