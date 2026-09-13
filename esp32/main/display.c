@@ -368,14 +368,18 @@ void display_success_screen_frame(const char *amount, const char *symbol, const 
 void display_success_screen_check_animation(const char *amount, const char *symbol, const char *address)
 {
     if (!display_connected) return;
-    const uint8_t *previous_frame = NULL;
-    for (uint8_t frame = 0; frame < OLED_SUCCESS_CHECK_FRAME_COUNT; frame++) {
-        const uint8_t *current_frame = OLED_SUCCESS_CHECK_frames[frame];
-        if (previous_frame != NULL && memcmp(previous_frame, current_frame, sizeof(display_buffer)) == 0) continue;
-        display_success_screen_frame(amount, symbol, address, frame);
-        previous_frame = current_frame;
-        vTaskDelay(pdMS_TO_TICKS(100));
-    }
+    const TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(2500);
+    do {
+        const uint8_t *previous_frame = NULL;
+        for (uint8_t frame = 0; frame < OLED_SUCCESS_CHECK_FRAME_COUNT; frame++) {
+            if (xTaskGetTickCount() >= deadline) return;
+            const uint8_t *current_frame = OLED_SUCCESS_CHECK_frames[frame];
+            if (previous_frame != NULL && memcmp(previous_frame, current_frame, sizeof(display_buffer)) == 0) continue;
+            display_success_screen_frame(amount, symbol, address, frame);
+            previous_frame = current_frame;
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+    } while (xTaskGetTickCount() < deadline);
 }
 
 void display_success_screen(const char *amount, const char *symbol, const char *address)
