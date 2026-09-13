@@ -109,7 +109,7 @@ export function AudioTest() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="w-full max-w-2xl mx-auto px-5 sm:px-8"
+      className="min-h-screen w-full max-w-2xl mx-auto px-5 pb-10 pt-28 sm:px-8 sm:pt-32"
     >
       <div className="flex items-center mb-8">
         <Link

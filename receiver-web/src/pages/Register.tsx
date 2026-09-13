@@ -207,7 +207,7 @@ export function Register() {
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="relative isolate min-h-[calc(100vh-5rem)] overflow-hidden px-4 py-12 text-white sm:px-6 lg:px-10 lg:py-16"
+            className="relative isolate min-h-screen overflow-hidden px-4 pb-10 pt-28 text-white sm:px-6 sm:pt-32 lg:px-10 lg:pb-12 lg:pt-28"
         >
             <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden bg-[#0d281a]">
                 <img src="/image copy 2.png" alt="" className="h-full w-full scale-105 object-cover object-center opacity-70" />

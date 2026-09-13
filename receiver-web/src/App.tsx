@@ -4,7 +4,6 @@ import { Home } from "./pages/Home";
 import { ReceivePayment } from "./pages/ReceivePayment";
 import { AudioTest } from "./pages/AudioTest";
 import { Register } from "./pages/Register";
-import { InstallPrompt } from "./components/InstallPrompt";
 import { StudioHeader } from "./components/StudioHeader";
 import ReactLenis from "lenis/react";
 
@@ -29,10 +28,9 @@ export default function App() {
             <BrowserRouter>
                 <div className="min-h-screen bg-[#FBFBF9] text-[#111113] relative overflow-x-clip flex flex-col font-sans selection:bg-[#0088FF]/20 selection:text-[#111113]">
                     <StudioHeader />
-                    <main className="flex-1 flex flex-col">
+                    <main className="min-h-0 flex-1 flex flex-col">
                         <AnimatedRoutes />
                     </main>
-                    <InstallPrompt />
                 </div>
             </BrowserRouter>
         </ReactLenis>
