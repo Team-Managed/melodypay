@@ -22,6 +22,7 @@ import {
     validateSignedReceiveAuthorization,
 } from "../core/tx-builder";
 import { ARC_CANONICAL_USDC, ARC_CHAIN_ID, generateAuthorizationNonce, splitAuthorizationSignature } from "../core/eip3009";
+import { resolveMerchantName } from "../core/ensv2";
 
 type Step =
     | "setup"
@@ -51,6 +52,8 @@ export function ReceivePayment() {
     const [recipientAddress, setRecipientAddress] = useState("");
     const [chainId, setChainId] = useState(10143);
     const [amount, setAmount] = useState("0.01");
+    const [resolvedMerchantName, setResolvedMerchantName] = useState("");
+    const [resolvedMerchantAddress, setResolvedMerchantAddress] = useState("");
     const [step, setStep] = useState<Step>("setup");
     const [status, setStatus] = useState("");
     const [txHash, setTxHash] = useState("");
@@ -96,8 +99,8 @@ export function ReceivePayment() {
             setError("Unsupported chain selected.");
             return;
         }
-        if (!ethers.isAddress(recipientAddress)) {
-            setError("Enter a valid receiving address.");
+        if (!recipientAddress.trim()) {
+            setError("Enter a receiving address or ENS name.");
             return;
         }
 
@@ -115,9 +118,23 @@ export function ReceivePayment() {
         }
 
         cancelledRef.current = false;
-        const receiver = ethers.getAddress(recipientAddress);
 
         try {
+            let receiver: string;
+            if (ethers.isAddress(recipientAddress.trim())) {
+                receiver = ethers.getAddress(recipientAddress.trim());
+                setResolvedMerchantName("");
+                setResolvedMerchantAddress("");
+            } else {
+                setStatus("Resolving ENS merchant profile...");
+                const profile = await resolveMerchantName(recipientAddress);
+                if (profile.chainId !== undefined && profile.chainId !== chain.chainId) {
+                    throw new Error(`ENS profile is configured for chain ${profile.chainId}, not ${chain.chainId}`);
+                }
+                receiver = profile.address;
+                setResolvedMerchantName(profile.name);
+                setResolvedMerchantAddress(profile.address);
+            }
             setStep("waiting-sender");
             setStatus("Listening for the hardware wallet...");
 
@@ -325,14 +342,18 @@ export function ReceivePayment() {
                     </div>
 
                     <div>
-                        <label className="text-xs font-medium text-app-dark/60 mb-2 block uppercase tracking-wider">Receiving address</label>
+                        <label className="text-xs font-medium text-app-dark/60 mb-2 block uppercase tracking-wider">Receiving address or ENS name</label>
                         <input
                             value={recipientAddress}
                             onChange={(event) => setRecipientAddress(event.target.value)}
-                            placeholder="0x..."
+                            placeholder="0x... or cafe.melodypay.eth"
                             className="w-full bg-[#FAFAFA] border border-app-border focus:border-app-dark outline-none px-4 py-3 rounded-xl text-sm text-app-dark transition-all"
                         />
                     </div>
+
+                    {resolvedMerchantName && (
+                        <p className="text-xs text-green-700">Resolved {resolvedMerchantName} to {resolvedMerchantAddress}</p>
+                    )}
 
                     <div>
                         <label className="text-xs font-medium text-app-dark/60 mb-2 block uppercase tracking-wider">Network</label>
