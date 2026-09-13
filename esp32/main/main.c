@@ -248,8 +248,10 @@ static esp_err_t run_hardware_payment_sender(void)
     result = evm_sign_eip1559(&transfer, signed_transaction, sizeof(signed_transaction), &signed_length);
     if (result != ESP_OK) return result;
     ESP_LOGI(TAG, "transaction signed; transmitting %u bytes", (unsigned)signed_length);
-    char signed_hex[513];
-    bytes_to_hex(signed_transaction, signed_length, signed_hex);
+    char signed_hex[515];
+    bytes_to_hex(signed_transaction, signed_length, signed_hex + 2);
+    signed_hex[0] = '0';
+    signed_hex[1] = 'x';
     const size_t chunk_size = 48;
     const size_t total = (strlen(signed_hex) + chunk_size - 1) / chunk_size;
     for (size_t index = 0; index < total; index++) {
