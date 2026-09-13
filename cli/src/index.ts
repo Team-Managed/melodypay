@@ -7,7 +7,7 @@ import {
   text,
 } from "@clack/prompts";
 import { ethers } from "ethers";
-import { loadBalanceRows } from "./balances.js";
+import { formatBalanceRows, loadBalanceRows } from "./balances.js";
 import { CLI_CHAINS, getCliChain } from "./chains.js";
 import { getPaymentRequest, validateAndBroadcast, type ReceiverRequest } from "./receiver.js";
 import { DeviceClient } from "./device.js";
@@ -21,10 +21,6 @@ let deviceClient: DeviceClient | null = null;
 
 function clearTerminal() {
   process.stdout.write("\x1b[3J\x1b[2J\x1b[H");
-}
-
-function shortenAddress(address: string): string {
-  return address.length > 14 ? `${address.slice(0, 8)}...${address.slice(-6)}` : address;
 }
 
 function cancelled<T>(value: T | symbol): value is symbol {
@@ -146,13 +142,9 @@ async function walletDashboard() {
     const { address } = await deviceClient.address();
     const rows = await loadBalanceRows(address);
     loader.stop("Wallet balances loaded");
-    console.log(`Address: ${shortenAddress(address)}`);
+    console.log(`Address: ${address}`);
     console.log(`Device:  ${deviceConnection?.path ?? "disconnected"}`);
-    const visibleRows = rows.slice(0, 5).map((row) =>
-      `${row.asset}:${row.status === "ok" ? row.balance : "n/a"}`,
-    );
-    const remainingRows = rows.length - visibleRows.length;
-    console.log(`Balances: ${visibleRows.join(" | ")}${remainingRows > 0 ? ` | +${remainingRows} more` : ""}`);
+    console.log("\n" + formatBalanceRows(rows));
   } catch (error) {
     loader.stop("Dashboard unavailable", 1);
     console.error(error instanceof Error ? error.message : error);
