@@ -10,16 +10,19 @@ describe("ENSv2 merchant profiles", () => {
     expect(normalizeMerchantName(" Cafe.MelodyPay.eth ")).toBe("cafe.melodypay.eth");
   });
 
-  it("accepts an Arc USDC profile", () => {
+  it("accepts profiles for every supported wallet chain", () => {
     expect(() => validateMerchantPaymentProfile({
       chainId: 5042002,
       tokenAddress: ARC_USDC_ADDRESS,
       tokenDecimals: 6,
     })).not.toThrow();
+    expect(() => validateMerchantPaymentProfile({ chainId: 10143 })).not.toThrow();
+    expect(() => validateMerchantPaymentProfile({ chainId: 11155111 })).not.toThrow();
   });
 
-  it("rejects a profile for another chain or token", () => {
-    expect(() => validateMerchantPaymentProfile({ chainId: 11155111 })).toThrow(/Arc/);
-    expect(() => validateMerchantPaymentProfile({ tokenAddress: "0x1111111111111111111111111111111111111111" })).toThrow(/token/);
+  it("rejects unsupported profile metadata", () => {
+    expect(() => validateMerchantPaymentProfile({ chainId: 999999 })).toThrow(/unsupported chain/i);
+    expect(() => validateMerchantPaymentProfile({ tokenAddress: "not-an-address" })).toThrow(/token address/i);
+    expect(() => validateMerchantPaymentProfile({ tokenDecimals: 37 })).toThrow(/decimals/i);
   });
 });

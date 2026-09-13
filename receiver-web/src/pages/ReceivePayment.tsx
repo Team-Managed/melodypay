@@ -128,9 +128,6 @@ export function ReceivePayment() {
             } else {
                 setStatus("Resolving ENS merchant profile...");
                 const profile = await resolveMerchantName(recipientAddress);
-                if (profile.chainId !== undefined && profile.chainId !== chain.chainId) {
-                    throw new Error(`ENS profile is configured for chain ${profile.chainId}, not ${chain.chainId}`);
-                }
                 receiver = profile.address;
                 setResolvedMerchantName(profile.name);
                 setResolvedMerchantAddress(profile.address);

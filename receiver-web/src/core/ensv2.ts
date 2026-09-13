@@ -2,6 +2,7 @@ import { getAddress, isAddress } from "ethers";
 import { createPublicClient, http } from "viem";
 import { sepolia } from "viem/chains";
 import { namehash, normalize } from "viem/ens";
+import { isSupportedChain } from "./chains";
 
 export const ENS_SEPOLIA_CHAIN_ID = 11155111;
 export const ARC_CHAIN_ID = 5042002;
@@ -27,14 +28,14 @@ export function normalizeMerchantName(name: string): string {
 export function validateMerchantPaymentProfile(
   profile: Pick<MerchantEnsProfile, "chainId" | "tokenAddress" | "tokenDecimals">,
 ): void {
-  if (profile.chainId !== undefined && profile.chainId !== ARC_CHAIN_ID) {
-    throw new Error("ENS payment profile is not configured for Arc Testnet");
+  if (profile.chainId !== undefined && !isSupportedChain(profile.chainId)) {
+    throw new Error("ENS payment profile uses an unsupported chain");
   }
-  if (profile.tokenAddress !== undefined && getAddress(profile.tokenAddress) !== getAddress(ARC_USDC_ADDRESS)) {
-    throw new Error("ENS payment profile points to an unsupported token");
+  if (profile.tokenAddress !== undefined && !isAddress(profile.tokenAddress)) {
+    throw new Error("ENS payment profile contains an invalid token address");
   }
-  if (profile.tokenDecimals !== undefined && profile.tokenDecimals !== 6) {
-    throw new Error("ENS payment profile has invalid USDC decimals");
+  if (profile.tokenDecimals !== undefined && (!Number.isInteger(profile.tokenDecimals) || profile.tokenDecimals < 0 || profile.tokenDecimals > 36)) {
+    throw new Error("ENS payment profile contains invalid token decimals");
   }
 }
 
