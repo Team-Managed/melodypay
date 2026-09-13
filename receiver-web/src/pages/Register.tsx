@@ -27,23 +27,25 @@ const TREASURY_ADDRESS = "0xE36f3d4Bd0a6bbdd940404C6323c1121b2666176";
 // Target Contract (Official Base Sepolia Deployment)
 const RAW_PREBOOKING_ADDRESS = 
     (import.meta as any).env?.VITE_PREBOOKING_CONTRACT_ADDRESS || 
-    "0xbCcbF37cFcFC282AD7540b298650faCCC92095E6";
+    "0x79DF554250BC15efE9de1b6167c911e5a153A20E";
 
 const PREBOOKING_CONTRACT_ADDRESS = (() => {
     try {
         return ethers.getAddress(RAW_PREBOOKING_ADDRESS.toLowerCase());
     } catch {
-        return "0xbCcbF37cFcFC282AD7540b298650faCCC92095E6";
+        return "0x79DF554250BC15efE9de1b6167c911e5a153A20E";
     }
 })();
 
 const PREBOOKING_ABI = [
     "function prebook() external returns (uint256 queueNumber)",
+    "function prebook(uint256 quantity) external returns (uint256 startQueueNumber)",
     "function getQueueCount() external view returns (uint256)",
     "function getUserQueue(address user) external view returns (uint256)",
+    "function getUserUnits(address user) external view returns (uint256)",
     "function hasPrebooked(address user) external view returns (bool)",
     "function totalPrebookings() external view returns (uint256)",
-    "event Prebooked(uint256 indexed queueNumber, address indexed user, uint256 amount, uint256 timestamp)",
+    "event Prebooked(uint256 indexed queueNumber, address indexed user, uint256 totalCost, uint256 quantity, uint256 timestamp)",
 ];
 
 const ERC20_ABI = [
@@ -60,6 +62,8 @@ export function Register() {
     const [isBaseNetwork, setIsBaseNetwork] = useState(false);
     const [queueCount, setQueueCount] = useState<number>(0);
     const [userExistingQueue, setUserExistingQueue] = useState<number | null>(null);
+    const [userUnits, setUserUnits] = useState<number>(0);
+    const [quantity, setQuantity] = useState<number>(1);
     const [usdcAllowance, setUsdcAllowance] = useState<bigint>(0n);
     const [usdcBalance, setUsdcBalance] = useState<string>("0.00");
     const [isApproving, setIsApproving] = useState(false);
@@ -68,6 +72,10 @@ export function Register() {
     const [statusMessage, setStatusMessage] = useState("");
 
     const activeUsdcAddress = BASE_SEPOLIA_USDC;
+
+    const unitPrice = 1.0;
+    const totalPrice = (quantity * unitPrice).toFixed(2);
+    const totalAllowanceNeeded = BigInt(quantity) * 1_000_000n;
 
     // Fetch live on-chain queue count from Base Sepolia contract immediately
     useEffect(() => {
@@ -129,17 +137,22 @@ export function Register() {
             const usdcAddr = BASE_SEPOLIA_USDC;
 
             if (isBase) {
-                // Read live queue count
+                // Read live queue count & user reservations
                 try {
                     const contract = new ethers.Contract(PREBOOKING_CONTRACT_ADDRESS, PREBOOKING_ABI, provider);
                     const count = await contract.getQueueCount();
                     setQueueCount(Number(count));
 
-                    const existingQ = await contract.getUserQueue(userAddr);
+                    const [existingQ, units] = await Promise.all([
+                        contract.getUserQueue(userAddr).catch(() => 0n),
+                        contract.getUserUnits(userAddr).catch(() => 0n),
+                    ]);
                     if (Number(existingQ) > 0) {
                         setUserExistingQueue(Number(existingQ));
+                        setUserUnits(Number(units) || 1);
                     } else {
                         setUserExistingQueue(null);
+                        setUserUnits(0);
                     }
                 } catch {}
 
@@ -179,6 +192,7 @@ export function Register() {
     const disconnectWallet = () => {
         setConnectedWallet(null);
         setUserExistingQueue(null);
+        setUserUnits(0);
         setUsdcAllowance(0n);
         setUsdcBalance("0.00");
         setErrorMessage("");
@@ -224,19 +238,19 @@ export function Register() {
 
         setErrorMessage("");
         setIsApproving(true);
-        setStatusMessage("Requesting 1.00 USDC approval in wallet...");
+        setStatusMessage(`Requesting ${totalPrice} USDC approval in wallet...`);
 
         try {
             const provider = new ethers.BrowserProvider((window as any).ethereum);
             const signer = await provider.getSigner();
             const usdcContract = new ethers.Contract(activeUsdcAddress, ERC20_ABI, signer);
 
-            // Approve 1 USDC (1_000_000 units)
-            const tx = await usdcContract.approve(PREBOOKING_CONTRACT_ADDRESS, 1_000_000n);
+            // Approve needed USDC
+            const tx = await usdcContract.approve(PREBOOKING_CONTRACT_ADDRESS, totalAllowanceNeeded);
             setStatusMessage("Awaiting approval transaction confirmation...");
             await tx.wait(1);
 
-            setUsdcAllowance(1_000_000n);
+            setUsdcAllowance(totalAllowanceNeeded);
             setStatusMessage("USDC approval confirmed! Ready to pre-book.");
         } catch (err: any) {
             setErrorMessage(err.reason || err.message || "Failed to approve USDC.");
@@ -269,62 +283,50 @@ export function Register() {
 
         const networkName = "Base Sepolia Testnet";
         setIsPrebooking(true);
-        setStatusMessage(`Preparing 1.00 USDC pre-booking on ${networkName}...`);
+        setStatusMessage(`Preparing ${totalPrice} USDC pre-booking on ${networkName}...`);
 
         try {
             const provider = new ethers.BrowserProvider((window as any).ethereum);
             const signer = await provider.getSigner();
             const userAddress = await signer.getAddress();
-
-            // 1. Verify User has not already prebooked
             const contract = new ethers.Contract(PREBOOKING_CONTRACT_ADDRESS, PREBOOKING_ABI, signer);
-            try {
-                const alreadyPrebooked = await contract.hasPrebooked(userAddress);
-                if (alreadyPrebooked) {
-                    setErrorMessage("This wallet address has already pre-booked a DevKit! Each address is allocated 1 priority slot.");
-                    setIsPrebooking(false);
-                    setStatusMessage("");
-                    return;
-                }
-            } catch (checkErr) {
-                console.warn("Prebook check warning:", checkErr);
-            }
 
-            // 2. Check USDC Balance
+            // 1. Check USDC Balance
             const usdcContract = new ethers.Contract(activeUsdcAddress, ERC20_ABI, signer);
             const bal = await usdcContract.balanceOf(userAddress);
-            if (bal < 1_000_000n) {
-                setErrorMessage(`Insufficient USDC on Base Sepolia. Your balance is ${ethers.formatUnits(bal, 6)} USDC, but 1.00 USDC is required.`);
+            if (bal < totalAllowanceNeeded) {
+                setErrorMessage(`Insufficient USDC on Base Sepolia. Your balance is ${ethers.formatUnits(bal, 6)} USDC, but ${totalPrice} USDC is required for ${quantity} DevKit${quantity > 1 ? "s" : ""}.`);
                 setIsPrebooking(false);
                 setStatusMessage("");
                 return;
             }
 
-            // 3. Check Allowance and Auto-Approve if needed
+            // 2. Check Allowance and Auto-Approve if needed
             const currentAllowance = await usdcContract.allowance(userAddress, PREBOOKING_CONTRACT_ADDRESS);
-            if (currentAllowance < 1_000_000n) {
-                setStatusMessage("Step 1/2: Please approve 1.00 USDC in your wallet...");
-                const approveTx = await usdcContract.approve(PREBOOKING_CONTRACT_ADDRESS, 1_000_000n);
+            if (currentAllowance < totalAllowanceNeeded) {
+                setStatusMessage(`Step 1/2: Please approve ${totalPrice} USDC in your wallet...`);
+                const approveTx = await usdcContract.approve(PREBOOKING_CONTRACT_ADDRESS, totalAllowanceNeeded);
                 setStatusMessage("Awaiting USDC approval confirmation on Base Sepolia...");
                 await approveTx.wait(1);
-                setUsdcAllowance(1_000_000n);
+                setUsdcAllowance(totalAllowanceNeeded);
             }
 
-            // 4. Submit real prebooking transaction on Base Sepolia
-            setStatusMessage("Step 2/2: Confirming 1.00 USDC pre-booking in wallet...");
-            const tx = await contract.prebook();
+            // 3. Submit real prebooking transaction on Base Sepolia
+            setStatusMessage(`Step 2/2: Confirming ${totalPrice} USDC pre-booking for ${quantity} DevKit${quantity > 1 ? "s" : ""} in wallet...`);
+            const tx = await contract["prebook(uint256)"](quantity);
             setStatusMessage("Awaiting on-chain settlement on Base Sepolia...");
             const receipt = await tx.wait(1);
             const txHash = receipt.hash;
 
             setStatusMessage("Payment confirmed on-chain! Dispatching confirmation email...");
 
-            // 5. Dispatch Confirmation Email with exact subject "Prebooked"
+            // 4. Dispatch Confirmation Email with exact subject "Prebooked"
             const emailResult = await sendPrebookingConfirmationEmail({
                 to: cleanEmail,
+                quantity,
                 txHash,
                 payerAddress: userAddress,
-                amount: "1.00",
+                amount: totalPrice,
                 networkName,
                 timestamp: new Date().toISOString(),
             });
@@ -334,10 +336,11 @@ export function Register() {
                 setStatusMessage(`Payment confirmed! Note on email: ${emailResult.error}`);
             }
 
-            // 6. Prepare receipt data for /receipt
+            // 5. Prepare receipt data for /receipt
             const receiptData = {
                 type: "prebooking" as const,
-                amount: "1.00",
+                quantity,
+                amount: totalPrice,
                 token: "USDC",
                 recipient: TREASURY_ADDRESS,
                 payer: userAddress,
@@ -348,12 +351,12 @@ export function Register() {
                 receiptId: `PREBOOK-BASE-${Date.now().toString().slice(-6)}`,
             };
 
-            // 7. Save to localStorage for refresh persistence
+            // 6. Save to localStorage for refresh persistence
             try {
                 localStorage.setItem("melodypay_last_receipt", JSON.stringify(receiptData));
             } catch {}
 
-            // 8. Navigate to receipt
+            // 7. Navigate to receipt
             setStatusMessage("Redirecting to your thermal POS receipt...");
             setTimeout(() => {
                 navigate("/receipt", { state: receiptData });
@@ -459,25 +462,69 @@ export function Register() {
                                     </div>
                                 </div>
 
-                                {/* Step 2: Fixed 1 USDC Pricing Card */}
+                                {/* Step 2: Multi-Unit Quantity & Pricing Card */}
                                 <div className="p-3 px-4 bg-white/[0.08] backdrop-blur-md border border-white/20 rounded-xl flex items-center justify-between">
                                     <div>
                                         <span className="text-xs font-sans font-semibold text-white block">
-                                            Pre-Booking Deposit
+                                            ESP32-S3 Hardware Units
                                         </span>
                                         <span className="text-[11px] text-white/70 font-sans block">
-                                            Direct Treasury Settlement // Zero Custody
+                                            1.00 USDC per DevKit // Direct Settlement
                                         </span>
                                     </div>
-                                    <div className="text-right">
-                                        <span className="text-xl font-bold font-sans text-white block tracking-tight">
-                                            1.00 USDC
-                                        </span>
-                                        <span className="text-[10px] font-mono text-white/70 block uppercase tracking-wider">
-                                            Base Sepolia
-                                        </span>
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex items-center bg-white/10 rounded-lg p-0.5 border border-white/20">
+                                            <button
+                                                type="button"
+                                                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                                                disabled={quantity <= 1}
+                                                className="w-6 h-6 rounded-md bg-white/20 hover:bg-white/30 disabled:opacity-30 disabled:cursor-not-allowed text-white flex items-center justify-center text-xs font-bold transition-all cursor-pointer"
+                                                title="Decrease quantity"
+                                            >
+                                                -
+                                            </button>
+                                            <span className="w-7 text-center font-mono font-bold text-white text-xs">
+                                                {quantity}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setQuantity(Math.min(10, quantity + 1))}
+                                                disabled={quantity >= 10}
+                                                className="w-6 h-6 rounded-md bg-white/20 hover:bg-white/30 disabled:opacity-30 disabled:cursor-not-allowed text-white flex items-center justify-center text-xs font-bold transition-all cursor-pointer"
+                                                title="Increase quantity"
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+                                        <div className="text-right pl-2 border-l border-white/20 min-w-[70px]">
+                                            <span className="text-lg font-bold font-sans text-white block tracking-tight leading-tight">
+                                                {totalPrice} USDC
+                                            </span>
+                                            <span className="text-[9px] font-mono text-white/70 block uppercase tracking-wider">
+                                                Base Sepolia
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
+
+                                {/* Active Reservation Badge (if already pre-booked) */}
+                                {userExistingQueue !== null && (
+                                    <div className="p-2.5 px-3.5 rounded-lg bg-emerald-500/20 border border-emerald-400/35 text-xs font-sans text-white flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-1.5 truncate">
+                                            <CheckCircle2 size={13} className="shrink-0 text-emerald-300" />
+                                            <span className="truncate">
+                                                Active order: <strong>{userUnits || 1} unit{(userUnits || 1) > 1 ? "s" : ""}</strong> (Queue #{String(userExistingQueue).padStart(3, "0")})
+                                            </span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate("/receipt")}
+                                            className="text-[11px] font-sans font-semibold text-white underline hover:text-emerald-200 shrink-0 cursor-pointer ml-1"
+                                        >
+                                            View Receipt ↗
+                                        </button>
+                                    </div>
+                                )}
 
                                 {/* Status & Error Alerts */}
                                 {statusMessage && (
@@ -515,17 +562,7 @@ export function Register() {
                                             <ArrowRight size={14} />
                                             <span>Switch to Base Sepolia (84532)</span>
                                         </button>
-                                    ) : userExistingQueue !== null ? (
-                                        <button
-                                            type="button"
-                                            onClick={() => navigate("/receipt")}
-                                            className="w-full bg-white hover:bg-white/90 text-black py-3 px-5 rounded-xl text-sm font-sans font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:shadow-xl"
-                                        >
-                                            <CheckCircle2 size={15} />
-                                            <span>Already Pre-Booked • View Receipt</span>
-                                            <ArrowRight size={14} />
-                                        </button>
-                                    ) : usdcAllowance < 1_000_000n ? (
+                                    ) : usdcAllowance < totalAllowanceNeeded ? (
                                         <button
                                             type="button"
                                             onClick={handleApproveUSDC}
@@ -535,11 +572,11 @@ export function Register() {
                                             {isApproving ? (
                                                 <>
                                                     <Loader2 size={14} className="animate-spin" />
-                                                    <span>Approving 1.00 USDC...</span>
+                                                    <span>Approving {totalPrice} USDC...</span>
                                                 </>
                                             ) : (
                                                 <>
-                                                    <span>Step 1: Approve 1.00 USDC</span>
+                                                    <span>Step 1: Approve {totalPrice} USDC</span>
                                                     <ArrowRight size={14} />
                                                 </>
                                             )}
@@ -553,11 +590,11 @@ export function Register() {
                                             {isPrebooking ? (
                                                 <>
                                                     <Loader2 size={14} className="animate-spin" />
-                                                    <span>Confirming Pre-Booking...</span>
+                                                    <span>Confirming {quantity} DevKit{quantity > 1 ? "s" : ""}...</span>
                                                 </>
                                             ) : (
                                                 <>
-                                                    <span>Step 2: Pre-Book for 1.00 USDC</span>
+                                                    <span>Step 2: Pre-Book {quantity} DevKit{quantity > 1 ? "s" : ""} for {totalPrice} USDC</span>
                                                     <ArrowRight size={14} />
                                                 </>
                                             )}
@@ -567,7 +604,7 @@ export function Register() {
 
                                 <p className="text-xs font-sans text-white/60 text-center">
                                     {userExistingQueue !== null 
-                                        ? "This wallet has already confirmed a priority DevKit pre-order. Switch accounts in MetaMask to pre-book for another address." 
+                                        ? "You can reserve additional DevKits with this wallet anytime. Instant cryptographic POS receipt generated." 
                                         : "Secures DevKit priority slot. Instant cryptographic POS receipt generated."}
                                 </p>
                             </form>

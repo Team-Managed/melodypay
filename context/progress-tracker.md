@@ -107,18 +107,20 @@
     - Wired automatic redirection from both `/receive` upon settlement and `/register` upon subname reservation, with `localStorage` backup to prevent blank states on refresh.
     - Added unit test suite in `tests/receipt-flow.test.ts`.
   - [x] Priority Hardware Waitlist Pre-Booking Smart Contract & Email Dispatcher (`MelodyPayPrebooking.sol`, `email.ts`, `Register.tsx`, `PaymentReceipt.tsx`, `vite.config.ts`):
-    - Deployed live on Base Sepolia Testnet (`84532`) at `0xbCcbF37cFcFC282AD7540b298650faCCC92095E6` (tx `0x3954ce269858e2ecf855cd0e60cf16b318e84bfc8ae865688d22ceb05a4b64da`) using canonical Circle Testnet USDC (`0x036CbD53842c5426634e7929541eC2318f3dCF7e`).
-    - Fixed 1.00 USDC non-custodial pre-booking fee transferred directly to Treasury (`0xE36f3d4Bd0a6bbdd940404C6323c1121b2666176`) via `SafeERC20.safeTransferFrom`.
+    - Deployed live on Base Sepolia Testnet (`84532`) at `0x79DF554250BC15efE9de1b6167c911e5a153A20E` (tx `0x47541da05b78e5255b5a07c19e6d0788307e6b8f45f30a59c2026780a5d530e6`) using canonical Circle Testnet USDC (`0x036CbD53842c5426634e7929541eC2318f3dCF7e`).
+    - Added multi-unit batch reservations (`prebook(uint256 quantity)`) and enabled repeatable reservations from the same wallet address without lockout.
+    - 1.00 USDC non-custodial pre-booking fee per unit transferred directly to Treasury (`0xE36f3d4Bd0a6bbdd940404C6323c1121b2666176`) via `SafeERC20.safeTransferFrom`.
     - Maintained monotonic on-chain counter `totalPrebookings` on-chain while keeping user contact info 100% off-chain for strict privacy (zero emails on-chain).
+    - Integrated interactive Quantity Selector (1 to 10 DevKits) in `Register.tsx` with dynamic price calculation, automatic allowance management, and repeat reservation support with active order indicators.
     - Refactored Register UI into two expansive transparent glassmorphic vertical boxes (`bg-white/[0.07] backdrop-blur-2xl border border-white/25 ring-1 ring-white/10 rounded-2xl shadow-2xl`) over full-bleed aerial meadow photography (`image copy 2.png`).
     - Retained the prominent, bold original header size (`text-3xl sm:text-4xl lg:text-5xl font-extrabold`) while lowering the header down the viewport (`pt-20 sm:pt-24 lg:pt-26 mb-6 lg:mb-7`); removed redundant settlement details from the left box to make both boxes significantly smaller and tighter, ensuring an effortless single-screen fit.
-    - Completely eliminated fake fallback transaction hashes in `Register.tsx`: enforces authentic on-chain execution with pre-validation of duplicate bookings (`hasPrebooked`), live USDC balance checks, automatic wallet approval handling, and surfaces genuine revert/wallet rejection errors. If the wallet has already pre-booked on-chain, displays a clear "Already Pre-Booked • View Receipt" state.
     - Rendered 100% pure white typography across both cards with matching equal heights (`items-stretch`, `h-full flex flex-col justify-between`).
     - Integrated Brevo (Sendinblue) Transactional Email API v3 into Vite dev backend proxy (`https://api.brevo.com/v3/smtp/email`): allows dispatching confirmation emails to ANY recipient without requiring custom DNS domain verification (300 free emails/day). Maintained Resend as automatic fallback.
     - Commented out inactive contracts and unused modules (`MelodyPaySettlement.sol`, `MelodyPaySubnameRegistrar.sol`, and `ERC1155Holder.sol`).
-    - Foundry test suite passing with 6 tests in `MelodyPayPrebooking.t.sol` in 19.2ms with new Treasury `0xE36f3d4Bd0a6bbdd940404C6323c1121b2666176`.
+    - Foundry test suite passing with 9 tests in `MelodyPayPrebooking.t.sol` in 5.07ms (single unit, batch pre-booking, repeat reservations, boundary checks).
     - Vitest test suites passing across 12 test files and 41 tests.
     - Harmonized Register page typography with Hero section: unified on Inter sans-serif (`font-sans`), added `// PRIORITY HARDWARE WAITLIST` uppercase tracking eyebrow (`font-mono tracking-[0.22em]`), split editorial headline hierarchy (`font-bold` with `font-normal` subhead), clean sans input fields, and semibold CTA buttons matching the hero action buttons.
+    - Updated thermal receipt printer (`/receipt`) and HTML email template to itemize hardware quantity.
     - Production build (`npm run build`) passing cleanly.
 - [ ] Task 9: Integrate ENSv2 Merchant Resolution (`receiver-web/src/core/ensv2.ts`, `cli/src/ens.ts`, `tests/ensv2-resolution.test.ts`).
 - [ ] Task 10: Integrate Ledger Signer Backend (`cli/src/signers/ledger.ts`, `tests/ledger-signer.test.ts`).

@@ -26,6 +26,7 @@ export interface ReceiptData {
     subname?: string;
     nonce?: string;
     queueNumber?: string;
+    quantity?: number;
 }
 
 const DEFAULT_DEMO_RECEIPT: ReceiptData = {
@@ -356,10 +357,18 @@ export function PaymentReceipt() {
                                 </div>
 
                                 {receipt.type === "prebooking" && (
-                                    <div className="flex items-center justify-between text-[#5A7B94]">
-                                        <span>ORDER STATUS:</span>
-                                        <span className="font-bold text-emerald-700 font-mono tracking-wider">PREBOOKED</span>
-                                    </div>
+                                    <>
+                                        <div className="flex items-center justify-between text-[#5A7B94]">
+                                            <span>ORDER STATUS:</span>
+                                            <span className="font-bold text-emerald-700 font-mono tracking-wider">PREBOOKED</span>
+                                        </div>
+                                        {receipt.quantity && receipt.quantity > 0 && (
+                                            <div className="flex items-center justify-between text-[#5A7B94]">
+                                                <span>HARDWARE UNITS:</span>
+                                                <span className="font-bold text-[#0A1826]">{receipt.quantity}x ESP32-S3 DevKit</span>
+                                            </div>
+                                        )}
+                                    </>
                                 )}
 
                                 {receipt.subname && (
