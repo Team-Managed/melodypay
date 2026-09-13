@@ -37,9 +37,9 @@ For `melodypay.eth`, use the ENSv2 Sepolia deployment addresses:
 
 ```text
 ENSV2_OWNER=0x0E6937A18De79Ed54692E65F7A0DA5A81B8D7BCF
-ENSV2_FACTORY=0x10dc6333cdfe1fcef624c6e0a8221b91804cd7ef
-ENSV2_USER_REGISTRY_IMPL=0x624a25d67b59d587752ebec8dded8827dae52050
-ENSV2_RESOLVER_IMPL=0x9eae5c2730a7dd16bdd1dee6421a1b91e3b0365e
+ENSV2_FACTORY=0x118bc31a50d559f7015a8da26d54b3b030cdb70f
+ENSV2_USER_REGISTRY_IMPL=0x840fa461059862ea466a711e8c98c8de732061c0
+ENSV2_RESOLVER_IMPL=0x7e4b2d59938930168024201752ee5503df402303
 ENSV2_PARENT_REGISTRY=0xbdc85dd5b15d7ecb354cd7cb6f2c50b4f2c4f0e2
 ENSV2_PARENT_LABEL=melodypay
 ENSV2_PARENT_NAMEHASH=0x...
@@ -56,6 +56,14 @@ forge script contracts/script/SetupENSv2.s.sol:SetupENSv2 `
   --sender 0x0E6937A18De79Ed54692E65F7A0DA5A81B8D7BCF `
   --rpc-url https://ethereum-sepolia-rpc.publicnode.com `
   --broadcast
+```
+
+The deployed Sepolia setup is:
+
+```text
+UserRegistry: 0xa1FAdf6a4c12b15Ea035Bb7E4dC821954f98e625
+Resolver:     0x12d047B84F4bDCbacD975E21CA0297e5A53A051e
+Registrar:    0xFB5508Dd6024D2Efd30D03c7be080F1521D976C8
 ```
 
 Then deploy on Sepolia:
@@ -87,6 +95,6 @@ forge script contracts/script/RegisterSubname.s.sol:RegisterSubname `
   --broadcast
 ```
 
-The parent `melodypay.eth` name has not yet been claimed on Sepolia. That
-must be done first with the ENSv2 ETH Registrar, followed by UserRegistry and
-resolver setup, before `cafe.melodypay.eth` can resolve.
+`melodypay.eth` and `cafe.melodypay.eth` are now registered on Sepolia and
+`cafe.melodypay.eth` resolves to the MelodyPay receiving address with Arc/USDC
+profile records.
