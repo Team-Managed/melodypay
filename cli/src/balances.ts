@@ -33,8 +33,8 @@ async function loadChainRows(address: string, chain: CliChain, tokens: readonly 
     const native = await provider.getBalance(address);
     const rows: BalanceRow[] = [{
       chain: chain.name,
-      asset: chain.symbol,
-      balance: formatBalance(native, 18),
+      asset: `${chain.symbol} gas`,
+      balance: formatBalance(native, chain.nativeDecimals),
       status: "ok",
     }];
     for (const token of tokens.filter((candidate) => candidate.chainId === chain.chainId)) {

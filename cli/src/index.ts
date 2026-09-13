@@ -19,6 +19,10 @@ type Action = "dashboard" | "device" | "status" | "networks" | "payment" | "diag
 let deviceConnection: DeviceConnection | null = null;
 let deviceClient: DeviceClient | null = null;
 
+function clearTerminal() {
+  process.stdout.write("\x1b[2J\x1b[H");
+}
+
 function cancelled<T>(value: T | symbol): value is symbol {
   return isCancel(value) && isBackNavigation(value);
 }
@@ -126,8 +130,10 @@ async function connectWallet() {
 }
 
 async function walletDashboard() {
+  console.log("MelodyPay Wallet Dashboard\n");
   if (!deviceClient) {
-    console.log("Connect a USB wallet first.");
+    console.log("No USB wallet connected.");
+    console.log("Open USB wallet manager from the operator menu to connect one.");
     return;
   }
   const loader = spinner();
@@ -136,7 +142,6 @@ async function walletDashboard() {
     const { address } = await deviceClient.address();
     const rows = await loadBalanceRows(address);
     loader.stop("Wallet balances loaded");
-    console.log("\nMelodyPay Wallet Dashboard");
     console.log(`Address: ${address}`);
     console.log(`Device:  ${deviceConnection?.path ?? "disconnected"}`);
     console.log("\n" + formatBalanceRows(rows));
@@ -242,10 +247,13 @@ async function diagnostics() {
 
 async function main() {
   intro("MelodyPay Receiver CLI | keyless operator terminal");
+  clearTerminal();
+  await walletDashboard();
 
   for (;;) {
+    clearTerminal();
     const action = await select<Action>({
-      message: "Select an operation",
+      message: "Operator menu",
       options: [
         { value: "dashboard", label: "Dashboard", hint: "show current receiver and wallet state" },
         { value: "device", label: "USB wallet manager", hint: "connect, configure, disconnect" },
