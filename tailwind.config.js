@@ -9,12 +9,23 @@ export default {
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
         serif: ['"Playfair Display"', 'serif'],
+        mono: ['"JetBrains Mono"', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
       },
       colors: {
         app: {
-          bg: '#F7F7F5',
-          dark: '#1C1C1E',
-          border: '#E5E5E5'
+          bg: '#FBFBF9',
+          dark: '#111113',
+          border: '#E2E2DA',
+          canvas: '#FBFBF9',
+          subtle: '#F4F4F0',
+          surface: '#FFFFFF',
+          ink: '#111113',
+          slate: '#4B4B52',
+          muted: '#7A7A85',
+          cyan: '#0088FF',
+          amber: '#F59E0B',
+          emerald: '#10B981',
+          purple: '#836EF9',
         }
       },
       animation: {

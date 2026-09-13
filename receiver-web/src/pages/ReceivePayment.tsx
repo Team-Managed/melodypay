@@ -9,6 +9,9 @@ import {
     Mic,
     Radio,
     Search,
+    Activity,
+    ShieldCheck,
+    Waves,
 } from "lucide-react";
 import { CHAIN_CONFIGS, getChainConfig } from "../core/chains";
 import { startHardwareChunkedListening, startHardwareListening, playHardwareChunkedPayload, playHardwarePayload } from "../core/hardware-audio";
@@ -23,6 +26,7 @@ import {
 } from "../core/tx-builder";
 import { ARC_CANONICAL_USDC, ARC_CHAIN_ID, generateAuthorizationNonce, splitAuthorizationSignature } from "../core/eip3009";
 import { resolveMerchantName } from "../core/ensv2";
+import { VibrantSoundBars } from "../components/VibrantSoundBars";
 
 type Step =
     | "setup"
@@ -323,41 +327,47 @@ export function ReceivePayment() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="w-full max-w-md mx-auto p-10 bg-white border border-app-border rounded-3xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.05)]"
+            className="relative isolate flex min-h-[calc(100vh-5rem)] w-full items-center overflow-hidden px-4 py-10 text-white sm:px-6 lg:px-10 lg:py-16"
         >
-            <div className="flex items-center mb-10">
-                <Link to="/" className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors text-app-dark">
+            <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden bg-[#0d281a]">
+                <img src="/image copy 2.png" alt="" className="h-full w-full scale-105 object-cover object-center opacity-70" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-[#0d281a]/35 to-black/70" />
+            </div>
+            <div className="relative z-10 mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(300px,0.75fr)]">
+                <section className="rounded-3xl border border-white/20 bg-white/[0.09] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:p-8">
+            <div className="mb-8 flex items-center">
+                <Link to="/" className="-ml-2 rounded-full p-2 text-white transition-colors hover:bg-white/15">
                     <ArrowLeft size={20} />
                 </Link>
-                <h2 className="flex-1 text-center text-xl font-serif font-medium mr-8 text-app-dark">Receive Payment</h2>
+                <h2 className="flex-1 text-center text-xl font-serif font-medium mr-8 text-white">Receive Payment</h2>
             </div>
 
             {step === "setup" && (
                 <div className="space-y-6 font-sans">
-                    <div className="bg-green-50 border border-green-100 p-4 rounded-xl text-center">
-                        <span className="font-medium text-sm text-green-800">Online merchant terminal</span>
+                    <div className="rounded-xl border border-emerald-300/25 bg-emerald-400/15 p-4 text-center">
+                        <span className="font-medium text-sm text-emerald-100">Online merchant terminal</span>
                     </div>
 
                     <div>
-                        <label className="text-xs font-medium text-app-dark/60 mb-2 block uppercase tracking-wider">Receiving address or ENS name</label>
+                        <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-white/70">Receiving address or ENS name</label>
                         <input
                             value={recipientAddress}
                             onChange={(event) => setRecipientAddress(event.target.value)}
                             placeholder="0x... or cafe.melodypay.eth"
-                            className="w-full bg-[#FAFAFA] border border-app-border focus:border-app-dark outline-none px-4 py-3 rounded-xl text-sm text-app-dark transition-all"
+                            className="w-full rounded-xl border border-white/20 bg-black/20 px-4 py-3 text-sm text-white outline-none transition-all placeholder:text-white/40 focus:border-sky-300/70 focus:ring-2 focus:ring-sky-300/20"
                         />
                     </div>
 
                     {resolvedMerchantName && (
-                        <p className="text-xs text-green-700">Resolved {resolvedMerchantName} to {resolvedMerchantAddress}</p>
+                        <p className="text-xs text-emerald-200">Resolved {resolvedMerchantName} to {resolvedMerchantAddress}</p>
                     )}
 
                     <div>
-                        <label className="text-xs font-medium text-app-dark/60 mb-2 block uppercase tracking-wider">Network</label>
+                        <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-white/70">Network</label>
                         <select
                             value={chainId}
                             onChange={(event) => setChainId(Number(event.target.value))}
-                            className="w-full bg-[#FAFAFA] border border-app-border focus:border-app-dark outline-none px-4 py-3 rounded-xl text-sm text-app-dark transition-all"
+                            className="w-full rounded-xl border border-white/20 bg-black/20 px-4 py-3 text-sm text-white outline-none transition-all focus:border-sky-300/70 focus:ring-2 focus:ring-sky-300/20"
                         >
                             {CHAIN_CONFIGS.map((profile) => (
                                 <option key={profile.chainId} value={profile.chainId}>
@@ -368,22 +378,22 @@ export function ReceivePayment() {
                     </div>
 
                     <div>
-                        <label className="text-xs font-medium text-app-dark/60 mb-2 block uppercase tracking-wider">Amount</label>
+                        <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-white/70">Amount</label>
                         <input
                             type="number"
                             min="0"
                             step="any"
                             value={amount}
                             onChange={(event) => setAmount(event.target.value)}
-                            className="w-full bg-[#FAFAFA] border border-app-border focus:border-app-dark outline-none px-4 py-3 rounded-xl text-xl font-bold text-app-dark transition-all"
+                            className="w-full rounded-xl border border-white/20 bg-black/20 px-4 py-3 text-xl font-bold text-white outline-none transition-all focus:border-sky-300/70 focus:ring-2 focus:ring-sky-300/20"
                         />
                     </div>
 
-                    {error && <p className="text-sm text-red-600">{error}</p>}
+                    {error && <p className="rounded-xl border border-red-300/30 bg-red-400/15 p-3 text-sm text-red-100">{error}</p>}
                     <button
                         onClick={handleStart}
                         disabled={!recipientAddress || !amount}
-                        className="w-full mt-6 bg-[#1C1C1E] text-white py-4 rounded-xl text-sm font-medium hover:bg-black transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                        className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-white py-4 text-sm font-semibold text-[#111113] shadow-lg transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         <Mic size={18} /> Start listening
                     </button>
@@ -391,37 +401,57 @@ export function ReceivePayment() {
             )}
 
             {step !== "setup" && step !== "done" && (
-                <div className="flex flex-col items-center justify-center py-12">
-                    <div className="w-24 h-24 rounded-full vibrant-gradient-3 flex items-center justify-center shadow-lg mb-8 animate-pulse">
+                <div className="flex flex-col items-center justify-center py-16">
+                    <div className="mb-8 flex h-24 w-24 animate-pulse items-center justify-center rounded-full border border-white/30 bg-white/10 shadow-lg backdrop-blur-md">
                         {stepIcon()}
                     </div>
-                    <p className="text-xs font-semibold text-app-dark/50 uppercase tracking-wider mb-2">{stepLabel()}</p>
-                    <p className="text-sm font-medium text-app-dark text-center mb-8">{status}</p>
-                    <button onClick={() => resetSession()} className="text-xs font-medium text-app-dark/60 hover:text-app-dark transition-colors">Cancel</button>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-sky-200">{stepLabel()}</p>
+                    <p className="mb-8 text-center text-sm font-medium text-white">{status}</p>
+                    <button onClick={() => resetSession()} className="text-xs font-medium text-white/70 transition-colors hover:text-white">Cancel</button>
                 </div>
             )}
 
             {step === "done" && (
                 <div className="flex flex-col items-center justify-center py-8">
-                    <div className="bg-green-50 rounded-full p-6 mb-6">
-                        <CheckCircle2 size={48} className="text-green-500" />
+                    <div className="mb-6 rounded-full bg-emerald-400/20 p-6 text-emerald-200">
+                        <CheckCircle2 size={48} />
                     </div>
-                    <h3 className="text-lg font-semibold text-app-dark mb-2">Payment submitted</h3>
-                    <p className="text-sm font-medium text-app-dark/60 mb-10">{status}</p>
+                    <h3 className="mb-2 text-lg font-semibold text-white">Payment submitted</h3>
+                    <p className="mb-10 text-sm font-medium text-white/70">{status}</p>
                     {txHash && (
-                        <div className="w-full bg-[#FAFAFA] border border-app-border p-4 rounded-xl mb-10 flex flex-col items-center">
-                            <span className="text-[10px] font-semibold text-app-dark/50 uppercase tracking-wider mb-1">TX Hash</span>
-                            <span className="text-xs font-medium text-app-dark truncate w-full text-center">{txHash}</span>
+                        <div className="mb-10 flex w-full flex-col items-center rounded-xl border border-white/20 bg-black/20 p-4">
+                            <span className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-white/60">TX Hash</span>
+                            <span className="w-full truncate text-center text-xs font-medium text-white">{txHash}</span>
                             {chain && (
-                                <a href={`${chain.explorerUrl}/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="text-xs text-purple-600 mt-2 hover:underline">
+                                <a href={`${chain.explorerUrl}/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="mt-2 text-xs text-sky-200 hover:underline">
                                     View on explorer -&gt;
                                 </a>
                             )}
                         </div>
                     )}
-                    <button onClick={() => resetSession()} className="w-full bg-[#1C1C1E] text-white py-4 rounded-xl text-sm font-medium hover:bg-black transition-colors">Receive another</button>
+                    <button onClick={() => resetSession()} className="w-full rounded-xl bg-white py-4 text-sm font-semibold text-[#111113] transition hover:bg-sky-50">Receive another</button>
                 </div>
             )}
+                </section>
+                <aside className="relative hidden overflow-hidden rounded-3xl border border-white/20 bg-[#071c17] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.28)] lg:block">
+                    <VibrantSoundBars className="opacity-35" />
+                    <div className="relative z-10 flex h-full flex-col justify-between">
+                        <div>
+                            <div className="mb-6 flex items-center gap-2 border-b border-white/15 pb-4 text-xs font-mono uppercase tracking-[0.18em] text-white/80">
+                                <Waves size={15} className="text-sky-300" /> Acoustic telemetry
+                            </div>
+                            <div className="rounded-2xl border border-white/15 bg-black/30 p-4 font-mono text-xs text-emerald-200">
+                                <div className="mb-3 flex items-center gap-2 text-white/60"><Activity size={14} /> {step === "setup" ? "STANDBY" : step.toUpperCase()}</div>
+                                <p className="break-words leading-6">{status || "Awaiting hardware wallet handshake"}</p>
+                            </div>
+                        </div>
+                        <div className="space-y-3 text-sm text-white/75">
+                            <div className="flex items-start gap-2"><ShieldCheck size={16} className="mt-0.5 shrink-0 text-emerald-300" /> Physical approval stays on the hardware wallet.</div>
+                            <div className="flex items-start gap-2"><Activity size={16} className="mt-0.5 shrink-0 text-sky-300" /> Audio frames are validated before broadcast.</div>
+                        </div>
+                    </div>
+                </aside>
+            </div>
         </motion.div>
     );
 }
