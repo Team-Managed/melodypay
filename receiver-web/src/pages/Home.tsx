@@ -263,7 +263,7 @@ export function Home() {
                                 to="/receive"
                                 className="bg-[#111113] hover:bg-black text-white px-7 py-3 rounded-md text-sm font-sans font-semibold transition-all shadow-md hover:shadow-lg flex items-center gap-2 group cursor-pointer"
                             >
-                                <span>Launch Terminal</span>
+                                <span>Receive Payments</span>
                                 <ArrowUpRight size={15} className="text-neutral-400 group-hover:text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                             </Link>
 
@@ -776,7 +776,7 @@ export function Home() {
                                 Product
                             </span>
                             <ul className="space-y-2 text-xs text-neutral-300 font-sans">
-                                <li><Link to="/receive" className="hover:text-white transition-colors">POS Terminal</Link></li>
+                                <li><Link to="/receive" className="hover:text-white transition-colors">Receive Payments</Link></li>
                                 <li><Link to="/register" className="hover:text-white transition-colors">Register ENS Subname</Link></li>
                                 <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
                                 <li><a href="#prototype" className="hover:text-white transition-colors">Hardware Prototype</a></li>

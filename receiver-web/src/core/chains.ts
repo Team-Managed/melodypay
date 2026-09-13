@@ -57,6 +57,15 @@ export const CHAIN_CONFIGS: readonly ChainConfig[] = [
     maxNormalFeeWei: parseEther("0.001"),
   },
   {
+    chainId: 84532,
+    name: "Base Sepolia",
+    nativeSymbol: "ETH",
+    rpcUrl: "https://sepolia.base.org",
+    explorerUrl: "https://sepolia.basescan.org",
+    gasLimitCap: 30000,
+    maxNormalFeeWei: parseEther("0.001"),
+  },
+  {
     chainId: 42161,
     name: "Arbitrum One",
     nativeSymbol: "ETH",

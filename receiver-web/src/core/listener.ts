@@ -7,6 +7,40 @@ import {
 } from "./ggwave";
 
 export type OnDecodeCallback = (data: string) => void;
+export type AudioStreamListener = (source: MediaStreamAudioSourceNode, ctx: AudioContext) => void;
+
+let activeSource: MediaStreamAudioSourceNode | null = null;
+let activeAudioCtx: AudioContext | null = null;
+let activeProcessor: ScriptProcessorNode | null = null;
+let activeStream: MediaStream | null = null;
+let activePreamp: GainNode | null = null;
+const streamSubscribers = new Set<AudioStreamListener>();
+let activeDecodeCallback: OnDecodeCallback | null = null;
+
+/**
+ * Subscribe to the live microphone audio stream used by the listener.
+ * Allows visualizers like AcousticOscilloscope to display the live waveform without duplicate mic requests.
+ */
+export function subscribeAudioStream(callback: AudioStreamListener): () => void {
+  streamSubscribers.add(callback);
+  if (activeSource && activeAudioCtx) {
+    try {
+      callback(activeSource, activeAudioCtx);
+    } catch {}
+  }
+  return () => {
+    streamSubscribers.delete(callback);
+  };
+}
+
+/**
+ * Feed a simulated or acoustic loopback payload into the active listening pipeline.
+ */
+export function triggerSimulatedAudioPayload(payload: string): void {
+  if (activeDecodeCallback) {
+    activeDecodeCallback(payload);
+  }
+}
 
 /**
  * Start listening on the microphone for ggwave-encoded data.
@@ -14,41 +48,126 @@ export type OnDecodeCallback = (data: string) => void;
 export async function startListening(
   onDecode: OnDecodeCallback,
 ): Promise<{ stop: () => void }> {
-  const requestedSampleRate = isInitialized() ? getGGWaveSampleRate() : SAMPLE_RATE;
-  const audioCtx = new AudioContext({ sampleRate: requestedSampleRate });
-  await initGGWave(audioCtx.sampleRate);
+  activeDecodeCallback = onDecode;
+
+  // Clean up any existing processor or stream
+  if (activeProcessor) {
+    try { activeProcessor.disconnect(); } catch {}
+    activeProcessor = null;
+  }
+  if (activePreamp) {
+    try { activePreamp.disconnect(); } catch {}
+    activePreamp = null;
+  }
+  if (activeSource) {
+    try { activeSource.disconnect(); } catch {}
+    activeSource = null;
+  }
+  if (activeStream) {
+    try { activeStream.getTracks().forEach((t) => t.stop()); } catch {}
+    activeStream = null;
+  }
+
+  // Create or reuse AudioContext with hardware native sample rate
+  let audioCtx = activeAudioCtx;
+  if (!audioCtx || audioCtx.state === "closed") {
+    audioCtx = new AudioContext();
+    activeAudioCtx = audioCtx;
+  }
+
   if (audioCtx.state === "suspended") {
     await audioCtx.resume();
   }
 
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      echoCancellation: false,
-      noiseSuppression: false,
-      autoGainControl: false,
-    },
+  // Dynamically initialize/reconfigure ggwave to match AudioContext sample rate
+  await initGGWave(audioCtx.sampleRate);
+
+  let stream: MediaStream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+      },
+    });
+  } catch {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  }
+
+  activeStream = stream;
+  const source = audioCtx.createMediaStreamSource(stream);
+  activeSource = source;
+
+  // Broadcast stream to subscribed visualizers (AcousticOscilloscope)
+  streamSubscribers.forEach((cb) => {
+    try {
+      cb(source, audioCtx!);
+    } catch {}
   });
 
-  const source = audioCtx.createMediaStreamSource(stream);
-  const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+  // Preamp Gain Node (2.5x software boost for acoustic transmissions over air)
+  const preamp = audioCtx.createGain();
+  preamp.gain.value = 2.5;
+  activePreamp = preamp;
 
+  // Buffer size 1024 matches ggwave's default samplesPerFrame (1024)
+  const bufferSize = 1024;
+  const processor = audioCtx.createScriptProcessor(bufferSize, 1, 1);
+  activeProcessor = processor; // Store persistently to prevent V8 garbage collection
+
+  let frameCount = 0;
   processor.onaudioprocess = (event) => {
+    // Mute output buffer to prevent acoustic speaker feedback
+    const output = event.outputBuffer.getChannelData(0);
+    output.fill(0);
+
     const samples = event.inputBuffer.getChannelData(0);
+
+    // Periodic health log every ~1.5s
+    if (++frameCount % 60 === 0) {
+      let sum = 0;
+      for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
+      const rms = Math.sqrt(sum / samples.length);
+      const db = Math.round(20 * Math.log10(Math.max(rms, 1e-4)));
+      console.log(`[MelodyPay Mic] Active | Rate: ${audioCtx!.sampleRate} Hz | Level: ${db} dB`);
+    }
+
     const result = decode(new Float32Array(samples));
-    if (result) {
-      onDecode(result);
+    if (result && result.trim().length > 0) {
+      console.log("[MelodyPay Listener] DECODED ACOUSTIC PACKET:", result.trim());
+      onDecode(result.trim());
     }
   };
 
-  source.connect(processor);
+  source.connect(preamp);
+  preamp.connect(processor);
   processor.connect(audioCtx.destination);
+
+  console.log(`[MelodyPay Listener] Started listening on microphone at ${audioCtx.sampleRate} Hz`);
 
   return {
     stop: () => {
-      processor.disconnect();
-      source.disconnect();
-      stream.getTracks().forEach((t) => t.stop());
-      audioCtx.close();
+      console.log("[MelodyPay Listener] Stopping microphone listener...");
+      if (activeDecodeCallback === onDecode) {
+        activeDecodeCallback = null;
+      }
+      if (activeProcessor) {
+        try { activeProcessor.disconnect(); } catch {}
+        activeProcessor = null;
+      }
+      if (activePreamp) {
+        try { activePreamp.disconnect(); } catch {}
+        activePreamp = null;
+      }
+      if (activeSource) {
+        try { activeSource.disconnect(); } catch {}
+        activeSource = null;
+      }
+      if (activeStream) {
+        try { activeStream.getTracks().forEach((t) => t.stop()); } catch {}
+        activeStream = null;
+      }
     },
   };
 }

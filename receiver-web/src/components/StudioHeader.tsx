@@ -14,7 +14,7 @@ export function StudioHeader() {
         { path: "/#how-it-works", label: "How It Works", hash: "how-it-works" },
         { path: "/#prototype", label: "Prototype", hash: "prototype" },
         { path: "/#faqs", label: "FAQs", hash: "faqs" },
-        { path: "/receive", label: "Terminal", hash: "" },
+        { path: "/receive", label: "Receive Payments", hash: "" },
         { path: "/register", label: "Register", hash: "" },
     ];
 
@@ -75,7 +75,7 @@ export function StudioHeader() {
                         to="/receive"
                         className="bg-white hover:bg-neutral-100 text-[#111113] px-4 py-1.5 sm:py-2 rounded-md text-xs font-sans font-semibold transition-all shadow-sm flex items-center gap-1.5 group cursor-pointer"
                     >
-                        <span>Launch Terminal</span>
+                        <span>Receive Payments</span>
                         <ArrowUpRight size={13} className="text-neutral-500 group-hover:text-black group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                     </Link>
 
