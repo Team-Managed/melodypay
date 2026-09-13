@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity 0.8.24;
 
 import {MelodyPayPrebooking} from "../src/MelodyPayPrebooking.sol";
 import {IERC20} from "../src/interfaces/IERC20.sol";
@@ -55,7 +55,7 @@ contract MelodyPayPrebookingTest {
     MelodyPayPrebooking public prebooking;
     MockUSDC public usdc;
 
-    address public treasury = address(0xE36f3d4Bd0a6bbdd940404C6323c1121b2666176);
+    address public treasury = address(0x0E6937A18De79Ed54692E65F7A0DA5A81B8D7BCF);
     address public alice = address(0xA11CE);
     address public bob = address(0xB0B);
 
@@ -112,6 +112,11 @@ contract MelodyPayPrebookingTest {
         require(prebooking.hasPrebooked(bob), "Bob has prebooked");
         require(usdc.balanceOf(treasury) == 5_000_000, "Treasury should receive 5 USDC");
         require(usdc.balanceOf(bob) == 5_000_000, "Bob should have 5 USDC remaining");
+
+        // Verify every queue position in batch is mapped to Bob
+        for (uint256 i = 1; i <= 5; i++) {
+            require(prebooking.queueUser(i) == bob, "Bob should own queue position in batch");
+        }
     }
 
     function test_MultiplePrebookings_SameWallet() public {
@@ -128,6 +133,12 @@ contract MelodyPayPrebookingTest {
         require(prebooking.getUserQueue(alice) == 1, "Alice original queue should remain 1");
         require(usdc.balanceOf(treasury) == 5_000_000, "Treasury should have 5 USDC");
         require(usdc.balanceOf(alice) == 5_000_000, "Alice should have 5 USDC remaining");
+
+        require(prebooking.queueUser(1) == alice, "Queue 1 user should be Alice");
+        require(prebooking.queueUser(2) == alice, "Queue 2 user should be Alice");
+        require(prebooking.queueUser(3) == alice, "Queue 3 user should be Alice");
+        require(prebooking.queueUser(4) == alice, "Queue 4 user should be Alice");
+        require(prebooking.queueUser(5) == alice, "Queue 5 user should be Alice");
     }
 
     function test_RevertIf_ZeroQuantity() public {
@@ -206,5 +217,77 @@ contract MelodyPayPrebookingTest {
         address newTreasury = address(0x9999);
         prebooking.setTreasury(newTreasury);
         require(prebooking.treasury() == newTreasury, "Treasury update failed");
+    }
+
+    function test_RevertIf_UpdateTreasury_ZeroAddress() public {
+        bool failed = false;
+        try prebooking.setTreasury(address(0)) {
+            failed = false;
+        } catch {
+            failed = true;
+        }
+        require(failed, "Setting treasury to zero address should revert");
+    }
+
+    function test_RevertIf_UpdateTreasury_NotOwner() public {
+        vm.startPrank(alice);
+        bool failed = false;
+        try prebooking.setTreasury(address(0x9999)) {
+            failed = false;
+        } catch {
+            failed = true;
+        }
+        vm.stopPrank();
+        require(failed, "Non-owner should not be able to update treasury");
+    }
+
+    function test_RecoverToken_Success() public {
+        // Simulate accidental transfer of tokens directly to prebooking contract
+        usdc.mint(address(prebooking), 500_000); // 0.5 USDC
+        require(usdc.balanceOf(address(prebooking)) == 500_000, "Contract should have balance");
+
+        address rescueTarget = address(0x7777);
+        prebooking.recoverToken(address(usdc), rescueTarget, 500_000);
+
+        require(usdc.balanceOf(address(prebooking)) == 0, "Contract should have 0 balance after recovery");
+        require(usdc.balanceOf(rescueTarget) == 500_000, "Rescue target should receive tokens");
+    }
+
+    function test_RevertIf_RecoverToken_NotOwner() public {
+        usdc.mint(address(prebooking), 100_000);
+        vm.startPrank(alice);
+        bool failed = false;
+        try prebooking.recoverToken(address(usdc), alice, 100_000) {
+            failed = false;
+        } catch {
+            failed = true;
+        }
+        vm.stopPrank();
+        require(failed, "Non-owner should not be able to recover tokens");
+    }
+
+    function test_RevertIf_RecoverToken_ZeroRecipient() public {
+        usdc.mint(address(prebooking), 100_000);
+        bool failed = false;
+        try prebooking.recoverToken(address(usdc), address(0), 100_000) {
+            failed = false;
+        } catch {
+            failed = true;
+        }
+        require(failed, "Recovering to zero address should revert");
+    }
+
+    function test_Ownable2Step_TransferAndAccept() public {
+        address newOwner = address(0x8888);
+        prebooking.transferOwnership(newOwner);
+        require(prebooking.pendingOwner() == newOwner, "Pending owner should be newOwner");
+        require(prebooking.owner() == address(this), "Owner should still be current owner");
+
+        vm.startPrank(newOwner);
+        prebooking.acceptOwnership();
+        vm.stopPrank();
+
+        require(prebooking.owner() == newOwner, "New owner should be active");
+        require(prebooking.pendingOwner() == address(0), "Pending owner should be cleared");
     }
 }

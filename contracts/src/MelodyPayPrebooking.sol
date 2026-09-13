@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity 0.8.24;
 
 import {IERC20} from "./interfaces/IERC20.sol";
 import {SafeERC20} from "./common/SafeERC20.sol";
@@ -10,7 +10,7 @@ import {ReentrancyGuard} from "./common/ReentrancyGuard.sol";
 /**
  * @title MelodyPayPrebooking
  * @notice Fixed-price (1 USDC) pre-booking and priority waitlist contract for the
- *         MelodyPay ESP32-S3 Air-Gapped Acoustic Sound Terminal.
+ *         MelodyPay HardWallet (Air-Gapped Acoustic Sound Terminal).
  * @dev 100% of proceeds forward directly to the treasury wallet.
  *      Maintains an authoritative on-chain counter of pre-booked users.
  *      User contact data remains 100% off-chain for privacy.
@@ -27,10 +27,10 @@ contract MelodyPayPrebooking is Ownable2Step, Pausable, ReentrancyGuard {
     /// @notice Pre-booking price: exactly 1.00 USDC (6 decimals)
     uint256 public constant PREBOOK_PRICE = 1_000_000;
 
-    /// @notice Maximum DevKits that can be pre-booked in a single transaction
+    /// @notice Maximum HardWallets that can be pre-booked in a single transaction
     uint256 public constant MAX_BATCH_QUANTITY = 50;
 
-    /// @notice Total number of pre-booked DevKit units across all users
+    /// @notice Total number of pre-booked HardWallet units across all users
     uint256 public totalPrebookings;
 
     /// @notice Total units pre-booked by a specific user address
@@ -54,6 +54,9 @@ contract MelodyPayPrebooking is Ownable2Step, Pausable, ReentrancyGuard {
     /// @notice Emitted when the treasury address is updated
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 
+    /// @notice Emitted when accidentally sent tokens are recovered
+    event TokenRecovered(address indexed token, address indexed to, uint256 amount);
+
     constructor(address _usdc, address _treasury) Ownable2Step(msg.sender) {
         require(_usdc != address(0), "Zero USDC address");
         require(_treasury != address(0), "Zero treasury address");
@@ -64,7 +67,7 @@ contract MelodyPayPrebooking is Ownable2Step, Pausable, ReentrancyGuard {
 
     /**
      * @notice Reserve priority hardware waitlist spots by paying 1.00 USDC per unit
-     * @param quantity Number of DevKit units to pre-book (1 to MAX_BATCH_QUANTITY)
+     * @param quantity Number of HardWallet units to pre-book (1 to MAX_BATCH_QUANTITY)
      * @return startQueueNumber The first sequential priority queue position assigned in this reservation batch
      */
     function prebook(uint256 quantity) public nonReentrant whenNotPaused returns (uint256 startQueueNumber) {
@@ -73,9 +76,7 @@ contract MelodyPayPrebooking is Ownable2Step, Pausable, ReentrancyGuard {
 
         uint256 totalCost = quantity * PREBOOK_PRICE;
 
-        // Forward USDC directly from caller to treasury
-        usdc.safeTransferFrom(msg.sender, treasury, totalCost);
-
+        // Effects: update internal state before external interactions (CEI pattern)
         startQueueNumber = totalPrebookings + 1;
         totalPrebookings += quantity;
         userTotalUnits[msg.sender] += quantity;
@@ -84,13 +85,20 @@ contract MelodyPayPrebooking is Ownable2Step, Pausable, ReentrancyGuard {
         if (userQueueNumber[msg.sender] == 0) {
             userQueueNumber[msg.sender] = startQueueNumber;
         }
-        queueUser[startQueueNumber] = msg.sender;
+
+        // Map every assigned queue number in batch to caller
+        for (uint256 i = 0; i < quantity; ++i) {
+            queueUser[startQueueNumber + i] = msg.sender;
+        }
+
+        // Interactions: forward USDC directly from caller to treasury
+        usdc.safeTransferFrom(msg.sender, treasury, totalCost);
 
         emit Prebooked(startQueueNumber, msg.sender, totalCost, quantity, block.timestamp);
     }
 
     /**
-     * @notice Backwards-compatible parameterless prebook (reserves 1 DevKit)
+     * @notice Backwards-compatible parameterless prebook (reserves 1 HardWallet)
      * @return queueNumber The sequential priority queue position assigned to the user
      */
     function prebook() external returns (uint256 queueNumber) {
@@ -119,7 +127,7 @@ contract MelodyPayPrebooking is Ownable2Step, Pausable, ReentrancyGuard {
     }
 
     /**
-     * @notice Get total count of pre-booked DevKit units
+     * @notice Get total count of pre-booked HardWallet units
      */
     function getQueueCount() external view returns (uint256) {
         return totalPrebookings;
@@ -147,5 +155,17 @@ contract MelodyPayPrebooking is Ownable2Step, Pausable, ReentrancyGuard {
      */
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    /**
+     * @notice Recover any ERC-20 tokens accidentally sent directly to this contract
+     * @param token Address of the ERC-20 token to recover
+     * @param to Recipient address for recovered tokens
+     * @param amount Token amount to transfer
+     */
+    function recoverToken(address token, address to, uint256 amount) external onlyOwner {
+        require(to != address(0), "Zero recipient address");
+        IERC20(token).safeTransfer(to, amount);
+        emit TokenRecovered(token, to, amount);
     }
 }

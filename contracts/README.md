@@ -20,10 +20,12 @@ This directory contains the smart contract architecture for MelodyPay.
 
 ### 3. Priority Hardware Waitlist Pre-Booking (Base Mainnet)
 - **Contract**: `src/MelodyPayPrebooking.sol`
-- **Purpose**: Fixed-price (1.00 USDC) non-custodial pre-booking and priority waitlist contract for the ESP32-S3 Air-Gapped Acoustic Sound Terminal.
+- **Deployed Address (Base Mainnet)**: [`0x06E86FeeAdd4c0767080235fa82EF87e0fBBCcff`](https://basescan.org/address/0x06E86FeeAdd4c0767080235fa82EF87e0fBBCcff)
+- **Deployment Transaction**: [`0x9b61462fc75d84632e4a2e6ca7767bd7d54a7b1536f4656dc9a9a68d3ee987a5`](https://basescan.org/tx/0x9b61462fc75d84632e4a2e6ca7767bd7d54a7b1536f4656dc9a9a68d3ee987a5)
+- **Purpose**: Fixed-price (1.00 USDC) non-custodial pre-booking and priority waitlist contract for the MelodyPay HardWallet (Air-Gapped Acoustic Sound Terminal).
 - **Treasury Recipient**: Proceeds forward directly to `0x0E6937A18De79Ed54692E65F7A0DA5A81B8D7BCF`.
 - **On-Chain Queue Count**: Maintains monotonic `totalPrebookings` counter and assigns sequential queue numbers (`#001`, `#002`, ...).
-- **Privacy**: User emails remain 100% off-chain; confirmation emails with subject `Prebooked` are dispatched off-chain via Resend.
+- **Privacy**: User emails remain 100% off-chain; confirmation emails with subject `Prebooked` are dispatched off-chain.
 
 ## Testing
 

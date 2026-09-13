@@ -5,7 +5,7 @@ describe("Pre-booking Flow & Receipt Generation", () => {
         const queueNumber = 42;
         const txHash = "0x9876543210abcdef9876543210abcdef9876543210abcdef9876543210abcdef";
         const payer = "0x36aF09d2208E8A91C2e3E2FdfbB9aC1D183c509A";
-        const treasury = "0xE36f3d4Bd0a6bbdd940404C6323c1121b2666176";
+        const treasury = "0x0E6937A18De79Ed54692E65F7A0DA5A81B8D7BCF";
 
         const receiptData = {
             type: "prebooking" as const,

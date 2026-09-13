@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity 0.8.24;
 
 import {MelodyPayPrebooking} from "../src/MelodyPayPrebooking.sol";
 
@@ -32,11 +32,11 @@ contract DeployPrebooking is Script {
     // Official Circle Native USDC on Base Mainnet (Chain ID 8453)
     address public constant BASE_MAINNET_USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
     // MelodyPay Official Treasury Wallet
-    address public constant PROJECT_TREASURY = 0xE36f3d4Bd0a6bbdd940404C6323c1121b2666176;
+    address public constant PROJECT_TREASURY = 0x0E6937A18De79Ed54692E65F7A0DA5A81B8D7BCF;
 
     function run() external returns (MelodyPayPrebooking prebooking) {
-        // Default to Base Sepolia testnet USDC
-        address usdc = vm().envOr("USDC_ADDRESS", BASE_SEPOLIA_USDC);
+        // Default to Base Mainnet USDC
+        address usdc = vm().envOr("USDC_ADDRESS", BASE_MAINNET_USDC);
         address treasury = vm().envOr("TREASURY_ADDRESS", PROJECT_TREASURY);
 
         vm().startBroadcast();
