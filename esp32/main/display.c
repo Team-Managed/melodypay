@@ -360,14 +360,14 @@ static void draw_small_line(const char *text, uint8_t y)
     }
 }
 
-static void draw_final_checkmark_top(void)
+static void draw_final_checkmark(uint8_t destination_y)
 {
     const uint8_t *frame = OLED_SUCCESS_CHECK_frames[OLED_SUCCESS_CHECK_FRAME_COUNT - 1];
     for (uint8_t y = 24; y < 40; y++) {
         for (uint8_t x = 56; x < 72; x++) {
             const size_t source_index = (size_t)(y / 8) * 128 + x;
             if ((frame[source_index] & (uint8_t)(1u << (y % 8))) != 0) {
-                set_pixel(x, (uint8_t)(y - 24), true);
+                set_pixel(x, (uint8_t)(destination_y + y - 24), true);
             }
         }
     }
@@ -401,8 +401,12 @@ void display_success_warp_animation(void)
 void display_success_check_animation(void)
 {
     if (!display_connected) return;
+    const uint8_t *previous_frame = NULL;
     for (uint8_t frame = 0; frame < OLED_SUCCESS_CHECK_FRAME_COUNT; frame++) {
+        const uint8_t *current_frame = OLED_SUCCESS_CHECK_frames[frame];
+        if (previous_frame != NULL && memcmp(previous_frame, current_frame, sizeof(display_buffer)) == 0) continue;
         display_success_check_frame(frame);
+        previous_frame = current_frame;
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
@@ -418,8 +422,8 @@ void display_success_screen(const char *amount, const char *symbol, const char *
         snprintf(address_line, sizeof(address_line), "Wallet ready");
     }
     memset(display_buffer, 0, sizeof(display_buffer));
-    draw_final_checkmark_top();
-    draw_small_line(amount_line, 21);
-    draw_small_line(address_line, 34);
+    draw_final_checkmark(13);
+    draw_small_line(amount_line, 33);
+    draw_small_line(address_line, 45);
     (void)flush_display_buffer();
 }
