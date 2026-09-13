@@ -303,18 +303,33 @@ void display_receive_screen(void)
 
 static void draw_checkmark(uint8_t x, uint8_t y)
 {
-    for (uint8_t index = 0; index < 12; index++) {
-        set_pixel((uint8_t)(x + index), (uint8_t)(y + 10 + index / 2), true);
-        set_pixel((uint8_t)(x + 10 + index), (uint8_t)(y + 16 - index), true);
+    for (uint8_t index = 0; index < 6; index++) {
+        set_pixel((uint8_t)(x + index), (uint8_t)(y + 6 + index), true);
+        set_pixel((uint8_t)(x + 5 + index), (uint8_t)(y + 11 - index), true);
     }
+}
+
+void display_success_warp_frame(uint8_t frame)
+{
+    if (!display_connected) return;
+    if (frame >= OLED_SUCCESS_WARP_FRAME_COUNT) frame = OLED_SUCCESS_WARP_FRAME_COUNT - 1;
+    memcpy(display_buffer, oled_success_warp_frames[frame], sizeof(display_buffer));
+    (void)flush_display_buffer();
+}
+
+void display_success_check_frame(uint8_t frame)
+{
+    if (!display_connected) return;
+    if (frame >= OLED_SUCCESS_CHECK_FRAME_COUNT) frame = OLED_SUCCESS_CHECK_FRAME_COUNT - 1;
+    memcpy(display_buffer, oled_success_check_frames[frame], sizeof(display_buffer));
+    (void)flush_display_buffer();
 }
 
 void display_success_warp_animation(void)
 {
     if (!display_connected) return;
     for (uint8_t frame = 0; frame < OLED_SUCCESS_WARP_FRAME_COUNT; frame++) {
-        memcpy(display_buffer, oled_success_warp_frames[frame], sizeof(display_buffer));
-        (void)flush_display_buffer();
+        display_success_warp_frame(frame);
         vTaskDelay(pdMS_TO_TICKS(90));
     }
 }
@@ -323,8 +338,7 @@ void display_success_check_animation(void)
 {
     if (!display_connected) return;
     for (uint8_t frame = 0; frame < OLED_SUCCESS_CHECK_FRAME_COUNT; frame++) {
-        memcpy(display_buffer, oled_success_check_frames[frame], sizeof(display_buffer));
-        (void)flush_display_buffer();
+        display_success_check_frame(frame);
         vTaskDelay(pdMS_TO_TICKS(80));
     }
 }
@@ -341,7 +355,7 @@ void display_success_screen(const char *amount, const char *symbol, const char *
     }
     memset(display_buffer, 0, sizeof(display_buffer));
     draw_checkmark(54, 1);
-    draw_line("SUCCESS", 1);
+    draw_line("PAID", 1);
     draw_line(amount_line, 2);
     draw_line(address_line, 3);
     (void)flush_display_buffer();

@@ -706,6 +706,28 @@ static int cmd_oled(int argc, char **argv)
     return result == ESP_OK ? 0 : 1;
 }
 
+static int cmd_oled_warp(int argc, char **argv)
+{
+    if (argc == 1) display_success_warp_animation();
+    else display_success_warp_frame((uint8_t)atoi(argv[1]));
+    return 0;
+}
+
+static int cmd_oled_check(int argc, char **argv)
+{
+    if (argc == 1) display_success_check_animation();
+    else display_success_check_frame((uint8_t)atoi(argv[1]));
+    return 0;
+}
+
+static int cmd_oled_success(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+    display_success_screen("0.01", "MON", "0x940b939cc85fdef41880b601467b9c40fdca22e5");
+    return 0;
+}
+
 static int cmd_screen(int argc, char **argv)
 {
     if (argc < 2) {
@@ -911,6 +933,24 @@ static void init_console(void)
         .hint = "<text>",
         .func = &cmd_screen,
     };
+    const esp_console_cmd_t warp_command = {
+        .command = "oled_warp",
+        .help = "play or show a success warp animation frame",
+        .hint = "[frame]",
+        .func = &cmd_oled_warp,
+    };
+    const esp_console_cmd_t check_command = {
+        .command = "oled_check",
+        .help = "play or show a checkmark animation frame",
+        .hint = "[frame]",
+        .func = &cmd_oled_check,
+    };
+    const esp_console_cmd_t success_command = {
+        .command = "oled_success",
+        .help = "show the final payment success layout",
+        .hint = NULL,
+        .func = &cmd_oled_success,
+    };
     const esp_console_cmd_t tx_command = {
         .command = "tx",
         .help = "transmit a text payload over audio",
@@ -961,6 +1001,9 @@ static void init_console(void)
     ESP_ERROR_CHECK(esp_console_cmd_register(&micplay_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&oled_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&screen_command));
+    ESP_ERROR_CHECK(esp_console_cmd_register(&warp_command));
+    ESP_ERROR_CHECK(esp_console_cmd_register(&check_command));
+    ESP_ERROR_CHECK(esp_console_cmd_register(&success_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&tx_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&ggtest_command));
     ESP_ERROR_CHECK(esp_console_cmd_register(&crypto_test_command));
