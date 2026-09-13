@@ -330,7 +330,7 @@ void display_success_warp_animation(void)
     if (!display_connected) return;
     for (uint8_t frame = 0; frame < OLED_SUCCESS_WARP_FRAME_COUNT; frame++) {
         display_success_warp_frame(frame);
-        vTaskDelay(pdMS_TO_TICKS(90));
+        vTaskDelay(pdMS_TO_TICKS(67));
     }
 }
 
@@ -339,7 +339,7 @@ void display_success_check_animation(void)
     if (!display_connected) return;
     for (uint8_t frame = 0; frame < OLED_SUCCESS_CHECK_FRAME_COUNT; frame++) {
         display_success_check_frame(frame);
-        vTaskDelay(pdMS_TO_TICKS(80));
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
