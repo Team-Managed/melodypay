@@ -67,7 +67,7 @@ static void show_payment_success(void)
     }
     display_success_warp_animation();
     success_audio_phase = 2;
-    display_success_check_animation();
+    display_success_screen_check_animation(pending_amount, pending_symbol, pending_address);
     success_audio_running = false;
     while (!success_audio_done) vTaskDelay(pdMS_TO_TICKS(10));
     display_success_screen(pending_amount, pending_symbol, pending_address);
@@ -756,7 +756,7 @@ static int cmd_oled_success(int argc, char **argv)
     (void)argc;
     (void)argv;
     run_debug_success_animation(false);
-    run_debug_success_animation(true);
+    display_success_screen_check_animation("0.01", "MON", "0x940b939cc85fdef41880b601467b9c40fdca22e5");
     display_success_screen("0.01", "MON", "0x940b939cc85fdef41880b601467b9c40fdca22e5");
     return 0;
 }

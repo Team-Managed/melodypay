@@ -301,19 +301,6 @@ void display_receive_screen(void)
     (void)flush_display_buffer();
 }
 
-static void draw_final_checkmark(uint8_t destination_y)
-{
-    const uint8_t *frame = OLED_SUCCESS_CHECK_frames[OLED_SUCCESS_CHECK_FRAME_COUNT - 1];
-    for (uint8_t y = 24; y < 40; y++) {
-        for (uint8_t x = 56; x < 72; x++) {
-            const size_t source_index = (size_t)(y / 8) * 128 + x;
-            if ((frame[source_index] & (uint8_t)(1u << (y % 8))) != 0) {
-                set_pixel(x, (uint8_t)(destination_y + y - 24), true);
-            }
-        }
-    }
-}
-
 void display_success_warp_frame(uint8_t frame)
 {
     if (!display_connected) return;
@@ -352,7 +339,7 @@ void display_success_check_animation(void)
     }
 }
 
-void display_success_screen(const char *amount, const char *symbol, const char *address)
+void display_success_screen_frame(const char *amount, const char *symbol, const char *address, uint8_t frame)
 {
     char amount_line[32];
     char address_line[24];
@@ -363,8 +350,35 @@ void display_success_screen(const char *amount, const char *symbol, const char *
         snprintf(address_line, sizeof(address_line), "Wallet ready");
     }
     memset(display_buffer, 0, sizeof(display_buffer));
-    draw_final_checkmark(13);
+    if (frame >= OLED_SUCCESS_CHECK_FRAME_COUNT) frame = OLED_SUCCESS_CHECK_FRAME_COUNT - 1;
+    const uint8_t *check_frame = OLED_SUCCESS_CHECK_frames[frame];
+    for (uint8_t y = 24; y < 40; y++) {
+        for (uint8_t x = 56; x < 72; x++) {
+            const size_t source_index = (size_t)(y / 8) * 128 + x;
+            if ((check_frame[source_index] & (uint8_t)(1u << (y % 8))) != 0) {
+                set_pixel(x, (uint8_t)(13 + y - 24), true);
+            }
+        }
+    }
     draw_line(amount_line, 2);
     draw_line(address_line, 3);
     (void)flush_display_buffer();
+}
+
+void display_success_screen_check_animation(const char *amount, const char *symbol, const char *address)
+{
+    if (!display_connected) return;
+    const uint8_t *previous_frame = NULL;
+    for (uint8_t frame = 0; frame < OLED_SUCCESS_CHECK_FRAME_COUNT; frame++) {
+        const uint8_t *current_frame = OLED_SUCCESS_CHECK_frames[frame];
+        if (previous_frame != NULL && memcmp(previous_frame, current_frame, sizeof(display_buffer)) == 0) continue;
+        display_success_screen_frame(amount, symbol, address, frame);
+        previous_frame = current_frame;
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
+
+void display_success_screen(const char *amount, const char *symbol, const char *address)
+{
+    display_success_screen_frame(amount, symbol, address, OLED_SUCCESS_CHECK_FRAME_COUNT - 1);
 }

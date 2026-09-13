@@ -19,4 +19,6 @@ void display_success_warp_animation(void);
 void display_success_check_animation(void);
 void display_success_warp_frame(uint8_t frame);
 void display_success_check_frame(uint8_t frame);
+void display_success_screen_frame(const char *amount, const char *symbol, const char *address, uint8_t frame);
+void display_success_screen_check_animation(const char *amount, const char *symbol, const char *address);
 void display_success_screen(const char *amount, const char *symbol, const char *address);
