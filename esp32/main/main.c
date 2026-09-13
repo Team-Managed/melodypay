@@ -528,6 +528,7 @@ static void handle_ui_event(button_event_t event)
             if (payment_result == ESP_ERR_INVALID_STATE) {
                 (void)button_wait_for_release(1000);
                 button_reset_event_state();
+                wallet_state_set(WALLET_IDLE);
                 ui_screen = UI_PAYMENT_MENU;
                 ui_selection = 0;
                 display_payment_menu_screen(0);
@@ -622,6 +623,7 @@ static void handle_ui_event(button_event_t event)
                 if (result == ESP_ERR_INVALID_STATE) {
                     (void)button_wait_for_release(1000);
                     button_reset_event_state();
+                    wallet_state_set(WALLET_IDLE);
                     ui_screen = UI_PAYMENT_MENU;
                     ui_selection = 0;
                     display_payment_menu_screen(0);
@@ -632,6 +634,7 @@ static void handle_ui_event(button_event_t event)
                     if (receipt_result == ESP_ERR_INVALID_STATE) {
                         (void)button_wait_for_release(1000);
                         button_reset_event_state();
+                        wallet_state_set(WALLET_IDLE);
                         ui_screen = UI_PAYMENT_MENU;
                         ui_selection = 0;
                         display_payment_menu_screen(0);
