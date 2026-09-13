@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { ethers } from "ethers";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, CheckCircle2, Cpu, Loader2, Radio, ShieldCheck, Wallet } from "lucide-react";
+import type { ReceiptData } from "./PaymentReceipt";
 
 const BASE_CHAIN_ID = 8453;
 const BASE_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
@@ -28,6 +29,7 @@ function configuredContractAddress() {
 }
 
 export function Register() {
+    const navigate = useNavigate();
     const [wallet, setWallet] = useState("");
     const [chainId, setChainId] = useState(0);
     const [quantity, setQuantity] = useState(1);
@@ -171,6 +173,21 @@ export function Register() {
             setTxHash(receipt.hash);
             setStatus("Prebooking confirmed on Base Mainnet.");
             await refreshWalletState(provider, wallet);
+            const receiptData: ReceiptData = {
+                type: "prebooking",
+                amount: totalPrice,
+                token: "USDC",
+                recipient: contractAddress,
+                txHash: receipt.hash,
+                payer: wallet,
+                chainId: BASE_CHAIN_ID,
+                networkName: "Base Mainnet",
+                timestamp: new Date().toISOString(),
+                receiptId: `PREBOOK-BASE-${Date.now().toString().slice(-6)}`,
+                quantity,
+            };
+            localStorage.setItem("melodypay_last_receipt", JSON.stringify(receiptData));
+            navigate("/receipt", { state: receiptData });
         } catch (err) {
             setError(err instanceof Error ? err.message : "Prebooking failed.");
             setStatus("");

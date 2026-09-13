@@ -4,6 +4,7 @@ import { Home } from "./pages/Home";
 import { ReceivePayment } from "./pages/ReceivePayment";
 import { AudioTest } from "./pages/AudioTest";
 import { Register } from "./pages/Register";
+import { PaymentReceipt } from "./pages/PaymentReceipt";
 import { StudioHeader } from "./components/StudioHeader";
 import ReactLenis from "lenis/react";
 
@@ -16,6 +17,7 @@ function AnimatedRoutes() {
                 <Route path="/" element={<Home />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/receive" element={<ReceivePayment />} />
+                <Route path="/receipt" element={<PaymentReceipt />} />
                 <Route path="/audio-test" element={<AudioTest />} />
             </Routes>
         </AnimatePresence>
