@@ -30,6 +30,7 @@ typedef enum {
     UI_PAYMENT,
     UI_RECEIVE,
     UI_PAYMENT_MENU,
+    UI_SUCCESS,
 } ui_screen_t;
 
 static ui_screen_t ui_screen = UI_HOME;
@@ -398,6 +399,11 @@ static void handle_ui_event(button_event_t event)
                 display_message("PAYMENT", "Flow stopped", esp_err_to_name(payment_result), "");
                 vTaskDelay(pdMS_TO_TICKS(1200));
             }
+            if (payment_result == ESP_OK) {
+                ui_screen = UI_SUCCESS;
+                ui_selection = 0;
+                return;
+            }
             ui_screen = UI_HOME;
             ui_selection = 0;
             wallet_state_set(WALLET_IDLE);
@@ -449,6 +455,14 @@ static void handle_ui_event(button_event_t event)
         return;
     }
 
+    if (ui_screen == UI_SUCCESS &&
+        (event == BUTTON_EVENT_SINGLE_CLICK || event == BUTTON_EVENT_DOUBLE_CLICK)) {
+        ui_screen = UI_HOME;
+        ui_selection = 0;
+        render_ui();
+        return;
+    }
+
     if (ui_screen == UI_PAYMENT && event == BUTTON_EVENT_DOUBLE_CLICK) {
         ui_screen = UI_HOME;
         ui_selection = 0;
@@ -458,6 +472,7 @@ static void handle_ui_event(button_event_t event)
     }
 
     if (ui_screen == UI_PAYMENT_MENU) {
+        bool payment_succeeded = false;
         if (event == BUTTON_EVENT_SINGLE_CLICK) {
             ui_selection = (uint8_t)((ui_selection + 1) % 2);
             render_ui();
@@ -484,7 +499,13 @@ static void handle_ui_event(button_event_t event)
                         display_payment_menu_screen(0);
                         return;
                     }
+                    payment_succeeded = receipt_result == ESP_OK;
                 }
+            }
+            if (payment_succeeded) {
+                ui_screen = UI_SUCCESS;
+                ui_selection = 0;
+                return;
             }
             ui_screen = UI_HOME;
             ui_selection = 0;
