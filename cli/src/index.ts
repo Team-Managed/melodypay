@@ -1,46 +1,26 @@
-import {
-  isCancel,
-  select,
-  spinner,
-  text,
-} from "@clack/prompts";
 import { ethers } from "ethers";
 import { loadBalanceRows } from "./balances.js";
-import { CLI_CHAINS, getCliChain } from "./chains.js";
-import { getPaymentRequest, validateAndBroadcast, type ReceiverRequest } from "./receiver.js";
+import { CLI_CHAINS } from "./chains.js";
+import { getPaymentRequest, validateAndBroadcast } from "./receiver.js";
 import { DeviceClient } from "./device.js";
 import { connectDevice, listSerialPorts, type DeviceConnection } from "./serial.js";
-import { isBackNavigation } from "./navigation.js";
-import { runOperatorUi, type DashboardSnapshot } from "./operator-ui.js";
+import { promptSelect, promptText, runOperatorUi, showInfo, type DashboardSnapshot } from "./operator-ui.js";
 
 type Action = "dashboard" | "device" | "status" | "networks" | "payment" | "diagnostics" | "inspect" | "exit";
 
 let deviceConnection: DeviceConnection | null = null;
 let deviceClient: DeviceClient | null = null;
 
-function clearTerminal() {
-  process.stdout.write("\x1b[3J\x1b[2J\x1b[H");
-}
-
-function cancelled<T>(value: T | symbol): value is symbol {
-  return isCancel(value) && isBackNavigation(value);
-}
-
 async function requiredText(message: string, placeholder?: string): Promise<string | null> {
-  const value = await text({ message, placeholder, validate: (input) => input.trim() ? undefined : "Required" });
-  return cancelled(value) ? null : value.trim();
+  return promptText(message, placeholder);
 }
 
 async function chooseChain(): Promise<number | null> {
-  const value = await select({
-    message: "Select network",
-    options: CLI_CHAINS.map((chain) => ({
+  return promptSelect("Select network", CLI_CHAINS.map((chain) => ({
       value: chain.chainId,
       label: `${chain.name} (${chain.symbol})`,
       hint: `chain ${chain.chainId}`,
-    })),
-  });
-  return cancelled(value) ? null : value;
+    })));
 }
 
 async function paymentTerminal() {
@@ -53,28 +33,20 @@ async function paymentTerminal() {
   const sender = await requiredText("Hardware wallet address", "0x...");
   if (!sender) return;
 
-  const loader = spinner();
-  loader.start("Fetching nonce and fee data");
   try {
     const request = await getPaymentRequest(chainId, recipient, amount, sender);
-    loader.stop("Payment request ready");
-    console.log(JSON.stringify({
+    await showInfo("Payment request ready", JSON.stringify({
       ...request,
       maxFeePerGas: request.maxFeePerGas.toString(),
       maxPriorityFeePerGas: request.maxPriorityFeePerGas.toString(),
-    }, null, 2));
-    console.log("Audio adapter boundary: play this request to the hardware wallet.");
+    }, null, 2) + "\n\nAudio adapter boundary: play this request to the hardware wallet.");
 
     const signed = await requiredText("Paste signed transaction", "0x...");
     if (!signed) return;
-    const broadcastLoader = spinner();
-    broadcastLoader.start("Validating and broadcasting");
     const hash = await validateAndBroadcast(signed, request);
-    broadcastLoader.stop("Broadcast complete");
-    console.log(`Transaction: ${hash}`);
+    await showInfo("Broadcast complete", `Transaction: ${hash}`);
   } catch (error) {
-    loader.stop("Payment failed", 1);
-    console.error(error instanceof Error ? error.message : error);
+    await showInfo("Payment failed", error instanceof Error ? error.message : String(error));
   }
 }
 
@@ -83,7 +55,7 @@ async function inspectTransaction() {
   if (!signed) return;
   try {
     const tx = ethers.Transaction.from(signed);
-    console.log(JSON.stringify({
+    await showInfo("Signed transaction", JSON.stringify({
       hash: tx.hash,
       from: tx.from,
       to: tx.to,
@@ -94,38 +66,34 @@ async function inspectTransaction() {
       dataBytes: (ethers.getBytes(tx.data)).length,
     }, null, 2));
   } catch (error) {
-    console.error(error instanceof Error ? error.message : error);
+    await showInfo("Invalid transaction", error instanceof Error ? error.message : String(error));
   }
 }
 
-function showNetworks() {
-  for (const chain of CLI_CHAINS) {
-    console.log(`${chain.name.padEnd(20)} ${String(chain.chainId).padEnd(10)} ${chain.symbol}  ${chain.rpcUrl}`);
-  }
+async function showNetworks() {
+  await showInfo("Network profiles", CLI_CHAINS.map((chain) =>
+    `${chain.name.padEnd(20)} ${String(chain.chainId).padEnd(10)} ${chain.symbol}  ${chain.rpcUrl}`,
+  ).join("\n"));
 }
 
 async function connectWallet() {
   const ports = await listSerialPorts();
   if (ports.length === 0) {
-    console.log("No serial devices detected. Connect the ESP32 and try again.");
+    await showInfo("USB wallet", "No serial devices detected. Connect the ESP32 and try again.");
     return;
   }
-  const selected = await select({
-    message: "Select USB wallet",
-    options: ports.map((port) => ({
+  const selected = await promptSelect("Select USB wallet", ports.map((port) => ({
       value: port.path,
       label: port.path,
       hint: [port.manufacturer, port.serialNumber, port.productId].filter(Boolean).join(" | ") || "serial device",
-    })),
-  });
-  if (cancelled(selected)) return;
+    })));
+  if (!selected) return;
 
   deviceConnection?.close();
   deviceConnection = await connectDevice(selected);
   deviceClient = new DeviceClient(deviceConnection);
   const info = await deviceClient.info();
-  console.log(`\nWallet connected: ${deviceConnection.path}`);
-  console.log(`Firmware: ${info.firmware} | ${info.chip} | ${info.cores} cores`);
+  await showInfo("Wallet connected", `${deviceConnection.path}\nFirmware: ${info.firmware} | ${info.chip} | ${info.cores} cores`);
 }
 
 async function loadDashboard(): Promise<DashboardSnapshot> {
@@ -149,38 +117,30 @@ async function loadDashboard(): Promise<DashboardSnapshot> {
   }
 }
 
-function printDeviceStatus(status: Awaited<ReturnType<DeviceClient["status"]>>) {
-  console.log(`\nWallet state: ${status.wallet_state}`);
-  console.log(`Active chain: ${status.active_chain_id || "not configured"}`);
-  console.log(`Signing:      ${status.signing ? "ready" : "unavailable"}`);
-  console.log(`Address:      ${status.address_derivation ? "ready" : "unavailable"}`);
-  console.log(`Display:      ${status.display_connected ? "connected" : "unavailable"}`);
-  console.log(`Audio:        ${status.audio_available ? "available" : "unavailable"}`);
-}
-
 async function deviceManager() {
   for (;;) {
-    const action = await select({
-      message: deviceConnection ? `USB wallet connected (${deviceConnection.path})` : "USB wallet manager",
-      options: [
+    const action = await promptSelect(
+      deviceConnection ? `USB wallet connected (${deviceConnection.path})` : "USB wallet manager",
+      [
         { value: "connect", label: deviceConnection ? "Reconnect wallet" : "Connect wallet" },
         { value: "status", label: "Show device status" },
         { value: "configure", label: "Configure active chain" },
         { value: "disconnect", label: "Disconnect wallet" },
         { value: "back", label: "Back" },
       ],
-    });
-    if (cancelled(action) || action === "back") return;
+    );
+    if (!action || action === "back") return;
     try {
       if (action === "connect") await connectWallet();
       if (action === "status") {
         if (!deviceClient) throw new Error("Connect a wallet first");
-        printDeviceStatus(await deviceClient.status());
+        const status = await deviceClient.status();
+        await showInfo("Wallet status", statusLines(status));
       }
       if (action === "configure") {
         if (!deviceClient) throw new Error("Connect a wallet first");
         const chainId = await chooseChain();
-        if (chainId !== null) console.log(JSON.stringify(await deviceClient.configureChain(chainId), null, 2));
+        if (chainId !== null) await showInfo("Active chain configured", JSON.stringify(await deviceClient.configureChain(chainId), null, 2));
       }
       if (action === "disconnect") {
         await deviceClient?.close();
@@ -188,56 +148,61 @@ async function deviceManager() {
         deviceConnection = null;
       }
     } catch (error) {
-      console.error(error instanceof Error ? error.message : error);
+      await showInfo("USB wallet error", error instanceof Error ? error.message : String(error));
     }
   }
 }
 
 async function deviceStatus() {
   if (!deviceClient) {
-    console.log("No USB wallet connected.");
+    await showInfo("Wallet status", "No USB wallet connected.");
     return;
   }
   try {
-    console.log(`\nConnection: ${deviceConnection?.path ?? "disconnected"}`);
-    printDeviceStatus(await deviceClient.status());
+    const status = await deviceClient.status();
+    await showInfo("Wallet status", `Connection: ${deviceConnection?.path ?? "disconnected"}\n` + statusLines(status));
   } catch (error) {
-    console.error(error instanceof Error ? error.message : error);
+    await showInfo("Wallet status error", error instanceof Error ? error.message : String(error));
   }
+}
+
+function statusLines(status: Awaited<ReturnType<DeviceClient["status"]>>): string {
+  return [
+    `Wallet state: ${status.wallet_state}`,
+    `Active chain: ${status.active_chain_id || "not configured"}`,
+    `Signing:      ${status.signing ? "ready" : "unavailable"}`,
+    `Address:      ${status.address_derivation ? "ready" : "unavailable"}`,
+    `Display:      ${status.display_connected ? "connected" : "unavailable"}`,
+    `Audio:        ${status.audio_available ? "available" : "unavailable"}`,
+  ].join("\n");
 }
 
 async function diagnostics() {
   if (!deviceClient) {
-    console.log("Connect a USB wallet first.");
+    await showInfo("Diagnostics", "Connect a USB wallet first.");
     return;
   }
-  const action = await select({
-    message: "Device diagnostics",
-    options: [
+  const action = await promptSelect("Device diagnostics", [
       { value: "audio", label: "Run audio self-test" },
       { value: "ggwave", label: "Run ggwave self-test" },
       { value: "button", label: "Test approval button" },
       { value: "display", label: "Show text on OLED" },
       { value: "back", label: "Back" },
-    ],
-  });
-  if (cancelled(action) || action === "back") return;
+    ]);
+  if (!action || action === "back") return;
   try {
-    if (action === "audio") console.log(await deviceClient.audioSelfTest());
-    if (action === "ggwave") console.log(await deviceClient.ggwaveSelfTest());
+    if (action === "audio") await showInfo("Audio self-test", JSON.stringify(await deviceClient.audioSelfTest(), null, 2));
+    if (action === "ggwave") await showInfo("ggwave self-test", JSON.stringify(await deviceClient.ggwaveSelfTest(), null, 2));
     if (action === "button") {
-      const timeout = await text({ message: "Approval timeout in seconds", initialValue: "10" });
-      if (!cancelled(timeout)) {
-        console.log("Press GPIO10 now...");
-        console.log(await deviceClient.waitForApproval(Number(timeout)));
-      }
+      const timeout = await promptText("Approval timeout in seconds", "10");
+      if (timeout) await showInfo("Approval button", `Press GPIO10 now.\n\n${JSON.stringify(await deviceClient.waitForApproval(Number(timeout)), null, 2)}`);
     }
     if (action === "display") {
       const textValue = await requiredText("OLED text", "MelodyPay");
-      if (textValue) console.log(await deviceClient.displayText(textValue));
+      if (textValue) await showInfo("OLED display", JSON.stringify(await deviceClient.displayText(textValue), null, 2));
     }
   } catch (error) {
-    console.error(error instanceof Error ? error.message : error);
+    await showInfo("Diagnostics error", error instanceof Error ? error.message : String(error));
   }
 }
 
@@ -252,7 +217,7 @@ async function main() {
     if (action === "payment") await paymentTerminal();
     if (action === "diagnostics") await diagnostics();
     if (action === "inspect") await inspectTransaction();
-    if (action === "networks") showNetworks();
+    if (action === "networks") await showNetworks();
 
   }
 

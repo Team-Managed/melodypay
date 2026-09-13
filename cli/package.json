@@ -9,7 +9,6 @@
     "test": "tsx --test src/*.node-test.ts"
   },
   "dependencies": {
-    "@clack/prompts": "^0.10.0",
     "@serialport/parser-readline": "^13.0.0",
     "ethers": "^6.13.0",
     "serialport": "^13.0.0",

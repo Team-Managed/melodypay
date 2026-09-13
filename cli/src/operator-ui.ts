@@ -24,6 +24,12 @@ export interface DashboardSnapshot {
   rows: readonly BalanceRow[];
 }
 
+export interface PromptOption<T> {
+  value: T;
+  label: string;
+  hint?: string;
+}
+
 const actions: readonly { value: OperatorAction; label: string }[] = [
   { value: "dashboard", label: "Refresh dashboard" },
   { value: "device", label: "USB wallet manager" },
@@ -65,43 +71,105 @@ function renderScreen(terminal: Terminal, dashboard: DashboardSnapshot, selected
   });
 }
 
-export async function runOperatorUi(dashboard: DashboardSnapshot): Promise<OperatorAction> {
+type KeyHandler<T> = (value: string, key: readline.Key, finish: (result: T) => void) => void;
+
+async function runInteractive<T>(render: (terminal: Terminal) => void, handleKey: KeyHandler<T>): Promise<T> {
   const backend = createNodeBackend();
   const terminal = createTerminal(backend, { viewport: "fullscreen" });
   const input = process.stdin;
-  let selected = 0;
+  let listener: ((value: string, key: readline.Key) => void) | null = null;
 
   enterAlternateScreen();
   readline.emitKeypressEvents(input);
   input.setRawMode?.(true);
   input.resume();
-  const onKeypress = (value: string, key: { name?: string; ctrl?: boolean }) => {
-    if (key.ctrl && key.name === "c") input.emit("SIGINT");
-    if (key.name === "up") selected = (selected + actions.length - 1) % actions.length;
-    if (key.name === "down") selected = (selected + 1) % actions.length;
-    renderScreen(terminal, dashboard, selected);
-  };
-
-  const result = await new Promise<OperatorAction>((resolve) => {
-    let finished = false;
-    const finish = (action: OperatorAction) => {
-      if (finished) return;
-      finished = true;
-      resolve(action);
-    };
-    const originalListener = onKeypress;
-    const listener = (value: string, key: { name?: string; ctrl?: boolean }) => {
-      if (key.name === "return" || key.name === "enter") finish(actions[selected].value);
-      else if (key.name === "q" || key.name === "escape") finish("exit");
-      else originalListener(value, key);
-    };
+  const result = await new Promise<T>((resolve) => {
+    listener = (value, key) => handleKey(value, key, resolve);
     input.on("keypress", listener);
-    renderScreen(terminal, dashboard, selected);
+    render(terminal);
   });
-
-  input.removeAllListeners("keypress");
+  if (listener) input.off("keypress", listener);
   input.setRawMode?.(false);
   input.pause();
   leaveAlternateScreen();
   return result;
+}
+
+function renderPrompt(terminal: Terminal, title: string, body: string, footer: string) {
+  terminalDraw(terminal, (frame) => {
+    const [bodyArea, footerArea] = splitLayout(
+      createLayout([fillConstraint(1), lengthConstraint(2)]),
+      frame.area,
+    );
+    frameRenderWidget(frame, renderParagraph(createParagraph(body, {
+      block: blockBordered({ titles: [createTitle(title)] }),
+    })), bodyArea);
+    frameRenderWidget(frame, renderParagraph(createParagraph(footer, {
+      block: blockBordered(),
+    })), footerArea);
+  });
+}
+
+export async function promptText(message: string, placeholder = ""): Promise<string | null> {
+  let value = "";
+  let error = "";
+  return runInteractive(
+    (terminal) => renderPrompt(terminal, message, `${value || placeholder}${error ? `\n\nError: ${error}` : ""}`, "Type text   Enter submit   Esc cancel"),
+    (inputValue, key, finish) => {
+      if (key.name === "escape") return finish(null);
+      if (key.name === "return" || key.name === "enter") {
+        if (!value.trim()) {
+          error = "A value is required";
+          return;
+        }
+        return finish(value.trim());
+      }
+      if (key.name === "backspace") value = value.slice(0, -1);
+      else if (inputValue && !key.ctrl && !key.meta && inputValue.length === 1) value += inputValue;
+    },
+  );
+}
+
+export async function promptSelect<T>(message: string, options: readonly PromptOption<T>[]): Promise<T | null> {
+  let selected = 0;
+  return runInteractive(
+    (terminal) => {
+      const body = options.map((option, index) => `${index === selected ? ">" : " "} ${option.label}${option.hint ? `  ${option.hint}` : ""}`).join("\n");
+      renderPrompt(terminal, message, body, "Up/Down select   Enter confirm   Esc cancel");
+    },
+    (_value, key, finish) => {
+      if (key.name === "escape") return finish(null);
+      if (key.name === "up") selected = (selected + options.length - 1) % options.length;
+      if (key.name === "down") selected = (selected + 1) % options.length;
+      if (key.name === "return" || key.name === "enter") finish(options[selected].value);
+    },
+  );
+}
+
+export async function showInfo(title: string, body: string): Promise<void> {
+  await runInteractive(
+    (terminal) => renderPrompt(terminal, title, body, "Press Enter to continue"),
+    (_value, key, finish) => {
+      if (key.name === "return" || key.name === "enter" || key.name === "escape") finish(undefined);
+    },
+  );
+}
+
+export async function runOperatorUi(dashboard: DashboardSnapshot): Promise<OperatorAction> {
+  let selected = 0;
+  let activeTerminal: Terminal | null = null;
+  return runInteractive(
+    (terminal) => {
+      activeTerminal = terminal;
+      renderScreen(terminal, dashboard, selected);
+    },
+    (_value, key, finish) => {
+      if (key.ctrl && key.name === "c") return finish("exit");
+      if (key.name === "up") selected = (selected + actions.length - 1) % actions.length;
+      if (key.name === "down") selected = (selected + 1) % actions.length;
+      if (activeTerminal) renderScreen(activeTerminal, dashboard, selected);
+      if (key.name === "return" || key.name === "enter") finish(actions[selected].value);
+      else if (key.name === "q" || key.name === "escape") finish("exit");
+    },
+  );
 }
