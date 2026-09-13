@@ -63,7 +63,7 @@ const PROTOTYPE_FEATURES: PrototypeFeature[] = [
         title: "INMP441 Omnidirectional Microphone",
         subtitle: "Acoustic Invoice Capture Sensor",
         tag: "ACOUSTIC INVOICE CAPTURE SENSOR",
-        desc: "High-precision 24-bit I2S digital MEMS microphone listening for incoming merchant audio chimes. Streams raw 48.0 kHz acoustic audio directly to memory via digital I2S, immune to analog noise.",
+        desc: "High-precision 24-bit I2S digital MEMS microphone listening for incoming payment audio chimes. Streams raw 48.0 kHz acoustic audio directly to memory via digital I2S, immune to analog noise.",
         bus: "SD: GPIO 4 // WS: GPIO 5 // SCK: GPIO 6",
         security: "Hardware-isolated receive pipeline; no audio recorded to persistent flash.",
         repo: "esp32/components/audio_hal",
@@ -87,7 +87,7 @@ const PROTOTYPE_FEATURES: PrototypeFeature[] = [
         title: "MAX98357A I2S DAC & Audio Amp",
         subtitle: "Acoustic Signature Transmitter",
         tag: "ACOUSTIC SIGNATURE TRANSMITTER",
-        desc: "Class-D amplifier driving the speaker to emit the ggwave FSK acoustic signature packet back to the merchant's microphone within 400ms.",
+        desc: "Class-D amplifier driving the speaker to emit the ggwave FSK acoustic signature packet back to the receiver microphone within 400ms.",
         bus: "LRC: GPIO 7 // BCLK: GPIO 8 // DIN: GPIO 9",
         security: "Emits bounded chunks (max 128 bytes) with 300ms inter-burst silence for clean synchronization.",
         repo: "esp32/components/audio_hal",
@@ -99,7 +99,7 @@ const PROTOTYPE_FEATURES: PrototypeFeature[] = [
         title: "0.96\" Monochrome OLED Display",
         subtitle: "Tamper-Proof Clear-Signing Screen",
         tag: "TAMPER-PROOF CLEAR-SIGNING",
-        desc: "SSD1306 display showing real-time acoustic telemetry and human-verified transaction data: exact payment amount, verified merchant recipient address, and one-time transaction nonce.",
+        desc: "SSD1306 display showing real-time acoustic telemetry and human-verified transaction data: exact payment amount, verified receiver address, and one-time transaction nonce.",
         bus: "I2C SDA: GPIO 21 // SCL: GPIO 22 // 128x64 px",
         security: "Strictly forbids multi-page truncation or hidden calldata; rejects signing if address does not fit.",
         repo: "esp32/components/oled",
@@ -110,11 +110,11 @@ const PROTOTYPE_FEATURES: PrototypeFeature[] = [
 const FAQS = [
     {
         q: "Can acoustic sound payments be recorded and replayed?",
-        a: "No. Every acoustic payment carries a cryptographically unique one-time authorization nonce, a 60-second expiration window (validBefore), and the merchant's specific recipient address. Once settled on-chain, that nonce is permanently invalidated. Any recorded or repeated playback is rejected by the smart contract as an invalid duplicate nonce."
+        a: "No. Every acoustic payment carries a cryptographically unique one-time authorization nonce, a 60-second expiration window (validBefore), and the receiver's specific address. Once settled on-chain, that nonce is permanently invalidated. Any recorded or repeated playback is rejected by the smart contract as an invalid duplicate nonce."
     },
     {
         q: "How does payment settlement work?",
-        a: "MelodyPay settles transactions directly on-chain with instant finality. The offline HardWallet cryptographically signs the payment payload over the acoustic air-gap, and the merchant's connected terminal broadcasts the signed transaction with sub-second finality and negligible network fees."
+        a: "MelodyPay settles transactions directly on-chain with instant finality. The offline HardWallet cryptographically signs the payment payload over the acoustic air-gap, and the receiver's connected terminal broadcasts the signed transaction with sub-second finality and negligible network fees."
     },
     {
         q: "What if the ambient environment is extremely noisy?",
@@ -126,7 +126,7 @@ const FAQS = [
     },
     {
         q: "Which assets and networks are supported?",
-        a: "MelodyPay is engineered for instant on-chain settlement with high-throughput finality. All acoustic payments transfer directly to the merchant's on-chain address with sub-second finality."
+        a: "MelodyPay is engineered for instant on-chain settlement with high-throughput finality. All acoustic payments transfer directly to the receiver's on-chain address with sub-second finality."
     },
     {
         q: "How does the CLI communicate with the ESP32 hardware wallet over USB?",
@@ -541,7 +541,7 @@ export function Home() {
                                     Instant Settlement
                                 </h3>
                                 <p className="text-xs sm:text-sm text-white/80 leading-relaxed mb-5 font-sans">
-                                    Non-custodial settlement with sub-second cryptographic finality. Funds transfer directly into the merchant's wallet with zero custodial middle layers.
+                                    Non-custodial settlement with sub-second cryptographic finality. Funds transfer directly into the receiver's wallet with zero custodial middle layers.
                                 </p>
                             </div>
 

@@ -32,7 +32,7 @@ import {
     validateSignedReceiveAuthorization,
 } from "../core/tx-builder";
 import { ARC_CANONICAL_USDC, ARC_CHAIN_ID, generateAuthorizationNonce, splitAuthorizationSignature } from "../core/eip3009";
-import { resolveMerchantName } from "../core/ensv2";
+import { resolveMerchantName as resolveReceiverName } from "../core/ensv2";
 import { VibrantSoundBars } from "../components/VibrantSoundBars";
 import type { ReceiptData } from "./PaymentReceipt";
 
@@ -65,8 +65,8 @@ export function ReceivePayment() {
     const [recipientAddress, setRecipientAddress] = useState("");
     const [chainId, setChainId] = useState(10143);
     const [amount, setAmount] = useState("0.01");
-    const [resolvedMerchantName, setResolvedMerchantName] = useState("");
-    const [resolvedMerchantAddress, setResolvedMerchantAddress] = useState("");
+    const [resolvedReceiverName, setResolvedReceiverName] = useState("");
+    const [resolvedReceiverAddress, setResolvedReceiverAddress] = useState("");
     const [step, setStep] = useState<Step>("setup");
     const [status, setStatus] = useState("");
     const [txHash, setTxHash] = useState("");
@@ -148,14 +148,14 @@ export function ReceivePayment() {
             let receiver: string;
             if (ethers.isAddress(recipientAddress.trim())) {
                 receiver = ethers.getAddress(recipientAddress.trim());
-                setResolvedMerchantName("");
-                setResolvedMerchantAddress("");
+                setResolvedReceiverName("");
+                setResolvedReceiverAddress("");
             } else {
-                setStatus("Resolving ENS merchant profile...");
-                const profile = await resolveMerchantName(recipientAddress);
+                setStatus("Resolving ENS receiver profile...");
+                const profile = await resolveReceiverName(recipientAddress);
                 receiver = profile.address;
-                setResolvedMerchantName(profile.name);
-                setResolvedMerchantAddress(profile.address);
+                setResolvedReceiverName(profile.name);
+                setResolvedReceiverAddress(profile.address);
             }
             setStep("waiting-sender");
             setStatus("Listening for the hardware wallet...");
@@ -379,7 +379,7 @@ export function ReceivePayment() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="relative isolate flex min-h-screen w-full flex-col overflow-hidden px-4 pb-10 pt-28 text-white sm:px-6 sm:pt-32 lg:px-10 lg:pb-12 lg:pt-28"
+            className="relative isolate flex min-h-screen w-full flex-col overflow-x-hidden overflow-y-auto px-4 pb-10 pt-28 text-white sm:px-6 sm:pt-32 lg:px-10 lg:pb-12 lg:pt-28"
         >
             <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden bg-[#0d281a]">
                 <img src="/image copy 2.png" alt="" className="h-full w-full scale-105 object-cover object-center opacity-70" />
@@ -389,10 +389,10 @@ export function ReceivePayment() {
             <div className="relative z-10 mx-auto flex w-full max-w-[1380px] flex-1 flex-col justify-center">
                 <div className="mx-auto mb-6 max-w-3xl text-center lg:mb-7">
                     <span className="mb-2 block text-[11px] font-mono font-semibold uppercase tracking-[0.22em] text-sky-200 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]">// AIR-GAPPED ACOUSTIC POS TERMINAL</span>
-                    <h1 className="text-3xl font-bold leading-[1.12] tracking-tight text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.7)] sm:text-4xl lg:text-5xl">Receive Sound Payments.<br /><span className="font-normal text-white/85">Air-gapped acoustic wire. Settled on Base.</span></h1>
+                    <h1 className="text-3xl font-bold leading-[1.12] tracking-tight text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.7)] sm:text-4xl lg:text-5xl">Receive Sound Payments.<br /><span className="font-normal text-white/85">Air-gapped acoustic wire. Settled on-chain.</span></h1>
                     <p className="mx-auto mt-2.5 max-w-xl text-sm leading-relaxed text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)] sm:text-base">Broadcast ultrasound POS invoices and capture offline cryptographically signed payment authorizations through air-gapped acoustic audio.</p>
                 </div>
-                <div className="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-2 lg:gap-7 lg:max-h-[560px]">
+                <div className="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-2 lg:gap-7">
                 <section className="flex h-full flex-col justify-between rounded-2xl border border-white/25 bg-white/[0.07] p-5 shadow-[0_8px_32px_rgba(0,0,0,0.25)] ring-1 ring-white/10 backdrop-blur-2xl sm:p-6">
             <div className="mb-8 flex items-center">
                 <Link to="/" className="-ml-2 rounded-full p-2 text-white transition-colors hover:bg-white/15">
@@ -409,7 +409,7 @@ export function ReceivePayment() {
             {step === "setup" && (
                 <div className="space-y-6 font-sans">
                     <div className="rounded-xl border border-emerald-300/25 bg-emerald-400/15 p-4 text-center">
-                        <span className="font-medium text-sm text-emerald-100">Online merchant terminal</span>
+                        <span className="font-medium text-sm text-emerald-100">Online receiver terminal</span>
                     </div>
 
                     <div>
@@ -423,8 +423,8 @@ export function ReceivePayment() {
                         <div className="mt-2 flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-white/50"><span>ENSv2 resolution enabled</span><span className="h-1 w-1 rounded-full bg-emerald-300" /><span>Hardware handshake</span></div>
                     </div>
 
-                    {resolvedMerchantName && (
-                        <p className="text-xs text-emerald-200">Resolved {resolvedMerchantName} to {resolvedMerchantAddress}</p>
+                    {resolvedReceiverName && (
+                        <p className="text-xs text-emerald-200">Resolved {resolvedReceiverName} to {resolvedReceiverAddress}</p>
                     )}
 
                     <div>
@@ -478,7 +478,7 @@ export function ReceivePayment() {
                     <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-200">{stepLabel()} // ACOUSTIC ENGINE</p>
                     <p className="mb-2 text-center text-base font-semibold text-white">{status}</p>
                     <p className="mb-8 max-w-sm text-center text-xs leading-5 text-white/60">Keep the ESP32-S3 sound wallet near the terminal speaker. The device will chirp signed authorization chunks back.</p>
-                    <button onClick={() => resetSession("Session cancelled by merchant.")} className="flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-white/20"><RefreshCw size={13} /> Cancel acoustic request</button>
+                    <button onClick={() => resetSession("Session cancelled by receiver.")} className="flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-white/20"><RefreshCw size={13} /> Cancel acoustic request</button>
                 </div>
             )}
 
