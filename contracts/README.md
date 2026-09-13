@@ -33,6 +33,31 @@ ENSV2_ANNUAL_PRICE=5000000
 ENSV2_MIN_DURATION=2592000
 ```
 
+For `melodypay.eth`, use the ENSv2 Sepolia deployment addresses:
+
+```text
+ENSV2_OWNER=0x0E6937A18De79Ed54692E65F7A0DA5A81B8D7BCF
+ENSV2_FACTORY=0x10dc6333cdfe1fcef624c6e0a8221b91804cd7ef
+ENSV2_USER_REGISTRY_IMPL=0x624a25d67b59d587752ebec8dded8827dae52050
+ENSV2_RESOLVER_IMPL=0x9eae5c2730a7dd16bdd1dee6421a1b91e3b0365e
+ENSV2_PARENT_REGISTRY=0xbdc85dd5b15d7ecb354cd7cb6f2c50b4f2c4f0e2
+ENSV2_PARENT_LABEL=melodypay
+ENSV2_PARENT_NAMEHASH=0x...
+```
+
+Compute `ENSV2_PARENT_NAMEHASH` as the ENS namehash of `melodypay.eth`.
+The setup script deploys the UserRegistry and Permissioned Resolver, connects
+the registry to `melodypay.eth`, deploys the MelodyPay registrar, and grants
+the registrar registration/renewal roles:
+
+```powershell
+forge script contracts/script/SetupENSv2.s.sol:SetupENSv2 `
+  --account melodypay-owner `
+  --sender 0x0E6937A18De79Ed54692E65F7A0DA5A81B8D7BCF `
+  --rpc-url https://ethereum-sepolia-rpc.publicnode.com `
+  --broadcast
+```
+
 Then deploy on Sepolia:
 
 ```powershell
