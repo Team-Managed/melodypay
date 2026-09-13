@@ -99,22 +99,67 @@ contract MelodyPayPrebookingTest {
         require(usdc.balanceOf(treasury) == 2_000_000, "Treasury should have 2 USDC");
     }
 
-    function test_RevertIf_AlreadyPrebooked() public {
-        vm.startPrank(alice);
-        usdc.approve(address(prebooking), 2_000_000);
-        prebooking.prebook();
+    function test_BatchPrebook_Success() public {
+        vm.startPrank(bob);
+        usdc.approve(address(prebooking), 5_000_000);
+        uint256 startQ = prebooking.prebook(5);
+        vm.stopPrank();
 
+        require(startQ == 1, "Start queue number should be 1");
+        require(prebooking.totalPrebookings() == 5, "Total prebookings should be 5");
+        require(prebooking.getUserUnits(bob) == 5, "Bob should have 5 units");
+        require(prebooking.getUserQueue(bob) == 1, "Bob first queue should be 1");
+        require(prebooking.hasPrebooked(bob), "Bob has prebooked");
+        require(usdc.balanceOf(treasury) == 5_000_000, "Treasury should receive 5 USDC");
+        require(usdc.balanceOf(bob) == 5_000_000, "Bob should have 5 USDC remaining");
+    }
+
+    function test_MultiplePrebookings_SameWallet() public {
+        vm.startPrank(alice);
+        usdc.approve(address(prebooking), 6_000_000);
+        uint256 firstBatch = prebooking.prebook(2);
+        uint256 secondBatch = prebooking.prebook(3);
+        vm.stopPrank();
+
+        require(firstBatch == 1, "First batch start queue should be 1");
+        require(secondBatch == 3, "Second batch start queue should be 3");
+        require(prebooking.totalPrebookings() == 5, "Total prebookings should be 5");
+        require(prebooking.getUserUnits(alice) == 5, "Alice should have 5 units total");
+        require(prebooking.getUserQueue(alice) == 1, "Alice original queue should remain 1");
+        require(usdc.balanceOf(treasury) == 5_000_000, "Treasury should have 5 USDC");
+        require(usdc.balanceOf(alice) == 5_000_000, "Alice should have 5 USDC remaining");
+    }
+
+    function test_RevertIf_ZeroQuantity() public {
+        vm.startPrank(alice);
+        usdc.approve(address(prebooking), 1_000_000);
         bool failed = false;
-        try prebooking.prebook() {
+        try prebooking.prebook(0) {
             failed = false;
         } catch Error(string memory reason) {
-            failed = (keccak256(bytes(reason)) == keccak256(bytes("Already prebooked")));
+            failed = (keccak256(bytes(reason)) == keccak256(bytes("Quantity must be > 0")));
         } catch {
             failed = true;
         }
         vm.stopPrank();
 
-        require(failed, "Duplicate prebook did not revert as expected");
+        require(failed, "Zero quantity prebook did not revert as expected");
+    }
+
+    function test_RevertIf_ExceedsMaxBatchQuantity() public {
+        vm.startPrank(alice);
+        usdc.approve(address(prebooking), 60_000_000);
+        bool failed = false;
+        try prebooking.prebook(51) {
+            failed = false;
+        } catch Error(string memory reason) {
+            failed = (keccak256(bytes(reason)) == keccak256(bytes("Exceeds max batch quantity")));
+        } catch {
+            failed = true;
+        }
+        vm.stopPrank();
+
+        require(failed, "Prebook exceeding 50 did not revert as expected");
     }
 
     function test_RevertIf_InsufficientAllowance() public {

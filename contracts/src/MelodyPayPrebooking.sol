@@ -68,7 +68,6 @@ contract MelodyPayPrebooking is Ownable2Step, Pausable, ReentrancyGuard {
      * @return startQueueNumber The first sequential priority queue position assigned in this reservation batch
      */
     function prebook(uint256 quantity) public nonReentrant whenNotPaused returns (uint256 startQueueNumber) {
-        require(userQueueNumber[msg.sender] == 0, "Already prebooked");
         require(quantity > 0, "Quantity must be > 0");
         require(quantity <= MAX_BATCH_QUANTITY, "Exceeds max batch quantity");
 
