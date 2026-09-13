@@ -262,13 +262,13 @@ export const ARC_USDC_ABI = [
 ];
 
 export async function getArcUsdcBalance(address: string): Promise<string> {
-  const provider = new ethers.JsonRpcProvider(getChainConfig(ARC_CHAIN_ID)!.rpcUrl);
+  const provider = new ethers.JsonRpcProvider("/api/arc-rpc");
   const token = new ethers.Contract(ARC_CANONICAL_USDC, ARC_USDC_ABI, provider);
   return ethers.formatUnits(await token.balanceOf(address), 6);
 }
 
 export async function getArcAuthorizationState(authorizer: string, nonce: string): Promise<boolean> {
-  const provider = new ethers.JsonRpcProvider(getChainConfig(ARC_CHAIN_ID)!.rpcUrl);
+  const provider = new ethers.JsonRpcProvider("/api/arc-rpc");
   const token = new ethers.Contract(ARC_CANONICAL_USDC, ARC_USDC_ABI, provider);
   return token.authorizationState(authorizer, nonce);
 }

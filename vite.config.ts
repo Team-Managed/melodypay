@@ -7,6 +7,13 @@ export default defineConfig({
     host: "0.0.0.0",
     allowedHosts: true,
     cors: true,
+    proxy: {
+      "/api/arc-rpc": {
+        target: "https://rpc.testnet.arc.io",
+        changeOrigin: true,
+        rewrite: () => "/",
+      },
+    },
     hmr: {
       host: "engaged-griffon-crucial.ngrok-free.app",
       protocol: "wss",
