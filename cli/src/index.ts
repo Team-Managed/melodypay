@@ -1,18 +1,17 @@
 import {
-  intro,
   isCancel,
-  outro,
   select,
   spinner,
   text,
 } from "@clack/prompts";
 import { ethers } from "ethers";
-import { formatBalanceRows, loadBalanceRows } from "./balances.js";
+import { loadBalanceRows } from "./balances.js";
 import { CLI_CHAINS, getCliChain } from "./chains.js";
 import { getPaymentRequest, validateAndBroadcast, type ReceiverRequest } from "./receiver.js";
 import { DeviceClient } from "./device.js";
 import { connectDevice, listSerialPorts, type DeviceConnection } from "./serial.js";
 import { isBackNavigation } from "./navigation.js";
+import { runOperatorUi, type DashboardSnapshot } from "./operator-ui.js";
 
 type Action = "dashboard" | "device" | "status" | "networks" | "payment" | "diagnostics" | "inspect" | "exit";
 
@@ -129,25 +128,24 @@ async function connectWallet() {
   console.log(`Firmware: ${info.firmware} | ${info.chip} | ${info.cores} cores`);
 }
 
-async function walletDashboard() {
-  console.log("MelodyPay Wallet Dashboard\n");
+async function loadDashboard(): Promise<DashboardSnapshot> {
   if (!deviceClient) {
-    console.log("No USB wallet connected.");
-    console.log("Open USB wallet manager from the operator menu to connect one.");
-    return;
+    return { rows: [] };
   }
-  const loader = spinner();
-  loader.start("Reading wallet address and chain balances");
   try {
     const { address } = await deviceClient.address();
     const rows = await loadBalanceRows(address);
-    loader.stop("Wallet balances loaded");
-    console.log(`Address: ${address}`);
-    console.log(`Device:  ${deviceConnection?.path ?? "disconnected"}`);
-    console.log("\n" + formatBalanceRows(rows));
+    return { address, devicePath: deviceConnection?.path, rows };
   } catch (error) {
-    loader.stop("Dashboard unavailable", 1);
-    console.error(error instanceof Error ? error.message : error);
+    return {
+      devicePath: deviceConnection?.path,
+      rows: [{
+        chain: "Dashboard",
+        asset: "error",
+        balance: error instanceof Error ? error.message : String(error),
+        status: "error",
+      }],
+    };
   }
 }
 
@@ -244,37 +242,11 @@ async function diagnostics() {
 }
 
 async function main() {
-  intro("MelodyPay Receiver CLI | keyless operator terminal");
-  clearTerminal();
-  await walletDashboard();
-  const continueToMenu = await text({ message: "Press Enter to open the operator menu" });
-  if (isCancel(continueToMenu)) {
-    outro("MelodyPay receiver stopped");
-    return;
-  }
-  clearTerminal();
-
   for (;;) {
-    clearTerminal();
-    const action = await select<Action>({
-      message: "Operator menu",
-      maxItems: 8,
-      options: [
-        { value: "dashboard", label: "Dashboard", hint: "show current receiver and wallet state" },
-        { value: "device", label: "USB wallet manager", hint: "connect, configure, disconnect" },
-        { value: "status", label: "Wallet/device status" },
-        { value: "payment", label: "Payment terminal", hint: "create request, validate, broadcast" },
-        { value: "diagnostics", label: "Audio/OLED diagnostics" },
-        { value: "inspect", label: "Inspect signed transaction", hint: "offline parsing only" },
-        { value: "networks", label: "Network profiles", hint: "show configured EVM chains" },
-        { value: "exit", label: "Exit" },
-      ],
-    });
-    if (cancelled(action) || action === "exit") break;
+    const action = await runOperatorUi(await loadDashboard());
+    if (action === "exit") break;
 
-    if (action === "dashboard") {
-      await walletDashboard();
-    }
+    if (action === "dashboard") continue;
     if (action === "device") await deviceManager();
     if (action === "status") await deviceStatus();
     if (action === "payment") await paymentTerminal();
@@ -284,7 +256,7 @@ async function main() {
 
   }
 
-  outro("MelodyPay receiver stopped");
+  console.log("MelodyPay receiver stopped");
 }
 
 main().catch((error) => {

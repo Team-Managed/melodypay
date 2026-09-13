@@ -12,7 +12,8 @@
     "@clack/prompts": "^0.10.0",
     "@serialport/parser-readline": "^13.0.0",
     "ethers": "^6.13.0",
-    "serialport": "^13.0.0"
+    "serialport": "^13.0.0",
+    "terminui": "^0.3.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
