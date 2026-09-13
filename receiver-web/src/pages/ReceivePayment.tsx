@@ -157,13 +157,10 @@ export function ReceivePayment() {
                         ].join("|");
 
                     setStep("broadcasting-request");
-                    for (let attempt = 1; attempt <= 3; attempt += 1) {
-                        if (cancelledRef.current) return;
-                        setStatus(`Sending payment request (${attempt}/3)...`);
-                        if (chain.chainId === 10143) await playHardwarePayload(paymentRequest);
-                        else await playHardwareChunkedPayload(paymentRequest);
-                        if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 1000));
-                    }
+                    if (cancelledRef.current) return;
+                    setStatus("Sending payment request...");
+                    if (chain.chainId === 10143) await playHardwarePayload(paymentRequest);
+                    else await playHardwareChunkedPayload(paymentRequest);
 
                     if (cancelledRef.current) return;
                     setStep("listening");

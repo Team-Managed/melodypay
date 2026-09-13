@@ -162,11 +162,9 @@ static esp_err_t run_hardware_payment_sender(void)
     snprintf(address_message, sizeof(address_message), "ADDR|%s", address_hex);
     display_payment_screen();
     wallet_state_set(WALLET_RECEIVING);
-    for (uint8_t attempt = 0; attempt < 3; attempt++) {
-        result = send_audio_text(address_message);
-        if (result != ESP_OK) return result;
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
+    result = send_audio_text(address_message);
+    if (result != ESP_OK) return result;
+    display_payment_menu_screen(0);
     char request[GGWAVE_TRANSPORT_PAYLOAD_BYTES] = {0};
     result = listen_audio_text(request, sizeof(request), 60000);
     if (result != ESP_OK) return result;
