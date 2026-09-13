@@ -122,6 +122,25 @@
     - Harmonized Register page typography with Hero section: unified on Inter sans-serif (`font-sans`), added `// PRIORITY HARDWARE WAITLIST` uppercase tracking eyebrow (`font-mono tracking-[0.22em]`), split editorial headline hierarchy (`font-bold` with `font-normal` subhead), clean sans input fields, and semibold CTA buttons matching the hero action buttons.
     - Updated thermal receipt printer (`/receipt`) and HTML email template to itemize hardware quantity.
     - Production build (`npm run build`) passing cleanly.
+  - [x] Receiver Page Glassmorphic Redesign (`receiver-web/src/pages/ReceivePayment.tsx`, `AcousticOscilloscope.tsx`):
+    - Redesigned the `/receive` POS terminal to identically match the Register page's glassmorphic architecture, color palette, typography, and viewport dimensions.
+    - Set fixed full-bleed aerial meadow photography backdrop (`/image copy 2.png`) with `scale-105`, dark vignette (`from-black/45 via-black/25 to-black/55`), and subtle green wash (`bg-[#0d281a]/20 backdrop-blur-[0.5px]`).
+    - Centered top editorial headline hierarchy: `// AIR-GAPPED ACOUSTIC POS TERMINAL` tracking eyebrow in `#38BDF8`, bold white title *"Receive Sound Payments."*, subline *"Air-gapped acoustic wire. Settled on Base."*, and description.
+    - Symmetrical dual glassmorphic cards (`bg-white/[0.07] backdrop-blur-2xl border border-white/25 ring-1 ring-white/10 rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.25)] flex flex-col justify-between h-full`):
+      - **Left Column (Payment Controls & Settlement)**:
+        - Wallet status bar (`bg-white/[0.08] border border-white/20 rounded-xl`) with active address truncation, active dot, network switch trigger, and Connect/Disconnect buttons.
+        - Merchant recipient address input in transparent glass with wallet autofill indicator.
+        - Invoice amount input with large bold white digits, USDC badge, and glass quick presets (`$1.00`, `$5.00`, `$10.00`, `$25.00`).
+        - Active acoustic turn-taking feedback card with animated status icon, step counter (`PHASE 01-06 // ACOUSTIC ENGINE`), descriptive message, and cancel action.
+        - Settled state with verified receipt actions (Thermal POS receipt link, next payment reset).
+        - High-contrast solid white primary action button (`bg-white hover:bg-white/90 text-black py-3 px-5 rounded-xl font-semibold shadow-lg hover:shadow-xl`).
+      - **Right Column (Live Acoustic Telemetry & Oscilloscope)**:
+        - Live acoustic telemetry status header (`// ACOUSTIC SOUND TELEMETRY`) with live indicator beacon.
+        - Seamlessly embedded `AcousticOscilloscope` in dark transparent mode (`transparentBg={true}`, `darkMode={true}`).
+        - Hardware protocol specification matrix (Acoustic Air-Gap Wire, Zero Radios, EIP-3009 Gasless, Tactile Switch).
+    - Single-screen desktop fit (`min-h-screen lg:h-screen lg:max-h-screen`) with `pt-20 sm:pt-24 lg:pt-26` clearance beneath `StudioHeader`.
+    - Production build (`npm run build`) passing cleanly in 8.19s with zero errors.
+    - Vitest test suites passing across 12 test files and 41 tests.
 - [ ] Task 9: Integrate ENSv2 Merchant Resolution (`receiver-web/src/core/ensv2.ts`, `cli/src/ens.ts`, `tests/ensv2-resolution.test.ts`).
 - [ ] Task 10: Integrate Ledger Signer Backend (`cli/src/signers/ledger.ts`, `tests/ledger-signer.test.ts`).
 
