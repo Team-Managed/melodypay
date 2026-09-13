@@ -23,7 +23,7 @@ export function MelodyRibbonWave() {
     const NOTES: NotePoint[] = [
         { t: 0.12, lineIndex: 1, symbol: "♪", freq: 1875, label: "F0: 1875Hz" },
         { t: 0.22, lineIndex: -1, symbol: "♫", freq: 1950, label: "MAGIC: 0x4D" },
-        { t: 0.35, lineIndex: 2, symbol: "♬", freq: 2031, label: "EIP-3009" },
+        { t: 0.35, lineIndex: 2, symbol: "♬", freq: 2031, label: "GASLESS" },
         { t: 0.48, lineIndex: 0, symbol: "♪", freq: 2100, label: "USDC: 6dec" },
         { t: 0.62, lineIndex: -2, symbol: "♫", freq: 2187, label: "F1: 2187Hz" },
         { t: 0.74, lineIndex: 1, symbol: "♩", freq: 1980, label: "ARC: 5042002" },

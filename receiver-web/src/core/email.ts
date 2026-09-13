@@ -20,7 +20,7 @@ export interface EmailDispatchResult {
  * Generates an architectural, premium thermal receipt-styled confirmation email.
  */
 export function generatePrebookingEmailHtml(params: PrebookingEmailParams): string {
-    const isSepolia = !params.networkName || params.networkName.toLowerCase().includes("sepolia");
+    const isSepolia = Boolean(params.networkName && params.networkName.toLowerCase().includes("sepolia"));
     const explorerUrl = isSepolia
         ? `https://sepolia.basescan.org/tx/${params.txHash}`
         : `https://basescan.org/tx/${params.txHash}`;
@@ -28,7 +28,7 @@ export function generatePrebookingEmailHtml(params: PrebookingEmailParams): stri
         ? `${params.payerAddress.slice(0, 8)}...${params.payerAddress.slice(-6)}`
         : params.payerAddress;
     const dateStr = params.timestamp || new Date().toUTCString();
-    const networkDisplay = params.networkName || "Base Sepolia Testnet";
+    const networkDisplay = params.networkName || "Base Mainnet";
 
     return `
 <!DOCTYPE html>
@@ -53,21 +53,21 @@ export function generatePrebookingEmailHtml(params: PrebookingEmailParams): stri
 
       <h2 style="color: #0F172A; font-size: 20px; margin: 0 0 8px 0; font-weight: 700;">Hardware Pre-Booked!</h2>
       <p style="color: #64748B; font-size: 13px; margin: 0 0 24px 0; line-height: 1.5;">
-        Your ${params.amount || "1.00"} USDC deposit has been verified on ${networkDisplay}. You have secured priority allocation for ${params.quantity && params.quantity > 1 ? `${params.quantity}x ` : ""}ESP32-S3 hardware DevKit${params.quantity && params.quantity > 1 ? "s" : ""}.
+        Your ${params.amount || "1.00"} USDC deposit has been verified on ${networkDisplay}. You have secured priority allocation for ${params.quantity && params.quantity > 1 ? `${params.quantity}x ` : ""}MelodyPay HardWallet${params.quantity && params.quantity > 1 ? "s" : ""}.
       </p>
 
       <!-- Prebooked Status Badge -->
       <div style="background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 8px; padding: 18px; margin-bottom: 24px;">
         <span style="font-size: 11px; color: #64748B; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 4px; font-weight: 600;">Status</span>
         <span style="font-size: 26px; font-weight: 800; color: #059669; font-family: monospace; letter-spacing: 1px;">PREBOOKED</span>
-        <span style="font-size: 11px; color: #94A3B8; display: block; margin-top: 4px; font-family: monospace;">${params.quantity ? `${params.quantity}x ` : ""}DevKit V1 Acoustic Hardware</span>
+        <span style="font-size: 11px; color: #94A3B8; display: block; margin-top: 4px; font-family: monospace;">${params.quantity ? `${params.quantity}x ` : ""}MelodyPay HardWallet V1</span>
       </div>
 
       <!-- Metadata Grid -->
       <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 12px; margin-bottom: 24px;">
         <tr style="border-bottom: 1px solid #F1F5F9;">
           <td style="padding: 8px 0; color: #64748B;">Hardware Reserved:</td>
-          <td style="padding: 8px 0; text-align: right; font-weight: bold; color: #0F172A;">${params.quantity || 1}x ESP32-S3 DevKit</td>
+          <td style="padding: 8px 0; text-align: right; font-weight: bold; color: #0F172A;">${params.quantity || 1}x MelodyPay HardWallet</td>
         </tr>
         <tr style="border-bottom: 1px solid #F1F5F9;">
           <td style="padding: 8px 0; color: #64748B;">Amount Paid:</td>
@@ -96,7 +96,7 @@ export function generatePrebookingEmailHtml(params: PrebookingEmailParams): stri
       <!-- Next Steps Callout -->
       <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px; text-align: left; margin-bottom: 24px; font-size: 12px; color: #475569; line-height: 1.5;">
         <strong style="color: #0F172A; display: block; margin-bottom: 4px;">What's next?</strong>
-        Our engineering team will notify you at this email address when your ESP32-S3 terminal enters manufacturing. No further action is required until dispatch.
+        Our engineering team will notify you at this email address when your MelodyPay HardWallet enters manufacturing. No further action is required until dispatch.
       </div>
 
       <!-- Footer Receipt Brandmark -->

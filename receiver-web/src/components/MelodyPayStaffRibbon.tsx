@@ -115,7 +115,7 @@ export function MelodyPayStaffRibbon({ className = "", showControls = false }: M
     const NOTES: Note[] = [
         { t: 0.12, lineOffset: 1, symbol: "♪", freq: 1875, label: "F0: 1875Hz", color: "#FFFFFF" },
         { t: 0.30, lineOffset: -1, symbol: "♫", freq: 1950, label: "MELODY: 0x4D", color: "#FFFFFF" },
-        { t: 0.42, lineOffset: 2, symbol: "♪", freq: 2031, label: "EIP-3009", color: "#FFFFFF" },
+        { t: 0.42, lineOffset: 2, symbol: "♪", freq: 2031, label: "GASLESS", color: "#FFFFFF" },
         { t: 0.52, lineOffset: 0, symbol: "♬", freq: 2080, label: "USDC: 6dec", color: "#FFFFFF" },
         { t: 0.62, lineOffset: -2, symbol: "♫", freq: 2150, label: "ARC: 5042002", color: "#FFFFFF" },
         { t: 0.72, lineOffset: 1, symbol: "♪", freq: 1980, label: "MONAD: 10143", color: "#FFFFFF" },

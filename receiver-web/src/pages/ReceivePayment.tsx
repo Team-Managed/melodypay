@@ -51,12 +51,12 @@ interface PendingPayment {
 }
 
 const PAYMENT_TTL_SECONDS = 60;
-const BASE_CHAIN_ID = 84532;
-const BASE_USDC_CONTRACT = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
+const BASE_CHAIN_ID = 8453;
+const BASE_USDC_CONTRACT = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 
 export function ReceivePayment() {
     const navigate = useNavigate();
-    const [recipientAddress, setRecipientAddress] = useState("0xE36f3d4Bd0a6bbdd940404C6323c1121b2666176");
+    const [recipientAddress, setRecipientAddress] = useState("0x0E6937A18De79Ed54692E65F7A0DA5A81B8D7BCF");
     const [ensName, setEnsName] = useState("cafe.melodypay.eth");
     const [isEnsResolved, setIsEnsResolved] = useState(true);
     const [chainId] = useState(BASE_CHAIN_ID); // Fixed to Base per requirement
@@ -87,9 +87,9 @@ export function ReceivePayment() {
             txHash: hash,
             payer: authorizer,
             chainId: BASE_CHAIN_ID,
-            networkName: "Base Sepolia Testnet",
+            networkName: "Base Mainnet",
             timestamp: new Date().toISOString(),
-            receiptId: `RCP-B84532-${Math.floor(10000 + Math.random() * 90000)}`,
+            receiptId: `RCP-BASE-${Math.floor(10000 + Math.random() * 90000)}`,
             nonce,
         };
         try {
@@ -114,7 +114,7 @@ export function ReceivePayment() {
                         setRecipientAddress(addr);
 
                         const currentChainId = await (window as any).ethereum.request({ method: "eth_chainId" });
-                        setIsBaseNetwork(currentChainId === "0x14a34" || parseInt(currentChainId, 16) === BASE_CHAIN_ID);
+                        setIsBaseNetwork(currentChainId === "0x2105" || parseInt(currentChainId, 16) === BASE_CHAIN_ID);
                     }
                 } catch {}
 
@@ -129,7 +129,7 @@ export function ReceivePayment() {
                 });
 
                 (window as any).ethereum.on?.("chainChanged", (chainIdHex: string) => {
-                    setIsBaseNetwork(chainIdHex === "0x14a34" || parseInt(chainIdHex, 16) === BASE_CHAIN_ID);
+                    setIsBaseNetwork(chainIdHex === "0x2105" || parseInt(chainIdHex, 16) === BASE_CHAIN_ID);
                 });
             }
         };
@@ -153,7 +153,7 @@ export function ReceivePayment() {
                 setRecipientAddress(addr);
 
                 const currentChainId = await (window as any).ethereum.request({ method: "eth_chainId" });
-                const isBase = currentChainId === "0x14a34" || parseInt(currentChainId, 16) === BASE_CHAIN_ID;
+                const isBase = currentChainId === "0x2105" || parseInt(currentChainId, 16) === BASE_CHAIN_ID;
                 setIsBaseNetwork(isBase);
 
                 if (!isBase) {
@@ -172,7 +172,7 @@ export function ReceivePayment() {
         try {
             await (window as any).ethereum.request({
                 method: "wallet_switchEthereumChain",
-                params: [{ chainId: "0x14a34" }],
+                params: [{ chainId: "0x2105" }],
             });
             setIsBaseNetwork(true);
             setWalletError(null);
@@ -183,11 +183,11 @@ export function ReceivePayment() {
                         method: "wallet_addEthereumChain",
                         params: [
                             {
-                                chainId: "0x14a34",
-                                chainName: "Base Sepolia Testnet",
+                                chainId: "0x2105",
+                                chainName: "Base Mainnet",
                                 nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-                                rpcUrls: ["https://sepolia.base.org"],
-                                blockExplorerUrls: ["https://sepolia.basescan.org"],
+                                rpcUrls: ["https://mainnet.base.org"],
+                                blockExplorerUrls: ["https://basescan.org"],
                             },
                         ],
                     });
@@ -200,7 +200,7 @@ export function ReceivePayment() {
 
     const disconnectWallet = () => {
         setConnectedWallet(null);
-        setRecipientAddress("0xE36f3d4Bd0a6bbdd940404C6323c1121b2666176");
+        setRecipientAddress("0x0E6937A18De79Ed54692E65F7A0DA5A81B8D7BCF");
         setWalletError(null);
     };
 
@@ -417,7 +417,7 @@ export function ReceivePayment() {
                                 seenTransactionsRef.current.add(validated.nonce);
 
                                 setStep("submitting");
-                                setStatus(`Phase 6/6: Submitting ${amount} USDC authorization to Base Sepolia RPC...`);
+                                setStatus(`Phase 6/6: Submitting ${amount} USDC authorization to Base RPC...`);
 
                                 if (typeof window !== "undefined" && (window as any).ethereum) {
                                     try {
@@ -445,20 +445,20 @@ export function ReceivePayment() {
                                         if (cancelledRef.current) return;
                                         setTxHash(receipt.hash);
                                         setStep("done");
-                                        setStatus(`${amount} USDC payment settled on Base Sepolia Network.`);
+                                        setStatus(`${amount} USDC payment settled on Base Network.`);
                                         redirectToReceipt(receipt.hash, validated.authorizer, validated.nonce);
                                     } catch {
                                         const simulatedHash = ethers.keccak256(ethers.toUtf8Bytes(validated.nonce + Date.now()));
                                         setTxHash(simulatedHash);
                                         setStep("done");
-                                        setStatus(`Authorization verified for ${amount} USDC from ${validated.authorizer.slice(0, 10)}... (Settled on Base Sepolia)`);
+                                        setStatus(`Authorization verified for ${amount} USDC from ${validated.authorizer.slice(0, 10)}... (Settled on Base)`);
                                         redirectToReceipt(simulatedHash, validated.authorizer, validated.nonce);
                                     }
                                 } else {
                                     const simulatedHash = ethers.keccak256(ethers.toUtf8Bytes(validated.nonce + Date.now()));
                                     setTxHash(simulatedHash);
                                     setStep("done");
-                                    setStatus(`Authorization verified for ${amount} USDC from ${validated.authorizer.slice(0, 10)}... (Settled on Base Sepolia)`);
+                                    setStatus(`Authorization verified for ${amount} USDC from ${validated.authorizer.slice(0, 10)}... (Settled on Base)`);
                                     redirectToReceipt(simulatedHash, validated.authorizer, validated.nonce);
                                 }
                             } catch (err) {
@@ -496,7 +496,7 @@ export function ReceivePayment() {
     }[step];
 
     return (
-        <div className="flex-1 flex flex-col justify-center w-full text-[#111113] relative overflow-hidden py-6 sm:py-8 pt-20 sm:pt-24 lg:pt-26 min-h-screen lg:h-screen lg:max-h-screen font-sans selection:bg-[#38BDF8]/20 selection:text-white">
+        <div className="flex-1 flex flex-col justify-start lg:justify-center w-full text-[#111113] relative overflow-x-hidden overflow-y-auto lg:overflow-hidden py-6 sm:py-8 pt-20 sm:pt-24 lg:pt-26 min-h-screen lg:h-screen lg:max-h-screen font-sans selection:bg-[#38BDF8]/20 selection:text-white">
             {/* Full-Bleed Meadow with Birds Aerial Background */}
             <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
                 <img
@@ -520,7 +520,7 @@ export function ReceivePayment() {
                         <span className="text-white/85 font-normal">Air-gapped acoustic wire. Settled on Base.</span>
                     </h1>
                     <p className="text-sm sm:text-base font-sans text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)] mt-2 sm:mt-2.5 leading-relaxed max-w-xl mx-auto">
-                        Broadcast ultrasound POS invoices and capture offline cryptographically signed EIP-3009 authorizations through air-gapped acoustic audio.
+                        Broadcast ultrasound POS invoices and capture offline cryptographically signed payment authorizations through air-gapped acoustic audio.
                     </p>
                 </div>
 
@@ -549,7 +549,7 @@ export function ReceivePayment() {
                                             type="button"
                                             onClick={switchToBase}
                                             className="px-2 py-1 rounded-md bg-amber-500/25 border border-amber-400/40 text-amber-200 text-[11px] font-sans font-semibold flex items-center gap-1 hover:bg-amber-500/35 transition-all cursor-pointer"
-                                            title="Switch to Base Sepolia"
+                                            title="Switch to Base"
                                         >
                                             <AlertCircle size={11} className="text-amber-300" />
                                             <span>Switch to Base</span>
@@ -625,7 +625,7 @@ export function ReceivePayment() {
                                                     Invoice Amount (USDC)
                                                 </label>
                                                 <span className="text-[10px] font-mono uppercase text-white/70 tracking-wider">
-                                                    Base Sepolia // EIP-3009
+                                                    Base Mainnet // Gasless USDC
                                                 </span>
                                             </div>
                                             <div className="relative flex items-center">
@@ -868,10 +868,6 @@ export function ReceivePayment() {
                                 <li className="flex items-start gap-2">
                                     <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 shrink-0" />
                                     <span><strong className="text-white font-semibold font-sans">Zero Radios</strong>: Wi-Fi & Bluetooth permanently disabled at hardware silicon level.</span>
-                                </li>
-                                <li className="flex items-start gap-2">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 shrink-0" />
-                                    <span><strong className="text-white font-semibold font-sans">EIP-3009 Gasless</strong>: On-chain transfer authorization signed offline and relayed on Base.</span>
                                 </li>
                                 <li className="flex items-start gap-2">
                                     <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 shrink-0" />

@@ -125,7 +125,7 @@ export function PayForSoundStaffRibbon({ className = "", showControls = true }: 
     const NOTES: Note[] = [
         { t: 0.08, lineOffset: 1, symbol: "♪", freq: 1875, label: "F0: 1875Hz", color: "#FFFFFF" },
         { t: 0.18, lineOffset: -1, symbol: "♫", freq: 1950, label: "PAY: 0x4D", color: "#FFFFFF" },
-        { t: 0.32, lineOffset: 2, symbol: "♪", freq: 2031, label: "EIP-3009", color: "#FFFFFF" },
+        { t: 0.32, lineOffset: 2, symbol: "♪", freq: 2031, label: "GASLESS", color: "#FFFFFF" },
         { t: 0.46, lineOffset: 0, symbol: "♬", freq: 2080, label: "WITH: ARC", color: "#FFFFFF" },
         { t: 0.58, lineOffset: -2, symbol: "♫", freq: 2150, label: "USDC: 6dec", color: "#FFFFFF" },
         { t: 0.70, lineOffset: 1, symbol: "♪", freq: 1980, label: "SOUND: MONAD", color: "#FFFFFF" },

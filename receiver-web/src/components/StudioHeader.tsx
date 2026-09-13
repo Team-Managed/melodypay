@@ -11,10 +11,8 @@ export function StudioHeader() {
     const navItems = [
         { path: "/", label: "Overview", hash: "" },
         { path: "/#features", label: "Features", hash: "features" },
-        { path: "/#how-it-works", label: "How It Works", hash: "how-it-works" },
         { path: "/#prototype", label: "Prototype", hash: "prototype" },
         { path: "/#faqs", label: "FAQs", hash: "faqs" },
-        { path: "/receive", label: "Receive Payments", hash: "" },
         { path: "/register", label: "Register", hash: "" },
     ];
 

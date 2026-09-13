@@ -9,15 +9,22 @@ import {
     ExternalLink,
     ShieldCheck,
     Zap,
-    Globe,
-    Terminal as TerminalIcon,
-    Layers,
     ChevronDown,
     Lock,
     Activity,
     Sparkles,
     ChevronRight,
-    ChevronLeft
+    ChevronLeft,
+    Mic,
+    Volume2,
+    Shield,
+    Terminal,
+    ArrowRight,
+    Check,
+    WifiOff,
+    Smartphone,
+    Layers,
+    Waves
 } from "lucide-react";
 import { PayForSoundStaffRibbon } from "../components/PayForSoundStaffRibbon";
 import { MelodyPayStaffRibbon } from "../components/MelodyPayStaffRibbon";
@@ -47,7 +54,7 @@ const PROTOTYPE_FEATURES: PrototypeFeature[] = [
         desc: "Xtensa 32-bit LX7 @ 240MHz executing secure secp256k1 signing. Wi-Fi and Bluetooth stacks are permanently stripped at compile-time to maintain an absolute physical air-gap.",
         bus: "240 MHz Xtensa LX7 // 512KB SRAM // 8MB Flash",
         security: "Fail-closed signing boundary. Zero radio drivers loaded into memory.",
-        repo: "esp32/components/eip3009",
+        repo: "esp32/firmware/signing",
         partKey: "mcu"
     },
     {
@@ -92,7 +99,7 @@ const PROTOTYPE_FEATURES: PrototypeFeature[] = [
         title: "0.96\" Monochrome OLED Display",
         subtitle: "Tamper-Proof Clear-Signing Screen",
         tag: "TAMPER-PROOF CLEAR-SIGNING",
-        desc: "SSD1306 display showing real-time acoustic telemetry and human-verified transaction data: exact USDC amount, verified merchant ENS subname (*.melodypay.eth), and nonce.",
+        desc: "SSD1306 display showing real-time acoustic telemetry and human-verified transaction data: exact payment amount, verified merchant recipient address, and one-time transaction nonce.",
         bus: "I2C SDA: GPIO 21 // SCL: GPIO 22 // 128x64 px",
         security: "Strictly forbids multi-page truncation or hidden calldata; rejects signing if address does not fit.",
         repo: "esp32/components/oled",
@@ -102,24 +109,24 @@ const PROTOTYPE_FEATURES: PrototypeFeature[] = [
 
 const FAQS = [
     {
-        q: "Can someone in the room eavesdrop or replay the acoustic sound wave to steal funds?",
-        a: "No. Every acoustic payment carries a cryptographically unique EIP-3009 nonce, a 60-second expiration window (validBefore), and the merchant's specific recipient address. Once the settlement smart contract executes the authorization on Arc or Monad, that nonce is permanently invalidated on-chain. Any recorded or repeated playback is rejected by the smart contract as an invalid duplicate nonce."
+        q: "Can acoustic sound payments be recorded and replayed?",
+        a: "No. Every acoustic payment carries a cryptographically unique one-time authorization nonce, a 60-second expiration window (validBefore), and the merchant's specific recipient address. Once settled on-chain, that nonce is permanently invalidated. Any recorded or repeated playback is rejected by the smart contract as an invalid duplicate nonce."
     },
     {
-        q: "Does the customer need ETH or native gas tokens to pay?",
-        a: "Never. The customer only needs the USDC they are spending. They need $0.00 of native gas tokens. MelodyPay uses EIP-3009 receiveWithAuthorization, meaning the merchant's POS terminal acts as a gas relayer and pays the minor transaction fee on Arc Network or Monad to settle the payment."
+        q: "How does payment settlement work?",
+        a: "MelodyPay settles transactions directly on-chain with instant finality. The offline HardWallet cryptographically signs the payment payload over the acoustic air-gap, and the merchant's connected terminal broadcasts the signed transaction with sub-second finality and negligible network fees."
     },
     {
-        q: "What happens in loud environments like noisy restaurants, bars, or bustling streets?",
-        a: "MelodyPay utilizes ggwave's Frequency-Shift Keying (FSK) modulation paired with Reed-Solomon Forward Error Correction (FEC). The protocol isolates narrow carrier frequencies between 1875 Hz and 2187 Hz and can reconstruct missing or clipped audio packets even through background chatter, dish clatter, and ambient music."
+        q: "What if the ambient environment is extremely noisy?",
+        a: "MelodyPay uses ggwave audio modems engineered with Reed-Solomon Forward Error Correction (FEC). The protocol can reconstruct corrupted or clipped audio packets with up to 25% missing data, ensuring reliable demodulation in busy restaurants, cafes, and outdoor environments."
     },
     {
         q: "Why use acoustic sound waves instead of NFC or QR codes?",
         a: "NFC requires specialized reader chips, close physical proximity (< 4 cm), and is vulnerable to relay attacks. QR codes require line-of-sight camera alignment, proper lighting, and clean lenses. Sound waves propagate omnidirectionally through the air, require zero physical contact or optical alignment, and function on any standard smartphone or laptop microphone."
     },
     {
-        q: "Which blockchains and tokens are supported today?",
-        a: "MelodyPay natively supports Arc Network (utilizing the canonical native USDC precompile at 0x3600000000000000000000000000000000000000), Sepolia for ENSv2 merchant subname registration (*.melodypay.eth) via ENS NameWrapper, Monad Testnet for high-speed 10,000 TPS acoustic transfers, and Ethereum Mainnet."
+        q: "Which assets and networks are supported?",
+        a: "MelodyPay is engineered for instant on-chain settlement with high-throughput finality. All acoustic payments transfer directly to the merchant's on-chain address with sub-second finality."
     },
     {
         q: "How does the CLI communicate with the ESP32 hardware wallet over USB?",
@@ -156,6 +163,7 @@ export function Home() {
     });
 
     useMotionValueEvent(scrollYProgress, "change", (latest) => {
+        if (typeof window !== "undefined" && window.innerWidth < 1024) return;
         let targetIndex = 0;
         if (latest >= 0.80) {
             targetIndex = 4;
@@ -177,16 +185,19 @@ export function Home() {
 
     // Smoothly scroll to a specific step when clicking step number on the staircase rail
     const scrollToStep = (targetIndex: number) => {
-        if (!prototypeContainerRef.current) return;
-        const rect = prototypeContainerRef.current.getBoundingClientRect();
-        const scrollTop = window.scrollY + rect.top;
-        const scrollDistance = prototypeContainerRef.current.offsetHeight - window.innerHeight;
-        const targetProgress = (targetIndex / 4) * 0.96;
-        const targetScrollY = scrollTop + (targetProgress * scrollDistance);
-
         setDirection(targetIndex > activeIndexRef.current ? 1 : -1);
         setActiveFeatureIndex(targetIndex);
-        window.scrollTo({ top: targetScrollY, behavior: "smooth" });
+
+        if (typeof window !== "undefined" && window.innerWidth >= 1024 && prototypeContainerRef.current) {
+            const rect = prototypeContainerRef.current.getBoundingClientRect();
+            const scrollTop = window.scrollY + rect.top;
+            const scrollDistance = prototypeContainerRef.current.offsetHeight - window.innerHeight;
+            if (scrollDistance > 0) {
+                const targetProgress = (targetIndex / 4) * 0.96;
+                const targetScrollY = scrollTop + (targetProgress * scrollDistance);
+                window.scrollTo({ top: targetScrollY, behavior: "smooth" });
+            }
+        }
     };
 
     // Synchronize 3D mesh click to staircase feature and scroll
@@ -271,320 +282,354 @@ export function Home() {
                                 to="/register"
                                 className="text-sm font-mono text-[#4B4B52] hover:text-[#111113] transition-colors flex items-center gap-1 cursor-pointer"
                             >
-                                <span>Pre-book Device & ENS ➔</span>
+                                <span>Pre-book MelodyPay HardWallet ➔</span>
                             </Link>
                         </div>
                     </motion.div>
                 </div>
             </section>
 
-            {/* TICKER TELEMETRY STRIP */}
-            <div className="w-full py-3.5 bg-[#F5F5F0] text-[#111113] border-y border-[#E2E2DA] overflow-hidden z-20">
-                <div className="flex w-max font-mono text-xs font-medium animate-marquee">
-                    {[...Array(3)].map((_, i) => (
-                        <div key={i} className="flex items-center shrink-0">
-                            {[
-                                "AIR-GAPPED ACOUSTIC WIRE",
-                                "MENU-DRIVEN CLI DASHBOARD",
-                                "USB SERIAL REPL PROTOCOL",
-                                "FAIL-CLOSED HARDWARE ENCLAVE",
-                                "MULTICHAIN EVM SETTLEMENT",
-                                "ENSV2 MERCHANT REGISTRAR",
-                                "ESP32-S3 PHYSICAL SIGNER",
-                                "INMP441 I2S INVOICE CAPTURE",
-                                "GGWAVE NATIVE ACOUSTIC MODEM",
-                                "GASLESS EIP-3009 TRANSFERS",
-                                "KEYLESS UNTRUSTED RECEIVER",
-                                "OLED & I2S BENCH DIAGNOSTICS"
-                            ].map((item, idx) => (
-                                <div key={idx} className="flex items-center">
-                                    <span className="mx-8 tracking-widest uppercase text-[11px] text-[#111113]/80 font-semibold">
-                                        {item}
-                                    </span>
-                                    <span className="text-[#0088FF] opacity-60">•</span>
-                                </div>
-                            ))}
-                        </div>
-                    ))}
-                </div>
-            </div>
 
             {/* =========================================================================
-                2. FEATURES SECTION: ARCHITECTURAL MATRIX (6 CORE PILLARS)
+                2. FEATURES SECTION: RECEIVER GLASSMORPHIC ARCHITECTURAL MATRIX
                ========================================================================= */}
-            <section id="features" className="relative w-full max-w-7xl mx-auto px-4 lg:px-8 py-20 z-10 scroll-mt-20">
-                <div className="mb-14 text-center max-w-2xl mx-auto">
-                    <span className="text-xs font-mono text-[#0088FF] uppercase tracking-wider block mb-2 font-semibold">
-                        // PROTOCOL CAPABILITIES
-                    </span>
-                    <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#111113] font-sans">
-                        Engineered for Sovereign Money
-                    </h2>
-                    <p className="text-sm text-[#4B4B52] mt-3 leading-relaxed font-sans">
-                        MelodyPay combines zero-RF physical hardware, air-gapped acoustic modems, and gasless smart contracts into a frictionless payment standard.
-                    </p>
+            <section id="features" className="relative w-full py-24 sm:py-28 z-10 scroll-mt-20 overflow-hidden">
+                {/* Full-Bleed Meadow with Birds Aerial Background (Matching Receiver & Register Pages) */}
+                <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+                    <img
+                        src="/image copy 2.png"
+                        alt="Meadow Aerial Backdrop"
+                        className="w-full h-full object-cover object-[center_75%] select-none scale-105"
+                    />
+                    {/* Soft ambient vignette & darkening for superior contrast and readability */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/60 pointer-events-none" />
+                    <div className="absolute inset-0 bg-[#0d281a]/25 backdrop-blur-[0.5px] pointer-events-none" />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {/* Feature 1: Acoustic Air-Gap */}
-                    <div className="p-6 bg-white rounded-xl border border-[#E2E2DA] shadow-sm flex flex-col justify-between hover:border-[#111113]/30 hover:shadow-md transition-all group">
-                        <div>
-                            <div className="w-10 h-10 rounded-lg bg-[#0088FF]/10 text-[#0088FF] flex items-center justify-center mb-5 group-hover:scale-105 transition-transform">
-                                <Radio size={20} />
-                            </div>
-                            <span className="px-2 py-0.5 rounded bg-neutral-100 text-[#111113] font-mono text-[10px] uppercase font-semibold">
-                                ZERO RF EMISSIONS
+                <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    {/* Section Header - Clean Editorial Layout with Soft Vignette Backdrop */}
+                    <div className="mb-14 lg:mb-16 text-center max-w-4xl lg:max-w-5xl mx-auto relative">
+                        {/* Clean soft backdrop glow to ensure zero visual clash between background elements and text */}
+                        <div className="absolute inset-0 -inset-x-12 -inset-y-6 bg-black/40 rounded-3xl blur-2xl pointer-events-none -z-10" />
+
+                        <span className="text-[11px] font-mono text-[#38BDF8] uppercase tracking-[0.22em] font-semibold mb-2.5 block drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]">
+                            // PROTOCOL CAPABILITIES
+                        </span>
+                        <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-[2.65rem] font-bold tracking-tight text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.7)] font-sans leading-[1.2]">
+                            <span className="block sm:whitespace-nowrap">Engineered for Sovereign Money.</span>
+                            <span className="block sm:whitespace-nowrap text-white/85 font-normal text-xl sm:text-2xl md:text-3xl lg:text-[2.15rem] mt-1 sm:mt-1.5">
+                                Air-gapped acoustic wire. Instant settlement.
                             </span>
-                            <h3 className="text-lg font-bold text-[#111113] mt-3 mb-2 font-sans">
-                                Acoustic Air-Gap Wire
-                            </h3>
-                            <p className="text-xs text-[#4B4B52] leading-relaxed mb-4">
-                                No Bluetooth, Wi-Fi, NFC, or radio chips. Encrypted EIP-3009 payment payloads travel strictly through audible or ultrasonic sound waves via ggwave FSK modulation.
-                            </p>
-                        </div>
-                        <div className="pt-3 border-t border-[#E2E2DA] text-[11px] font-mono text-[#0088FF] flex items-center justify-between">
-                            <span>0.00 mW RF Radiation</span>
-                            <span>1875 – 2187 Hz</span>
-                        </div>
+                        </h2>
+                        <p className="text-sm sm:text-base font-sans text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)] mt-3 leading-relaxed max-w-xl mx-auto">
+                            Zero radio emissions, physical hardware confirmation, and instant settlement.
+                        </p>
                     </div>
 
-                    {/* Feature 2: Gasless EIP-3009 */}
-                    <div className="p-6 bg-white rounded-xl border border-[#E2E2DA] shadow-sm flex flex-col justify-between hover:border-[#111113]/30 hover:shadow-md transition-all group">
-                        <div>
-                            <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mb-5 group-hover:scale-105 transition-transform">
-                                <Zap size={20} />
-                            </div>
-                            <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-mono text-[10px] uppercase font-semibold">
-                                ZERO GAS FEES FOR PAYER
-                            </span>
-                            <h3 className="text-lg font-bold text-[#111113] mt-3 mb-2 font-sans">
-                                Gasless EIP-3009 USDC
-                            </h3>
-                            <p className="text-xs text-[#4B4B52] leading-relaxed mb-4">
-                                Customers pay with pure USDC. Zero native gas tokens (ETH/ARC) needed. The merchant's terminal relays the transaction and pays the negligible network gas.
-                            </p>
-                        </div>
-                        <div className="pt-3 border-t border-[#E2E2DA] text-[11px] font-mono text-emerald-600 flex items-center justify-between">
-                            <span>Customer Gas: $0.00</span>
-                            <span>EIP-712 Typed Data</span>
-                        </div>
-                    </div>
-
-                    {/* Feature 3: Hardware Enclave */}
-                    <div className="p-6 bg-white rounded-xl border border-[#E2E2DA] shadow-sm flex flex-col justify-between hover:border-[#111113]/30 hover:shadow-md transition-all group">
-                        <div>
-                            <div className="w-10 h-10 rounded-lg bg-[#836EF9]/10 text-[#836EF9] flex items-center justify-center mb-5 group-hover:scale-105 transition-transform">
-                                <Cpu size={20} />
-                            </div>
-                            <span className="px-2 py-0.5 rounded bg-[#836EF9]/10 text-[#836EF9] font-mono text-[10px] uppercase font-semibold">
-                                PHYSICAL CONFIRMATION
-                            </span>
-                            <h3 className="text-lg font-bold text-[#111113] mt-3 mb-2 font-sans">
-                                Hardware Intent Switch
-                            </h3>
-                            <p className="text-xs text-[#4B4B52] leading-relaxed mb-4">
-                                Offline ESP32-S3 microcontroller requires a physical tactile button press to authorize signatures. Private keys never leave the silicon and cannot be queried remotely.
-                            </p>
-                        </div>
-                        <div className="pt-3 border-t border-[#E2E2DA] text-[11px] font-mono text-[#836EF9] flex items-center justify-between">
-                            <span>secp256k1 Core</span>
-                            <span>Hardware Interlock</span>
-                        </div>
-                    </div>
-
-                    {/* Feature 4: ENSv2 Merchant Subnames */}
-                    <div className="p-6 bg-white rounded-xl border border-[#E2E2DA] shadow-sm flex flex-col justify-between hover:border-[#111113]/30 hover:shadow-md transition-all group">
-                        <div>
-                            <div className="w-10 h-10 rounded-lg bg-neutral-100 text-[#111113] flex items-center justify-center mb-5 group-hover:scale-105 transition-transform">
-                                <Globe size={20} />
-                            </div>
-                            <span className="px-2 py-0.5 rounded bg-neutral-100 text-[#111113] font-mono text-[10px] uppercase font-semibold">
-                                DECENTRALIZED IDENTITY
-                            </span>
-                            <h3 className="text-lg font-bold text-[#111113] mt-3 mb-2 font-sans">
-                                ENSv2 Subname Registrar
-                            </h3>
-                            <p className="text-xs text-[#4B4B52] leading-relaxed mb-4">
-                                Instant merchant registration under <code className="font-mono bg-[#F5F5F0] px-1 py-0.5 rounded text-[11px]">melodypay.eth</code> with ENS NameWrapper ERC-1155 tokens, forward address resolution, and Arc routing text records.
-                            </p>
-                        </div>
-                        <div className="pt-3 border-t border-[#E2E2DA] text-[11px] font-mono text-[#111113] flex items-center justify-between">
-                            <span>Emancipated Subnames</span>
-                            <span>Sepolia NameWrapper</span>
-                        </div>
-                    </div>
-
-                    {/* Feature 5: Menu-Driven CLI Dashboard & USB Device Manager */}
-                    <div className="p-6 bg-white rounded-xl border border-[#E2E2DA] shadow-sm flex flex-col justify-between hover:border-[#111113]/30 hover:shadow-md transition-all group">
-                        <div>
-                            <div className="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center mb-5 group-hover:scale-105 transition-transform">
-                                <TerminalIcon size={20} />
-                            </div>
-                            <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 font-mono text-[10px] uppercase font-semibold">
-                                MENU-DRIVEN CLI & USB CONTROL
-                            </span>
-                            <h3 className="text-lg font-bold text-[#111113] mt-3 mb-2 font-sans">
-                                CLI Dashboard & USB Manager
-                            </h3>
-                            <p className="text-xs text-[#4B4B52] leading-relaxed mb-4">
-                                Interactive Node.js terminal powered by <code className="font-mono bg-[#F5F5F0] px-1 py-0.5 rounded text-[11px]">@clack/prompts</code> and <code className="font-mono bg-[#F5F5F0] px-1 py-0.5 rounded text-[11px]">serialport</code>. Auto-detects ESP32-S3 over USB serial (115200 baud), runs hardware self-tests, configures active chains in NVS, and operates a keyless store POS.
-                            </p>
-                        </div>
-                        <div className="pt-3 border-t border-[#E2E2DA] text-[11px] font-mono text-amber-600 flex items-center justify-between">
-                            <span>USB Serial 115200</span>
-                            <span>Port Lifecycle</span>
-                        </div>
-                    </div>
-
-                    {/* Feature 6: Structured ESP32 REPL Control Protocol */}
-                    <div className="p-6 bg-white rounded-xl border border-[#E2E2DA] shadow-sm flex flex-col justify-between hover:border-[#111113]/30 hover:shadow-md transition-all group">
-                        <div>
-                            <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center mb-5 group-hover:scale-105 transition-transform">
-                                <Layers size={20} />
-                            </div>
-                            <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-mono text-[10px] uppercase font-semibold">
-                                STRUCTURED JSON PROTOCOL
-                            </span>
-                            <h3 className="text-lg font-bold text-[#111113] mt-3 mb-2 font-sans">
-                                Line-Oriented REPL Boundary
-                            </h3>
-                            <p className="text-xs text-[#4B4B52] leading-relaxed mb-4">
-                                Secure <code className="font-mono bg-[#F5F5F0] px-1 py-0.5 rounded text-[11px]">api &lt;json&gt;</code> control boundary on ESP32-S3 firmware. Emits structured JSON responses with request IDs, runs OLED & audio self-tests, and enforces fail-closed capability-reported signing with zero key export.
-                            </p>
-                        </div>
-                        <div className="pt-3 border-t border-[#E2E2DA] text-[11px] font-mono text-blue-600 flex items-center justify-between">
-                            <span>Fail-Closed Enclave</span>
-                            <span>ggwave_transport.cpp</span>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            {/* =========================================================================
-                3. HOW IT WORKS SECTION: 5-STEP PROTOCOL FLOW
-               ========================================================================= */}
-            <section id="how-it-works" className="relative w-full max-w-7xl mx-auto px-4 lg:px-8 py-20 z-10 border-t border-[#E2E2DA] scroll-mt-20">
-                <div className="mb-14 text-center max-w-2xl mx-auto">
-                    <span className="text-xs font-mono text-[#0088FF] uppercase tracking-wider block mb-2 font-semibold">
-                        // ARCHITECTURAL FLOW
-                    </span>
-                    <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#111113] font-sans">
-                        How It Works
-                    </h2>
-                    <p className="text-sm text-[#4B4B52] mt-3 leading-relaxed font-sans">
-                        From acoustic invoice broadcast to on-chain finality in 5 deterministic steps.
-                    </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 relative">
-                    {[
-                        {
-                            step: "01",
-                            role: "POS TERMINAL",
-                            title: "Invoice Emission",
-                            desc: "Store register generates EIP-3009 request (amount, merchant ENS, nonce) and emits an acoustic chime into the room.",
-                            badge: "Audio Out"
-                        },
-                        {
-                            step: "02",
-                            role: "ESP32-S3 HARDWARE",
-                            title: "Air-Gap Capture",
-                            desc: "Offline wallet listens through INMP441 I2S microphone, demodulating the audio payload into RAM completely air-gapped.",
-                            badge: "Audio In"
-                        },
-                        {
-                            step: "03",
-                            role: "HUMAN USER",
-                            title: "Tactile Review",
-                            desc: "OLED displays merchant identity and exact USDC amount. Customer presses physical button to confirm intent.",
-                            badge: "Physical Interlock"
-                        },
-                        {
-                            step: "04",
-                            role: "ESP32-S3 HARDWARE",
-                            title: "Signature Chirp",
-                            desc: "Silicon signs with secp256k1 private key and broadcasts an acoustic signature burst back through its internal speaker.",
-                            badge: "Audio Out"
-                        },
-                        {
-                            step: "05",
-                            role: "SMART CONTRACT",
-                            title: "Instant Settle",
-                            desc: "POS terminal captures audio signature and calls receiveWithAuthorization on Arc or Monad. Gas covered by merchant.",
-                            badge: "On-Chain Receipt"
-                        }
-                    ].map((item, idx) => (
-                        <div 
-                            key={idx}
-                            className="bg-white p-5 rounded-xl border border-[#E2E2DA] shadow-sm flex flex-col justify-between relative hover:border-[#111113]/30 transition-all"
-                        >
-                            <div>
-                                <div className="flex items-center justify-between mb-4">
-                                    <span className="text-2xl font-mono font-bold text-[#111113]/25">
-                                        {item.step}
-                                    </span>
-                                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-neutral-100 text-[#111113] font-semibold">
-                                        {item.badge}
-                                    </span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 items-stretch">
+                        {/* Glassmorphic Tile 1: (lg:col-span-7) Acoustic Air-Gap Physical Wire */}
+                        <div className="lg:col-span-7 p-7 sm:p-8 bg-white/[0.07] backdrop-blur-2xl border border-white/25 ring-1 ring-white/10 rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.25)] hover:border-white/40 hover:bg-white/[0.10] transition-all flex flex-col justify-between group relative overflow-hidden">
+                            <div className="relative z-10">
+                                <div className="flex items-center justify-between gap-4 mb-6">
+                                    <div className="w-11 h-11 rounded-xl bg-white/10 border border-white/20 text-[#38BDF8] flex items-center justify-center group-hover:scale-105 transition-transform shadow-inner">
+                                        <WifiOff size={22} />
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-white font-mono text-[10px] uppercase font-semibold flex items-center gap-1.5 shadow-sm">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                            0.00 mW RF Radiation
+                                        </span>
+                                        <span className="px-2.5 py-1 rounded-full bg-[#38BDF8]/20 border border-[#38BDF8]/30 text-[#38BDF8] font-mono text-[10px] uppercase font-semibold">
+                                            1875 – 2187 Hz FSK
+                                        </span>
+                                    </div>
                                 </div>
-                                <span className="text-[10px] font-mono text-[#0088FF] uppercase tracking-wider block mb-1 font-semibold">
-                                    {item.role}
+
+                                <span className="text-xs font-mono text-[#38BDF8] uppercase tracking-wider font-semibold block mb-1">
+                                    PHYSICAL TRANSMISSION LAYER
                                 </span>
-                                <h3 className="text-base font-bold text-[#111113] mb-2 font-sans">
-                                    {item.title}
+                                <h3 className="text-xl sm:text-2xl font-bold text-white mb-3 font-sans">
+                                    Acoustic Air-Gap Wire
                                 </h3>
-                                <p className="text-xs text-[#4B4B52] leading-relaxed">
-                                    {item.desc}
+                                <p className="text-sm text-white/75 leading-relaxed mb-6 font-sans max-w-xl">
+                                    Completely eliminates Bluetooth, Wi-Fi, and NFC attack surfaces. Encrypted payment payloads travel strictly through airborne acoustic waves via ggwave FSK audio modulation—physically immune to radio snooping, relay exploits, and wireless interception.
                                 </p>
                             </div>
-                            <div className="mt-4 pt-3 border-t border-[#E2E2DA] text-[11px] font-mono text-emerald-600 flex items-center gap-1">
-                                <CheckCircle2 size={12} />
-                                <span>Verified Phase</span>
+
+                            {/* Visual Frequency Band / Carrier Waveform Simulation in Dark Glass */}
+                            <div className="mt-4 p-4 rounded-xl bg-black/40 backdrop-blur-md border border-white/10 relative overflow-hidden shadow-inner">
+                                <div className="flex items-center justify-between text-[11px] font-mono text-white/80 mb-3">
+                                    <span className="flex items-center gap-1.5">
+                                        <Radio size={13} className="text-[#38BDF8]" />
+                                        <span>CARRIER FREQUENCY SPECTRUM</span>
+                                    </span>
+                                    <span className="text-emerald-400 font-semibold">AIR-GAP VERIFIED</span>
+                                </div>
+
+                                <div className="h-16 flex items-end justify-between gap-1.5 px-2">
+                                    {[35, 50, 25, 70, 90, 60, 45, 80, 100, 75, 40, 65, 85, 55, 30, 70, 95, 45, 60, 80].map((h, i) => (
+                                        <motion.div
+                                            key={i}
+                                            className="flex-1 bg-gradient-to-t from-[#0088FF] via-[#38BDF8] to-emerald-400 rounded-t-sm shadow-[0_0_8px_rgba(56,189,248,0.4)]"
+                                            animate={{ height: [`${h}%`, `${Math.max(15, (h * 1.3) % 100)}%`, `${h}%`] }}
+                                            transition={{
+                                                duration: 1.8,
+                                                repeat: Infinity,
+                                                delay: i * 0.08,
+                                                ease: "easeInOut"
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+
+                                <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[10px] font-mono text-white/60">
+                                    <span>1875 Hz (Carrier Start)</span>
+                                    <span>Center: 2031 Hz</span>
+                                    <span>2187 Hz (Signature Peak)</span>
+                                </div>
+                            </div>
+
+                            <div className="mt-5 pt-4 border-t border-white/10 flex items-center justify-between text-xs font-mono text-white/70">
+                                <span className="flex items-center gap-1.5">
+                                    <ShieldCheck size={14} className="text-emerald-400" />
+                                    <span>Transmission: Ambient Sound Waves</span>
+                                </span>
+                                <span className="text-white font-semibold">128B Ephemeral Payloads</span>
                             </div>
                         </div>
-                    ))}
+
+                        {/* Glassmorphic Tile 2: (lg:col-span-5) Hardware Intent Switch */}
+                        <div className="lg:col-span-5 p-7 sm:p-8 bg-white/[0.07] backdrop-blur-2xl border border-white/25 ring-1 ring-white/10 rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.25)] hover:border-white/40 hover:bg-white/[0.10] transition-all flex flex-col justify-between group">
+                            <div>
+                                <div className="flex items-center justify-between gap-4 mb-6">
+                                    <div className="w-11 h-11 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 flex items-center justify-center group-hover:scale-105 transition-transform shadow-inner">
+                                        <Cpu size={22} />
+                                    </div>
+                                    <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-mono text-[10px] uppercase font-semibold">
+                                        secp256k1 CORE
+                                    </span>
+                                </div>
+
+                                <span className="text-xs font-mono text-emerald-400 uppercase tracking-wider font-semibold block mb-1 drop-shadow-sm">
+                                    PHYSICAL CONFIRMATION
+                                </span>
+                                <h3 className="text-xl sm:text-2xl font-bold text-white mb-3 font-sans drop-shadow-sm">
+                                    Hardware Intent Switch
+                                </h3>
+                                <p className="text-sm text-white/85 leading-relaxed mb-6 font-sans">
+                                    Offline ESP32-S3 microcontroller isolates cryptographic operations. A physical GPIO interrupt switch requires tactile button confirmation before signature generation can be triggered.
+                                </p>
+                            </div>
+
+                            {/* Visual Tactile Switch Diagram in Dark Glass */}
+                            <div className="p-4 rounded-xl bg-black/30 backdrop-blur-md border border-white/15 space-y-3 font-mono text-xs shadow-inner">
+                                <div className="flex items-center justify-between text-white">
+                                    <span className="flex items-center gap-2">
+                                        <span className="w-3 h-3 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                                        <span className="font-semibold">GPIO 18 [CONFIRM]</span>
+                                    </span>
+                                    <span className="text-emerald-400 font-bold">ACTIVE INTERLOCK</span>
+                                </div>
+                                <div className="flex items-center justify-between text-white/60">
+                                    <span className="flex items-center gap-2">
+                                        <span className="w-3 h-3 rounded-full bg-rose-400/80 shadow-[0_0_6px_rgba(251,113,133,0.5)]" />
+                                        <span>GPIO 19 [ABORT]</span>
+                                    </span>
+                                    <span>BUFFER PURGE</span>
+                                </div>
+                                <div className="p-2.5 rounded bg-white/[0.06] border border-white/10 text-[11px] text-white/80 leading-snug">
+                                    ➔ Silicon cannot sign without physical button debounce pulse. Zero remote authorization exploits.
+                                </div>
+                            </div>
+
+                            <div className="mt-5 pt-4 border-t border-white/15 flex items-center justify-between text-xs font-mono text-white/70">
+                                <span>Boundary: Fail-Closed</span>
+                                <span className="text-emerald-400 font-semibold">Physical Interrupt Latch</span>
+                            </div>
+                        </div>
+
+                        {/* Glassmorphic Tile 3: (lg:col-span-4) Tamper-Proof Clear-Signing OLED */}
+                        <div className="lg:col-span-4 p-6 sm:p-7 bg-white/[0.07] backdrop-blur-2xl border border-white/25 ring-1 ring-white/10 rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.25)] hover:border-white/40 hover:bg-white/[0.10] transition-all flex flex-col justify-between group">
+                            <div>
+                                <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 text-white flex items-center justify-center mb-5 group-hover:scale-105 transition-transform shadow-inner">
+                                    <Terminal size={20} />
+                                </div>
+                                <span className="text-xs font-mono text-white/60 uppercase tracking-wider font-semibold block mb-1">
+                                    SILICON SCREEN
+                                </span>
+                                <h3 className="text-lg font-bold text-white mb-2 font-sans drop-shadow-sm">
+                                    Clear-Signing OLED
+                                </h3>
+                                <p className="text-xs sm:text-sm text-white/80 leading-relaxed mb-5 font-sans">
+                                    0.96" Monochrome SSD1306 display renders human-verified payment data directly from RAM. Rejects multi-page truncation or hidden calldata.
+                                </p>
+                            </div>
+
+                            {/* OLED Mini Chassis */}
+                            <div className="p-3.5 rounded-lg bg-black/60 border border-neutral-700/80 font-mono text-[11px] text-emerald-400 shadow-inner space-y-1">
+                                <div className="text-[10px] text-neutral-400 flex items-center justify-between pb-1 border-b border-neutral-800">
+                                    <span>MELODYPAY POS</span>
+                                    <span>I2C 128x64</span>
+                                </div>
+                                <div className="pt-1 text-white font-bold">PAY: 1.00</div>
+                                <div className="text-emerald-400/90 text-[10px]">TO: 0x0E69...7BCF</div>
+                                <div className="text-emerald-400 text-[10px] flex items-center gap-1.5 pt-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                    <span>PRESS CONFIRM BUTTON</span>
+                                </div>
+                            </div>
+
+                            <div className="mt-5 pt-3 border-t border-white/15 text-[11px] font-mono text-white/60 flex items-center justify-between">
+                                <span>What You See Is What You Sign</span>
+                            </div>
+                        </div>
+
+                        {/* Glassmorphic Tile 4: (lg:col-span-4) Noise Resilience (FEC) */}
+                        <div className="lg:col-span-4 p-6 sm:p-7 bg-white/[0.07] backdrop-blur-2xl border border-white/25 ring-1 ring-white/10 rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.25)] hover:border-white/40 hover:bg-white/[0.10] transition-all flex flex-col justify-between group">
+                            <div>
+                                <div className="w-10 h-10 rounded-xl bg-amber-400/20 border border-amber-400/30 text-amber-300 flex items-center justify-center mb-5 group-hover:scale-105 transition-transform shadow-inner">
+                                    <Waves size={20} />
+                                </div>
+                                <span className="text-xs font-mono text-amber-300 uppercase tracking-wider font-semibold block mb-1">
+                                    ERROR CORRECTION
+                                </span>
+                                <h3 className="text-lg font-bold text-white mb-2 font-sans drop-shadow-sm">
+                                    Noise-Resilient Demodulation
+                                </h3>
+                                <p className="text-xs sm:text-sm text-white/80 leading-relaxed mb-5 font-sans">
+                                    Frequency-Shift Keying paired with Reed-Solomon Forward Error Correction reconstructs missing or clipped audio packets through busy restaurant chatter and ambient music.
+                                </p>
+                            </div>
+
+                            {/* Signal-to-Noise Ratio Meter */}
+                            <div className="p-3.5 rounded-lg bg-black/30 backdrop-blur-md border border-white/15 font-mono text-[11px] space-y-2 shadow-inner">
+                                <div className="flex items-center justify-between text-white">
+                                    <span>ACOUSTIC SNR:</span>
+                                    <span className="text-emerald-400 font-bold">+18.4 dB [OPTIMAL]</span>
+                                </div>
+                                <div className="flex gap-1 h-2">
+                                    {[...Array(12)].map((_, i) => (
+                                        <div
+                                            key={i}
+                                            className={`flex-1 rounded-sm ${
+                                                i < 10 ? "bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.6)]" : "bg-white/20"
+                                            }`}
+                                        />
+                                    ))}
+                                </div>
+                                <div className="text-[10px] text-white/60 flex items-center justify-between pt-1">
+                                    <span>FEC Recovery</span>
+                                    <span className="text-emerald-400 font-semibold">100% (32/32 Chunks)</span>
+                                </div>
+                            </div>
+
+                            <div className="mt-5 pt-3 border-t border-white/15 text-[11px] font-mono text-white/60 flex items-center justify-between">
+                                <span>Robust Against Ambient Din</span>
+                            </div>
+                        </div>
+
+                        {/* Glassmorphic Tile 5: (lg:col-span-4) Instant Settlement */}
+                        <div className="lg:col-span-4 p-6 sm:p-7 bg-white/[0.07] backdrop-blur-2xl border border-white/25 ring-1 ring-white/10 rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.25)] hover:border-white/40 hover:bg-white/[0.10] transition-all flex flex-col justify-between group">
+                            <div>
+                                <div className="w-10 h-10 rounded-xl bg-[#38BDF8]/20 border border-[#38BDF8]/30 text-[#38BDF8] flex items-center justify-center mb-5 group-hover:scale-105 transition-transform shadow-inner">
+                                    <Zap size={20} />
+                                </div>
+                                <span className="text-xs font-mono text-[#38BDF8] uppercase tracking-wider font-semibold block mb-1">
+                                    ON-CHAIN FINALITY
+                                </span>
+                                <h3 className="text-lg font-bold text-white mb-2 font-sans drop-shadow-sm">
+                                    Instant Settlement
+                                </h3>
+                                <p className="text-xs sm:text-sm text-white/80 leading-relaxed mb-5 font-sans">
+                                    Non-custodial settlement with sub-second cryptographic finality. Funds transfer directly into the merchant's wallet with zero custodial middle layers.
+                                </p>
+                            </div>
+
+                            {/* Settlement Telemetry Card */}
+                            <div className="p-3.5 rounded-lg bg-black/30 backdrop-blur-md border border-white/15 font-mono text-[11px] space-y-1.5 shadow-inner">
+                                <div className="flex items-center justify-between text-white">
+                                    <span>SETTLEMENT:</span>
+                                    <span className="font-bold text-[#38BDF8]">Direct &amp; Instant</span>
+                                </div>
+                                <div className="flex items-center justify-between text-white/60">
+                                    <span>CUSTODY:</span>
+                                    <span className="text-white font-semibold">Non-Custodial P2P</span>
+                                </div>
+                                <div className="flex items-center justify-between text-emerald-400 font-semibold pt-1 border-t border-white/10">
+                                    <span>FINALITY:</span>
+                                    <span>&lt; 1.0s Confirmed</span>
+                                </div>
+                            </div>
+
+                            <div className="mt-5 pt-3 border-t border-white/15 text-[11px] font-mono text-white/60 flex items-center justify-between">
+                                <span>Sub-Second Finality</span>
+                                <span className="text-emerald-400 font-medium">Direct Execution</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
             {/* =========================================================================
-                4. PROTOTYPE SNEAK PEEK SECTION: SCROLLING STAIRCASE FEATURES & STICKY 3D MODEL
-               ========================================================================= */}
-            {/* =========================================================================
-                4. PROTOTYPE SNEAK PEEK SECTION: STICKY VIEWPORT & SCROLL-DRIVEN STAIRCASE
+                4. PROTOTYPE SNEAK PEEK SECTION: RESPONSIVE SHOWCASE & 3D MODEL
                ========================================================================= */}
             <div 
                 id="prototype" 
                 ref={prototypeContainerRef}
-                className="relative w-full bg-[#EBF4EE] scroll-mt-20"
-                style={{ height: "300vh" }}
+                className="relative w-full bg-[#EBF4EE] border-y border-[#D6E6DB] scroll-mt-20 lg:h-[300vh]"
             >
-                {/* PINNED STICKY CONTAINER: Sticks at top: 0 until the user scrolls through all features */}
-                <div className="sticky top-0 h-screen w-full flex flex-col justify-center border-y border-[#D6E6DB] overflow-hidden">
-                    <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 w-full py-4 sm:py-6 flex flex-col justify-center">
-                        {/* Section Header - Lean & Clean with single descriptive line */}
-                        <div className="text-center max-w-2xl mx-auto mb-6 sm:mb-8 lg:mb-10">
+                {/* Pinned Sticky on desktop, Natural height and zero clipping on mobile/tablet */}
+                <div className="relative lg:sticky lg:top-0 min-h-fit lg:h-screen w-full flex flex-col justify-start lg:justify-center py-10 sm:py-14 lg:py-6 pt-12 sm:pt-16 lg:pt-22 pb-10 sm:pb-14 lg:pb-6 overflow-visible lg:overflow-hidden">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-16 w-full flex flex-col justify-center">
+                        {/* Section Header - Properly scaled so it never slices or collides */}
+                        <div className="text-center max-w-2xl mx-auto mb-5 sm:mb-6 lg:mb-8">
                             <span className="text-xs sm:text-sm font-mono text-emerald-700 uppercase tracking-widest block mb-1.5 font-semibold">
                                 // PHYSICAL ARCHITECTURE
                             </span>
-                            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[#111113] font-sans">
+                            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-[#111113] font-sans">
                                 Prototype Sneak Peek
                             </h2>
-                            <p className="text-sm sm:text-base text-[#4B4B52] mt-2 leading-relaxed font-sans">
-                                Scroll to inspect each hardware module in our air-gapped acoustic architecture.
+                            <p className="text-xs sm:text-sm text-[#4B4B52] mt-1.5 leading-relaxed font-sans">
+                                Select or scroll to inspect each hardware module in our air-gapped acoustic architecture.
                             </p>
                         </div>
 
+                        {/* Mobile Step Selector (Horizontal pills on < lg) */}
+                        <div className="flex lg:hidden items-center justify-center gap-2 sm:gap-3 mb-6 select-none flex-wrap">
+                            {PROTOTYPE_FEATURES.map((feat, idx) => {
+                                const isActive = activeFeatureIndex === idx;
+                                return (
+                                    <button
+                                        key={feat.id}
+                                        type="button"
+                                        onClick={() => scrollToStep(idx)}
+                                        className={`px-3 py-1.5 rounded-full font-mono text-xs font-semibold transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                                            isActive
+                                                ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30 ring-2 ring-emerald-600/30 scale-105"
+                                                : "bg-white/80 text-[#555] hover:text-[#111113] hover:bg-white border border-[#D6E6DB]"
+                                        }`}
+                                    >
+                                        <span>{feat.step}</span>
+                                        <span className="text-[11px] font-sans font-medium hidden xs:inline sm:inline">
+                                            {feat.partKey.toUpperCase()}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
                         {/* 2-COLUMN SHOWCASE: STAIRCASE FEATURES (LEFT) + 3D MODEL (RIGHT) */}
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center w-full min-h-0">
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12 items-center w-full min-h-0">
                             {/* LEFT COLUMN: SCROLLING STAIRCASE OF FEATURES */}
-                            <div className="lg:col-span-5 relative flex items-center h-[340px] sm:h-[380px]">
-                                {/* Delicate Vertical Staircase Step Rail */}
-                                <div className="absolute left-0 top-3 bottom-3 w-8 flex flex-col justify-between items-center z-10 select-none">
+                            <div className="lg:col-span-5 relative flex items-center min-h-[180px] sm:min-h-[220px] lg:h-[300px]">
+                                {/* Delicate Vertical Staircase Step Rail (Desktop only) */}
+                                <div className="hidden lg:flex absolute left-0 top-3 bottom-3 w-8 flex-col justify-between items-center z-10 select-none">
                                     {PROTOTYPE_FEATURES.map((feat, idx) => {
                                         const isActive = activeFeatureIndex === idx;
                                         return (
                                             <button
                                                 key={feat.id}
+                                                type="button"
                                                 onClick={() => scrollToStep(idx)}
                                                 className={`w-7 h-7 rounded-full font-mono text-xs flex items-center justify-center transition-all duration-300 cursor-pointer ${
                                                     isActive
@@ -598,18 +643,18 @@ export function Home() {
                                     })}
                                 </div>
 
-                                {/* Thin rail line behind step numbers */}
-                                <div className="absolute left-[15px] top-4 bottom-4 w-[2px] bg-[#D2E2D8] -z-0" />
+                                {/* Thin rail line behind step numbers (Desktop only) */}
+                                <div className="hidden lg:block absolute left-[15px] top-4 bottom-4 w-[2px] bg-[#D2E2D8] -z-0" />
 
-                                {/* Staircase Feature Viewport Window: Current feature exits, next one enters */}
-                                <div className="w-full h-full relative pl-14 flex items-center overflow-hidden">
+                                {/* Staircase Feature Viewport Window */}
+                                <div className="w-full h-full relative pl-0 lg:pl-14 flex items-center overflow-hidden">
                                     <AnimatePresence mode="wait" custom={direction}>
                                         <motion.div
                                             key={currentFeature.id}
                                             custom={direction}
                                             variants={{
                                                 enter: (dir: number) => ({
-                                                    y: dir > 0 ? 50 : -50,
+                                                    y: dir > 0 ? 30 : -30,
                                                     opacity: 0,
                                                     filter: "blur(2px)"
                                                 }),
@@ -624,7 +669,7 @@ export function Home() {
                                                     }
                                                 },
                                                 exit: (dir: number) => ({
-                                                    y: dir > 0 ? -50 : 50,
+                                                    y: dir > 0 ? -30 : 30,
                                                     opacity: 0,
                                                     filter: "blur(2px)",
                                                     transition: {
@@ -637,21 +682,21 @@ export function Home() {
                                             initial="enter"
                                             animate="center"
                                             exit="exit"
-                                            className="w-full flex flex-col justify-center"
+                                            className="w-full flex flex-col justify-center text-center lg:text-left"
                                         >
-                                            <span className="text-sm font-mono font-bold text-emerald-700 uppercase tracking-widest block mb-2">
+                                            <span className="text-xs sm:text-sm font-mono font-bold text-emerald-700 uppercase tracking-widest block mb-1.5">
                                                 {currentFeature.step} &mdash; {currentFeature.tag}
                                             </span>
 
-                                            <h3 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-[#111113] font-sans tracking-tight mb-2">
+                                            <h3 className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-extrabold text-[#111113] font-sans tracking-tight mb-1.5">
                                                 {currentFeature.title}
                                             </h3>
 
-                                            <div className="text-sm sm:text-base text-[#4B4B52] font-mono mb-4">
+                                            <div className="text-xs sm:text-sm text-[#4B4B52] font-mono mb-3">
                                                 {currentFeature.subtitle}
                                             </div>
 
-                                            <p className="text-base sm:text-lg text-[#333338] leading-relaxed font-sans max-w-lg">
+                                            <p className="text-sm sm:text-base text-[#333338] leading-relaxed font-sans max-w-lg mx-auto lg:mx-0">
                                                 {currentFeature.desc}
                                             </p>
                                         </motion.div>
@@ -659,8 +704,8 @@ export function Home() {
                                 </div>
                             </div>
 
-                            {/* RIGHT COLUMN: 3D HARDWARE MODEL (CLEAN & BORDERLESS) */}
-                            <div className="lg:col-span-7 h-[360px] sm:h-[440px] lg:h-[480px] flex items-center justify-center relative pointer-events-auto">
+                            {/* RIGHT COLUMN: 3D HARDWARE MODEL */}
+                            <div className="lg:col-span-7 h-[260px] sm:h-[320px] lg:h-[380px] xl:h-[420px] flex items-center justify-center relative pointer-events-auto">
                                 <div className="w-full h-full relative flex items-center justify-center select-none">
                                     <Hardware3DScene
                                         activePartKey={currentFeature.partKey}
@@ -777,7 +822,7 @@ export function Home() {
                             </span>
                             <ul className="space-y-2 text-xs text-neutral-300 font-sans">
                                 <li><Link to="/receive" className="hover:text-white transition-colors">Receive Payments</Link></li>
-                                <li><Link to="/register" className="hover:text-white transition-colors">Register ENS Subname</Link></li>
+                                <li><Link to="/register" className="hover:text-white transition-colors">Pre-book HardWallet</Link></li>
                                 <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
                                 <li><a href="#prototype" className="hover:text-white transition-colors">Hardware Prototype</a></li>
                                 <li><a href="#faqs" className="hover:text-white transition-colors">FAQs</a></li>

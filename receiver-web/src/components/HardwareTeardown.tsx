@@ -63,7 +63,7 @@ const HARDWARE_SPECS: Record<string, ComponentSpec> = {
         name: "Piezo Acoustic Transducer",
         role: "Acoustic Signature Transmitter (Output)",
         pinout: "BCLK: GPIO 15 // LRCLK: GPIO 16 // DIN: GPIO 7 // Gain: 12dB",
-        details: "Direct digital I2S synthesis converting raw PCM audio into analog sound waves (1875 Hz – 2187 Hz) carrying EIP-3009 cryptographic signatures over air.",
+        details: "Direct digital I2S synthesis converting raw PCM audio into analog sound waves (1875 Hz – 2187 Hz) carrying cryptographic payment signatures over air.",
         securityRule: "Emits bounded chunks (max 128 bytes per burst) with 300ms inter-burst silence for clean receiver synchronization.",
         icon: Volume2,
         accentColor: "#F59E0B"

@@ -16,24 +16,23 @@ import {
 } from "lucide-react";
 import { sendPrebookingConfirmationEmail } from "../core/email";
 
-// Base Mainnet Constants
-// Base Sepolia Testnet Constants (Chain ID 84532)
-const BASE_SEPOLIA_CHAIN_ID = 84532;
+// Base Mainnet Constants (Chain ID 8453)
+const BASE_CHAIN_ID = 8453;
 
-// Official Circle Native USDC on Base Sepolia Testnet
-const BASE_SEPOLIA_USDC = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
-const TREASURY_ADDRESS = "0xE36f3d4Bd0a6bbdd940404C6323c1121b2666176";
+// Official Circle Native USDC on Base Mainnet
+const BASE_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+const TREASURY_ADDRESS = "0x0E6937A18De79Ed54692E65F7A0DA5A81B8D7BCF";
 
-// Target Contract (Official Base Sepolia Deployment)
-const RAW_PREBOOKING_ADDRESS = 
-    (import.meta as any).env?.VITE_PREBOOKING_CONTRACT_ADDRESS || 
-    "0x79DF554250BC15efE9de1b6167c911e5a153A20E";
+// Target Contract — set VITE_PREBOOKING_CONTRACT_ADDRESS in .env after mainnet deployment
+const RAW_PREBOOKING_ADDRESS =
+    (import.meta as any).env?.VITE_PREBOOKING_CONTRACT_ADDRESS || "";
 
 const PREBOOKING_CONTRACT_ADDRESS = (() => {
     try {
+        if (!RAW_PREBOOKING_ADDRESS) return "";
         return ethers.getAddress(RAW_PREBOOKING_ADDRESS.toLowerCase());
     } catch {
-        return "0x79DF554250BC15efE9de1b6167c911e5a153A20E";
+        return "";
     }
 })();
 
@@ -58,7 +57,7 @@ export function Register() {
     const navigate = useNavigate();
     const [email, setEmail] = useState("");
     const [connectedWallet, setConnectedWallet] = useState<string | null>(null);
-    const [currentChainId, setCurrentChainId] = useState<number>(BASE_SEPOLIA_CHAIN_ID);
+    const [currentChainId, setCurrentChainId] = useState<number>(BASE_CHAIN_ID);
     const [isBaseNetwork, setIsBaseNetwork] = useState(false);
     const [queueCount, setQueueCount] = useState<number>(0);
     const [userExistingQueue, setUserExistingQueue] = useState<number | null>(null);
@@ -71,17 +70,20 @@ export function Register() {
     const [errorMessage, setErrorMessage] = useState("");
     const [statusMessage, setStatusMessage] = useState("");
 
-    const activeUsdcAddress = BASE_SEPOLIA_USDC;
+    const activeUsdcAddress = BASE_USDC;
 
     const unitPrice = 1.0;
     const totalPrice = (quantity * unitPrice).toFixed(2);
     const totalAllowanceNeeded = BigInt(quantity) * 1_000_000n;
 
-    // Fetch live on-chain queue count from Base Sepolia contract immediately
+    // Fetch live on-chain queue count from Base Mainnet contract immediately
     useEffect(() => {
         const fetchLiveQueue = async () => {
+            if (!PREBOOKING_CONTRACT_ADDRESS || !ethers.isAddress(PREBOOKING_CONTRACT_ADDRESS)) {
+                return;
+            }
             try {
-                const rpcProvider = new ethers.JsonRpcProvider("https://sepolia.base.org");
+                const rpcProvider = new ethers.JsonRpcProvider("https://mainnet.base.org");
                 const contract = new ethers.Contract(PREBOOKING_CONTRACT_ADDRESS, PREBOOKING_ABI, rpcProvider);
                 const count = await contract.getQueueCount();
                 setQueueCount(Number(count));
@@ -131,12 +133,12 @@ export function Register() {
             const network = await provider.getNetwork();
             const chainId = Number(network.chainId);
             setCurrentChainId(chainId);
-            const isBase = chainId === BASE_SEPOLIA_CHAIN_ID;
+            const isBase = chainId === BASE_CHAIN_ID;
             setIsBaseNetwork(isBase);
 
-            const usdcAddr = BASE_SEPOLIA_USDC;
+            const usdcAddr = BASE_USDC;
 
-            if (isBase) {
+            if (isBase && PREBOOKING_CONTRACT_ADDRESS && ethers.isAddress(PREBOOKING_CONTRACT_ADDRESS)) {
                 // Read live queue count & user reservations
                 try {
                     const contract = new ethers.Contract(PREBOOKING_CONTRACT_ADDRESS, PREBOOKING_ABI, provider);
@@ -165,6 +167,12 @@ export function Register() {
                     ]);
                     setUsdcBalance(ethers.formatUnits(bal, 6));
                     setUsdcAllowance(allow);
+                } catch {}
+            } else if (isBase) {
+                try {
+                    const usdcContract = new ethers.Contract(usdcAddr, ERC20_ABI, provider);
+                    const bal = await usdcContract.balanceOf(userAddr);
+                    setUsdcBalance(ethers.formatUnits(bal, 6));
                 } catch {}
             }
         } catch {}
@@ -204,7 +212,7 @@ export function Register() {
         try {
             await (window as any).ethereum.request({
                 method: "wallet_switchEthereumChain",
-                params: [{ chainId: "0x14a34" }], // 84532 in hex (Base Sepolia)
+                params: [{ chainId: "0x2105" }], // 8453 in hex (Base Mainnet)
             });
         } catch (switchError: any) {
             if (switchError.code === 4902) {
@@ -213,11 +221,11 @@ export function Register() {
                         method: "wallet_addEthereumChain",
                         params: [
                             {
-                                chainId: "0x14a34",
-                                chainName: "Base Sepolia Testnet",
+                                chainId: "0x2105",
+                                chainName: "Base",
                                 nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-                                rpcUrls: ["https://sepolia.base.org"],
-                                blockExplorerUrls: ["https://sepolia.basescan.org"],
+                                rpcUrls: ["https://mainnet.base.org"],
+                                blockExplorerUrls: ["https://basescan.org"],
                             },
                         ],
                     });
@@ -233,6 +241,11 @@ export function Register() {
         }
         if (!isBaseNetwork) {
             switchToBase();
+            return;
+        }
+
+        if (!PREBOOKING_CONTRACT_ADDRESS || !ethers.isAddress(PREBOOKING_CONTRACT_ADDRESS)) {
+            setErrorMessage("MelodyPay Prebooking contract is not yet deployed or configured on Base Mainnet. Please deploy and set VITE_PREBOOKING_CONTRACT_ADDRESS in .env.");
             return;
         }
 
@@ -281,7 +294,12 @@ export function Register() {
             return;
         }
 
-        const networkName = "Base Sepolia Testnet";
+        if (!PREBOOKING_CONTRACT_ADDRESS || !ethers.isAddress(PREBOOKING_CONTRACT_ADDRESS)) {
+            setErrorMessage("MelodyPay Prebooking contract is not yet deployed or configured on Base Mainnet. Please deploy and set VITE_PREBOOKING_CONTRACT_ADDRESS in .env.");
+            return;
+        }
+
+        const networkName = "Base Mainnet";
         setIsPrebooking(true);
         setStatusMessage(`Preparing ${totalPrice} USDC pre-booking on ${networkName}...`);
 
@@ -295,7 +313,7 @@ export function Register() {
             const usdcContract = new ethers.Contract(activeUsdcAddress, ERC20_ABI, signer);
             const bal = await usdcContract.balanceOf(userAddress);
             if (bal < totalAllowanceNeeded) {
-                setErrorMessage(`Insufficient USDC on Base Sepolia. Your balance is ${ethers.formatUnits(bal, 6)} USDC, but ${totalPrice} USDC is required for ${quantity} DevKit${quantity > 1 ? "s" : ""}.`);
+                setErrorMessage(`Insufficient USDC on Base. Your balance is ${ethers.formatUnits(bal, 6)} USDC, but ${totalPrice} USDC is required for ${quantity} MelodyPay HardWallet${quantity > 1 ? "s" : ""}.`);
                 setIsPrebooking(false);
                 setStatusMessage("");
                 return;
@@ -306,15 +324,15 @@ export function Register() {
             if (currentAllowance < totalAllowanceNeeded) {
                 setStatusMessage(`Step 1/2: Please approve ${totalPrice} USDC in your wallet...`);
                 const approveTx = await usdcContract.approve(PREBOOKING_CONTRACT_ADDRESS, totalAllowanceNeeded);
-                setStatusMessage("Awaiting USDC approval confirmation on Base Sepolia...");
+                setStatusMessage("Awaiting USDC approval confirmation on Base Mainnet...");
                 await approveTx.wait(1);
                 setUsdcAllowance(totalAllowanceNeeded);
             }
 
-            // 3. Submit real prebooking transaction on Base Sepolia
-            setStatusMessage(`Step 2/2: Confirming ${totalPrice} USDC pre-booking for ${quantity} DevKit${quantity > 1 ? "s" : ""} in wallet...`);
+            // 3. Submit real prebooking transaction on Base Mainnet
+            setStatusMessage(`Step 2/2: Confirming ${totalPrice} USDC pre-booking for ${quantity} MelodyPay HardWallet${quantity > 1 ? "s" : ""} in wallet...`);
             const tx = await contract["prebook(uint256)"](quantity);
-            setStatusMessage("Awaiting on-chain settlement on Base Sepolia...");
+            setStatusMessage("Awaiting on-chain settlement on Base Mainnet...");
             const receipt = await tx.wait(1);
             const txHash = receipt.hash;
 
@@ -345,7 +363,7 @@ export function Register() {
                 recipient: TREASURY_ADDRESS,
                 payer: userAddress,
                 txHash,
-                chainId: BASE_SEPOLIA_CHAIN_ID,
+                chainId: BASE_CHAIN_ID,
                 networkName,
                 timestamp: new Date().toISOString(),
                 receiptId: `PREBOOK-BASE-${Date.now().toString().slice(-6)}`,
@@ -372,7 +390,7 @@ export function Register() {
     };
 
     return (
-        <div className="flex-1 flex flex-col justify-center w-full text-[#111113] relative overflow-hidden py-6 sm:py-8 pt-20 sm:pt-24 lg:pt-26 min-h-screen lg:h-screen lg:max-h-screen font-sans selection:bg-[#836EF9]/20 selection:text-[#111113]">
+        <div className="flex-1 flex flex-col justify-start lg:justify-center w-full text-[#111113] relative overflow-x-hidden overflow-y-auto lg:overflow-hidden py-6 sm:py-8 pt-20 sm:pt-24 lg:pt-26 min-h-screen lg:h-screen lg:max-h-screen font-sans selection:bg-[#836EF9]/20 selection:text-[#111113]">
             {/* Full-Bleed Meadow with Birds Aerial Background */}
             <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
                 <img
@@ -397,7 +415,7 @@ export function Register() {
                     </h1>
                     <p className="text-sm sm:text-base font-sans text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)] mt-2 sm:mt-2.5 leading-relaxed max-w-xl mx-auto">
                         Secure first-batch hardware allocation for the ESP32-S3 Air-Gapped Acoustic Sound Terminal. 
-                        Pay 1.00 USDC on Base Sepolia Testnet to confirm your DevKit pre-order.
+                        Pay 1.00 USDC on Base to confirm your MelodyPay HardWallet pre-order.
                     </p>
                 </div>
 
@@ -466,10 +484,10 @@ export function Register() {
                                 <div className="p-3 px-4 bg-white/[0.08] backdrop-blur-md border border-white/20 rounded-xl flex items-center justify-between">
                                     <div>
                                         <span className="text-xs font-sans font-semibold text-white block">
-                                            ESP32-S3 Hardware Units
+                                            ESP32-S3 MelodyPay HardWallet Units
                                         </span>
                                         <span className="text-[11px] text-white/70 font-sans block">
-                                            1.00 USDC per DevKit // Direct Settlement
+                                            1.00 USDC per HardWallet // Direct Settlement
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -501,7 +519,7 @@ export function Register() {
                                                 {totalPrice} USDC
                                             </span>
                                             <span className="text-[9px] font-mono text-white/70 block uppercase tracking-wider">
-                                                Base Sepolia
+                                                Base Mainnet
                                             </span>
                                         </div>
                                     </div>
@@ -560,7 +578,7 @@ export function Register() {
                                             className="w-full bg-white hover:bg-white/90 text-black py-3 px-5 rounded-xl text-sm font-sans font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:shadow-xl"
                                         >
                                             <ArrowRight size={14} />
-                                            <span>Switch to Base Sepolia (84532)</span>
+                                            <span>Switch to Base (8453)</span>
                                         </button>
                                     ) : usdcAllowance < totalAllowanceNeeded ? (
                                         <button
@@ -590,11 +608,11 @@ export function Register() {
                                             {isPrebooking ? (
                                                 <>
                                                     <Loader2 size={14} className="animate-spin" />
-                                                    <span>Confirming {quantity} DevKit{quantity > 1 ? "s" : ""}...</span>
+                                                    <span>Confirming {quantity} MelodyPay HardWallet{quantity > 1 ? "s" : ""}...</span>
                                                 </>
                                             ) : (
                                                 <>
-                                                    <span>Step 2: Pre-Book {quantity} DevKit{quantity > 1 ? "s" : ""} for {totalPrice} USDC</span>
+                                                    <span>Step 2: Pre-Book {quantity} MelodyPay HardWallet{quantity > 1 ? "s" : ""} for {totalPrice} USDC</span>
                                                     <ArrowRight size={14} />
                                                 </>
                                             )}
@@ -604,8 +622,8 @@ export function Register() {
 
                                 <p className="text-xs font-sans text-white/60 text-center">
                                     {userExistingQueue !== null 
-                                        ? "You can reserve additional DevKits with this wallet anytime. Instant cryptographic POS receipt generated." 
-                                        : "Secures DevKit priority slot. Instant cryptographic POS receipt generated."}
+                                        ? "You can reserve additional MelodyPay HardWallets with this wallet anytime. Instant cryptographic POS receipt generated." 
+                                        : "Secures MelodyPay HardWallet priority slot. Instant cryptographic POS receipt generated."}
                                 </p>
                             </form>
                         </div>
@@ -655,7 +673,7 @@ export function Register() {
                                 <div className="space-y-2 text-xs font-sans text-white/85">
                                     <div className="flex items-center justify-between pb-1.5 border-b border-dashed border-white/10">
                                         <span className="text-white/70 font-sans">Allocation:</span>
-                                        <span className="font-semibold text-white font-sans">Batch #1 Priority DevKit</span>
+                                        <span className="font-semibold text-white font-sans">Batch #1 Priority MelodyPay HardWallet</span>
                                     </div>
                                     <div className="flex items-center justify-between pb-1.5 border-b border-dashed border-white/10">
                                         <span className="text-white/70 font-sans">Confirmation:</span>
@@ -667,7 +685,7 @@ export function Register() {
                                     </div>
                                     <div className="flex items-center justify-between">
                                         <span className="text-white/70 font-sans">Settlement:</span>
-                                        <span className="font-semibold text-white font-sans">1.00 USDC on Base Sepolia</span>
+                                        <span className="font-semibold text-white font-sans">1.00 USDC on Base</span>
                                     </div>
                                 </div>
                             </div>

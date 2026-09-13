@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
     Copy,
@@ -29,22 +29,11 @@ export interface ReceiptData {
     quantity?: number;
 }
 
-const DEFAULT_DEMO_RECEIPT: ReceiptData = {
-    type: "pos_payment",
-    amount: "1.00",
-    token: "USDC",
-    recipient: "0xE36f3d4Bd0a6bbdd940404C6323c1121b2666176",
-    txHash: "0x8fa37d82f7c059841f3246eb767856d8ffcbbf5f822bcaee9076f8e21ba40a71",
-    payer: "0x36aF09d2208E8A91C2e3E2FdfbB9aC1D183c509A",
-    chainId: 84532,
-    networkName: "Base Sepolia Testnet",
-    timestamp: new Date().toISOString(),
-    receiptId: "RCP-B84532-78241",
-    nonce: "0x446e108e64c39b7d081f9b31952e4e1a4732ea9e6f112e3e9d8928c04fbb3a0c",
-};
+
 
 export function PaymentReceipt() {
     const location = useLocation();
+    const navigate = useNavigate();
     const [receipt, setReceipt] = useState<ReceiptData | null>(null);
     const [isPrinting, setIsPrinting] = useState(true);
     const [feedKey, setFeedKey] = useState(0);
@@ -60,16 +49,17 @@ export function PaymentReceipt() {
                 localStorage.setItem("melodypay_last_receipt", JSON.stringify(data));
             } catch {}
         } else {
-            // 2. Check localStorage
+            // 2. Fall back to localStorage (e.g. after a page refresh)
             try {
                 const stored = localStorage.getItem("melodypay_last_receipt");
                 if (stored) {
                     setReceipt(JSON.parse(stored));
                 } else {
-                    setReceipt(DEFAULT_DEMO_RECEIPT);
+                    // No real receipt data — send the user back to pre-book
+                    navigate("/register", { replace: true });
                 }
             } catch {
-                setReceipt(DEFAULT_DEMO_RECEIPT);
+                navigate("/register", { replace: true });
             }
         }
 
@@ -79,7 +69,7 @@ export function PaymentReceipt() {
         }, 2400);
 
         return () => clearTimeout(timer);
-    }, [location.state, feedKey]);
+    }, [location.state, feedKey, navigate]);
 
     const handleTriggerFeed = () => {
         setIsPrinting(true);
@@ -88,13 +78,13 @@ export function PaymentReceipt() {
 
     if (!receipt) return null;
 
-    const chainIdNum = Number(receipt.chainId || 84532);
+    const chainIdNum = Number(receipt.chainId || 8453);
     const chainConfig = getChainConfig(chainIdNum);
     const explorerUrl = chainConfig?.explorerUrl
         ? `${chainConfig.explorerUrl}/tx/${receipt.txHash}`
         : receipt.chainId === 11155111
         ? `https://sepolia.etherscan.io/tx/${receipt.txHash}`
-        : `https://sepolia.basescan.org/tx/${receipt.txHash}`;
+        : `https://basescan.org/tx/${receipt.txHash}`;
 
     const formattedDate = receipt.timestamp
         ? new Date(receipt.timestamp).toLocaleString("en-US", {
@@ -115,7 +105,7 @@ export function PaymentReceipt() {
     };
 
     return (
-        <div className="flex-1 flex flex-col items-center justify-center w-full h-screen max-h-screen relative overflow-hidden text-[#111113] pt-20 sm:pt-24 pb-4">
+        <div className="flex-1 flex flex-col items-center justify-start lg:justify-center w-full min-h-screen lg:h-screen lg:max-h-screen relative overflow-x-hidden overflow-y-auto lg:overflow-hidden text-[#111113] pt-20 sm:pt-24 pb-8 lg:pb-4">
             {/* Global Print-Only CSS */}
             <style>{`
                 @media print {
@@ -325,10 +315,10 @@ export function PaymentReceipt() {
                                 </div>
                                 <span className="text-[9px] uppercase tracking-wider text-[#5A7B94] block">
                                     {receipt.type === "prebooking"
-                                        ? "HARDWARE PRE-BOOKING // BASE SEPOLIA TESTNET"
+                                        ? "HARDWARE PRE-BOOKING // BASE MAINNET"
                                         : receipt.type === "ens_registration"
                                         ? "ETH SEPOLIA NAMEWRAPPER"
-                                         : "EIP-3009 GASLESS // 0x036C...CF7e"}
+                                         : "GASLESS SETTLEMENT // 0x8335...2913"}
                                 </span>
                             </div>
 
@@ -336,7 +326,7 @@ export function PaymentReceipt() {
                             <div className="space-y-1 text-[11px] border-b border-dashed border-[#A0B4C4] pb-2.5">
                                 <div className="flex items-center justify-between text-[#5A7B94]">
                                     <span>RECEIPT NO:</span>
-                                    <span className="font-bold text-[#0A1826]">{receipt.receiptId || "RCP-B84532-78241"}</span>
+                                    <span className="font-bold text-[#0A1826]">{receipt.receiptId || "RCP-BASE-78241"}</span>
                                 </div>
 
                                 <div className="flex items-center justify-between text-[#5A7B94]">
@@ -352,7 +342,7 @@ export function PaymentReceipt() {
                                 <div className="flex items-center justify-between text-[#5A7B94]">
                                     <span>NETWORK:</span>
                                     <span className="font-semibold text-[#0A1826]">
-                                        {receipt.networkName || "Base Sepolia Testnet"} ({receipt.chainId || 84532})
+                                        {receipt.networkName || "Base Mainnet"} ({receipt.chainId || 8453})
                                     </span>
                                 </div>
 
@@ -365,7 +355,7 @@ export function PaymentReceipt() {
                                         {receipt.quantity && receipt.quantity > 0 && (
                                             <div className="flex items-center justify-between text-[#5A7B94]">
                                                 <span>HARDWARE UNITS:</span>
-                                                <span className="font-bold text-[#0A1826]">{receipt.quantity}x ESP32-S3 DevKit</span>
+                                                <span className="font-bold text-[#0A1826]">{receipt.quantity}x MelodyPay HardWallet</span>
                                             </div>
                                         )}
                                     </>
@@ -445,7 +435,7 @@ export function PaymentReceipt() {
                                     ))}
                                 </div>
                                 <span className="text-[9px] text-[#69889F] font-mono tracking-wider mt-1">
-                                    * {receipt.receiptId || "MP-2026-84532"} *
+                                    * {receipt.receiptId || "MP-2026-8453"} *
                                 </span>
                             </div>
 

@@ -256,7 +256,7 @@ export function buildHardware3DAssembly(): Hardware3DAssembly {
         explodedRot: new THREE.Euler(-0.15, 0.2, 0),
         title: "ESP32-S3 Hardware Enclave",
         subtitle: "Zero-Internet Cryptographic Core",
-        description: "Dual-core Xtensa LX7 SoC running isolated EIP-3009 signing logic. Never touches IP networks or exports private keys."
+        description: "Dual-core Xtensa LX7 SoC running isolated cryptographic signing logic. Never touches IP networks or exports private keys."
     });
 
     // ==========================================
@@ -364,7 +364,7 @@ export function buildHardware3DAssembly(): Hardware3DAssembly {
         explodedRot: new THREE.Euler(-0.2, -0.2, 0),
         title: "Tactile Approve Button",
         subtitle: "Physical Human Actuation",
-        description: "Hardware micro-switch requiring conscious finger actuation before signing cryptographic EIP-3009 authorization."
+        description: "Hardware micro-switch requiring conscious finger actuation before signing cryptographic payment authorization."
     });
 
     // Decline Button (Red)
@@ -507,7 +507,7 @@ export function buildHardware3DAssembly(): Hardware3DAssembly {
         explodedRot: new THREE.Euler(0.15, -0.2, 0),
         title: "Piezo Acoustic Transducer",
         subtitle: "Ultrasonic Payment Transmission (Output)",
-        description: "Emits modulated FSK audio waveforms (1875 Hz – 2187 Hz) carrying EIP-3009 cryptographic signatures over air."
+        description: "Emits modulated FSK audio waveforms (1875 Hz – 2187 Hz) carrying cryptographic payment signatures over air."
     });
 
     // ==========================================
@@ -654,7 +654,7 @@ export function buildHardware3DAssembly(): Hardware3DAssembly {
         // Subtitle
         ctx.fillStyle = "#836EF9";
         ctx.font = "12px monospace";
-        ctx.fillText("EIP-3009 AUTHORIZATION", 20, 84);
+        ctx.fillText("PAYMENT AUTHORIZATION", 20, 84);
 
         // Frequency telemetry bar
         ctx.fillStyle = "#00E5FF";
