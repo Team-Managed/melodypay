@@ -17,7 +17,8 @@ import {
     Waves,
     Wallet,
     LogOut,
-    Printer
+    Printer,
+    ArrowRight
 } from "lucide-react";
 import { getChainConfig } from "../core/chains";
 import { startChunkedListening, startListening } from "../core/listener";
@@ -495,289 +496,284 @@ export function ReceivePayment() {
     }[step];
 
     return (
-        <div className="flex-1 flex flex-col w-full min-h-screen">
-            {/* 2-Column Split Container */}
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-screen">
+        <div className="flex-1 flex flex-col justify-center w-full text-[#111113] relative overflow-hidden py-6 sm:py-8 pt-20 sm:pt-24 lg:pt-26 min-h-screen lg:h-screen lg:max-h-screen font-sans selection:bg-[#38BDF8]/20 selection:text-white">
+            {/* Full-Bleed Meadow with Birds Aerial Background */}
+            <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+                <img
+                    src="/image copy 2.png"
+                    alt="Meadow with Birds Background"
+                    className="w-full h-full object-cover object-center select-none scale-105"
+                />
+                {/* Soft ambient vignette & subtle darkening for superior contrast and readability */}
+                <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/25 to-black/55 pointer-events-none" />
+                <div className="absolute inset-0 bg-[#0d281a]/20 backdrop-blur-[0.5px] pointer-events-none" />
+            </div>
 
-                {/* =========================================================================
-                    LEFT COLUMN: PAYMENT FORM (Colors Matched with Hero Sky: Light Blue)
-                   ========================================================================= */}
-                <div className="lg:col-span-6 xl:col-span-5 flex flex-col p-6 sm:p-8 lg:p-10 pt-24 sm:pt-28 lg:pt-28 bg-gradient-to-b from-[#F0F6FA] via-[#E2EDF6] to-[#D2E4F2] border-b lg:border-b-0 lg:border-r border-[#BCD4E6] relative z-10">
-                    <div>
-                        {/* Top Header & Back Navigation */}
-                        <div className="flex items-center justify-between pb-6 mb-6 border-b border-[#C7DEEE]">
-                            <div className="flex items-center gap-3">
-                                <Link
-                                    to="/"
-                                    className="p-2 rounded-lg bg-[#FFFFFF] border border-[#BCD4E6] hover:bg-[#E8F2F8] text-[#0E2638] shadow-xs transition-all"
-                                    title="Return to Overview"
-                                >
-                                    <ArrowLeft size={16} />
-                                </Link>
-                                <div>
-                                    <h1 className="text-xl font-bold font-sans tracking-tight text-[#0E2638]">
-                                        Receive Payment
-                                    </h1>
+            <div className="relative w-full max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-10 z-10 flex-1 flex flex-col justify-center">
+                {/* Page Title Header - Matching Register layout */}
+                <div className="mb-6 lg:mb-7 text-center max-w-2xl mx-auto">
+                    <span className="text-[11px] font-mono text-[#38BDF8] uppercase tracking-[0.22em] font-semibold mb-2 block drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]">
+                        // AIR-GAPPED ACOUSTIC POS TERMINAL
+                    </span>
+                    <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.7)] font-sans leading-[1.12]">
+                        Receive Sound Payments.<br />
+                        <span className="text-white/85 font-normal">Air-gapped acoustic wire. Settled on Base.</span>
+                    </h1>
+                    <p className="text-sm sm:text-base font-sans text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)] mt-2 sm:mt-2.5 leading-relaxed max-w-xl mx-auto">
+                        Broadcast ultrasound POS invoices and capture offline cryptographically signed EIP-3009 authorizations through air-gapped acoustic audio.
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-7 items-stretch flex-1 lg:max-h-[520px]">
+                    {/* Left Column: Payment Form (Compact & Clean White Transparent Glassmorphic Card) */}
+                    <div className="bg-white/[0.07] backdrop-blur-2xl border border-white/25 rounded-2xl p-5 sm:p-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.25)] ring-1 ring-white/10 flex flex-col justify-between h-full">
+                        <div className="flex flex-col justify-between h-full space-y-3.5">
+                            {/* Lean Top Wallet Status Bar */}
+                            <div className="p-2.5 px-3.5 rounded-xl border border-white/20 bg-white/[0.08] backdrop-blur-md flex items-center justify-between text-xs font-sans">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/15 text-white">
+                                        <Wallet size={12} />
+                                    </div>
+                                    <span className="font-semibold text-white font-sans">
+                                        {connectedWallet ? "Wallet Active" : "No Wallet Connected"}
+                                    </span>
+                                    {connectedWallet && (
+                                        <span className="text-white/70 font-mono text-[11px] hidden sm:inline">
+                                            ({connectedWallet.slice(0, 6)}...{connectedWallet.slice(-4)})
+                                        </span>
+                                    )}
                                 </div>
-                            </div>
-
-                            {/* Connect Wallet Button / Connected Status */}
-                            <div>
-                                {connectedWallet ? (
-                                    <div className="flex items-center gap-2">
-                                        {!isBaseNetwork ? (
-                                            <button
-                                                type="button"
-                                                onClick={switchToBase}
-                                                className="px-2.5 py-1.5 rounded-md bg-amber-500/15 border border-amber-500/40 text-amber-900 text-[11px] font-mono font-bold flex items-center gap-1.5 hover:bg-amber-500/25 transition-all cursor-pointer"
-                                                title="Switch network"
-                                            >
-                                                <AlertCircle size={12} className="text-amber-600" />
-                                                <span>Switch Network</span>
-                                            </button>
-                                        ) : (
-                                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#FFFFFF] border border-[#BCD4E6] shadow-xs text-xs font-mono">
-                                                <span className="w-2 h-2 rounded-full bg-[#0EA5E9] animate-pulse" />
-                                                <span className="font-semibold text-[#0E2638]">
-                                                    {connectedWallet.slice(0, 6)}...{connectedWallet.slice(-4)}
-                                                </span>
-                                            </div>
-                                        )}
+                                <div className="flex items-center gap-2">
+                                    {connectedWallet && !isBaseNetwork && (
+                                        <button
+                                            type="button"
+                                            onClick={switchToBase}
+                                            className="px-2 py-1 rounded-md bg-amber-500/25 border border-amber-400/40 text-amber-200 text-[11px] font-sans font-semibold flex items-center gap-1 hover:bg-amber-500/35 transition-all cursor-pointer"
+                                            title="Switch to Base Sepolia"
+                                        >
+                                            <AlertCircle size={11} className="text-amber-300" />
+                                            <span>Switch to Base</span>
+                                        </button>
+                                    )}
+                                    {connectedWallet ? (
                                         <button
                                             type="button"
                                             onClick={disconnectWallet}
-                                            className="p-1.5 rounded-md text-[#5A7C95] hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors cursor-pointer"
-                                            title="Disconnect Wallet"
+                                            className="text-white/75 hover:text-white underline cursor-pointer text-xs font-sans transition-colors"
                                         >
-                                            <LogOut size={14} />
+                                            Disconnect
                                         </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={connectWallet}
+                                            disabled={isConnectingWallet}
+                                            className="bg-white hover:bg-white/90 text-black px-3 py-1.5 rounded-md text-xs font-semibold font-sans shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                                        >
+                                            {isConnectingWallet ? "Connecting..." : "Connect"}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Wallet Connection Error Banner */}
+                            {walletError && (
+                                <div className="p-2.5 px-3.5 rounded-xl bg-red-500/20 border border-red-400/35 text-white text-xs font-sans flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <AlertCircle size={13} className="text-red-300 shrink-0" />
+                                        <span className="truncate">{walletError}</span>
                                     </div>
-                                ) : (
                                     <button
                                         type="button"
-                                        onClick={connectWallet}
-                                        disabled={isConnectingWallet}
-                                        className="px-3.5 py-2 rounded-md bg-[#0E2638] hover:bg-[#081826] text-white text-xs font-mono font-semibold transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                                        onClick={() => setWalletError(null)}
+                                        className="text-[11px] underline text-white/80 hover:text-white cursor-pointer shrink-0"
                                     >
-                                        <Wallet size={14} className="text-[#38BDF8]" />
-                                        <span>{isConnectingWallet ? "Connecting..." : "Connect Wallet"}</span>
+                                        Dismiss
                                     </button>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Wallet Connection Error Banner if any */}
-                        {walletError && (
-                            <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs font-mono flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2">
-                                    <AlertCircle size={14} className="text-red-600 shrink-0" />
-                                    <span>{walletError}</span>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setWalletError(null)}
-                                    className="text-[11px] underline text-red-700 hover:text-red-900 cursor-pointer"
-                                >
-                                    Dismiss
-                                </button>
-                            </div>
-                        )}
+                            )}
 
-                        {/* Main Payment Form Card */}
-                        <div className="bg-[#FFFFFF]/95 backdrop-blur-sm rounded-2xl border border-[#C5DCEE] shadow-[0_12px_35px_rgba(15,45,70,0.06)] p-6 sm:p-7 space-y-6">
-
-                            {/* Step Status Indicator Bar */}
-                            <div className="flex items-center justify-between pb-3 border-b border-[#E0ECF5] text-xs font-mono">
-                                <div className="flex items-center gap-2">
-                                    <span className="font-semibold text-[#5A7C95]">STATUS:</span>
-                                    <span className="uppercase text-[#0E2638] font-bold">
-                                        {step === "setup" ? "READY TO CONFIGURE" : step}
-                                    </span>
-                                </div>
-                                {step !== "setup" && step !== "done" && (
-                                    <button
-                                        type="button"
-                                        onClick={() => resetSession("Session cancelled by merchant.")}
-                                        className="text-xs text-rose-600 hover:underline font-mono cursor-pointer"
-                                    >
-                                        Cancel Request
-                                    </button>
-                                )}
-                            </div>
-
-                            {/* Form Step: Setup */}
+                            {/* State 1: Setup Payment */}
                             {step === "setup" && (
-                                <div className="space-y-5">
-                                    {/* Merchant Address Input */}
-                                    <div>
-                                        <div className="flex items-center justify-between mb-1.5">
-                                            <label className="text-[11px] font-mono font-semibold uppercase text-[#183952] tracking-wider">
-                                                Merchant Recipient Address
-                                            </label>
-                                            {connectedWallet && (
-                                                <span className="text-[11px] font-mono text-[#5A7C95]">
-                                                    Autofilled from Wallet
-                                                </span>
-                                            )}
+                                <div className="space-y-3.5 flex-1 flex flex-col justify-between">
+                                    <div className="space-y-3">
+                                        {/* Merchant Recipient Address Input */}
+                                        <div>
+                                            <div className="flex items-center justify-between mb-1.5">
+                                                <label className="text-xs font-sans font-semibold text-white">
+                                                    Merchant Recipient Address
+                                                </label>
+                                                {connectedWallet && (
+                                                    <span className="text-[11px] font-mono text-white/70">
+                                                        Autofilled from Wallet
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={recipientAddress}
+                                                onChange={(e) => handleRecipientChange(e.target.value)}
+                                                placeholder="0x..."
+                                                className="w-full bg-white/[0.08] border border-white/25 focus:border-white focus:bg-white/[0.14] focus:ring-1 focus:ring-white rounded-lg px-3.5 py-2.5 text-xs font-mono text-white placeholder-white/40 transition-all"
+                                            />
                                         </div>
-                                        <input
-                                            type="text"
-                                            value={recipientAddress}
-                                            onChange={(e) => handleRecipientChange(e.target.value)}
-                                            placeholder="0x..."
-                                            className="w-full bg-[#F2F7FB]/90 border border-[#BED7EA] focus:border-[#38BDF8] focus:ring-0 rounded-xl px-3.5 py-2.5 text-xs font-mono text-[#0E2437] transition-all"
-                                        />
+
+                                        {/* Invoice Amount (USDC) & Quick Presets Card */}
+                                        <div className="p-3 px-4 bg-white/[0.08] backdrop-blur-md border border-white/20 rounded-xl space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-xs font-sans font-semibold text-white">
+                                                    Invoice Amount (USDC)
+                                                </label>
+                                                <span className="text-[10px] font-mono uppercase text-white/70 tracking-wider">
+                                                    Base Sepolia // EIP-3009
+                                                </span>
+                                            </div>
+                                            <div className="relative flex items-center">
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    step="any"
+                                                    value={amount}
+                                                    onChange={(e) => setAmount(e.target.value)}
+                                                    className="w-full bg-transparent border-0 focus:ring-0 p-0 text-3xl font-bold font-mono text-white tracking-tight leading-tight placeholder-white/40"
+                                                />
+                                                <span className="text-sm font-mono font-bold text-white/80 select-none ml-2">
+                                                    USDC
+                                                </span>
+                                            </div>
+
+                                            {/* Quick Amount Presets */}
+                                            <div className="flex items-center gap-2 pt-1.5 border-t border-white/10">
+                                                {["1.00", "5.00", "10.00", "25.00"].map((quick) => (
+                                                    <button
+                                                        key={quick}
+                                                        type="button"
+                                                        onClick={() => setAmount(quick)}
+                                                        className={`px-3 py-1 text-xs font-mono rounded-lg transition-all cursor-pointer ${
+                                                            amount === quick
+                                                                ? "bg-white text-black font-bold shadow-xs"
+                                                                : "bg-white/10 hover:bg-white/20 text-white border border-white/15"
+                                                        }`}
+                                                    >
+                                                        ${quick}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {error && (
+                                            <div className="p-2.5 px-3.5 rounded-lg bg-white/20 border border-white/40 text-xs font-sans text-white flex items-center gap-2">
+                                                <AlertCircle size={13} className="shrink-0 text-white" />
+                                                <span className="truncate">{error}</span>
+                                            </div>
+                                        )}
                                     </div>
 
+                                    {/* Action Button */}
+                                    <div className="pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={handleStart}
+                                            disabled={!recipientAddress || !amount || Number(amount) <= 0}
+                                            className="w-full bg-white hover:bg-white/90 text-black py-3 px-5 rounded-xl text-sm font-sans font-semibold transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                                        >
+                                            <Mic size={15} />
+                                            <span>Initialize Acoustic Turn-Taking & Listen</span>
+                                            <ArrowRight size={14} />
+                                        </button>
+                                        <p className="text-xs font-sans text-white/60 text-center mt-2">
+                                            Emits ultrasound invoice chime to initiate hardware turn-taking handshake.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
 
-                                    {/* Invoice Amount Input */}
-                                    <div>
-                                        <label className="text-[11px] font-mono font-semibold uppercase text-[#183952] tracking-wider block mb-2">
-                                            Invoice Amount (USDC)
-                                        </label>
+                            {/* State 2: In-Progress Acoustic Turn-Taking */}
+                            {step !== "setup" && step !== "done" && (
+                                <div className="flex-1 flex flex-col justify-between py-2">
+                                    <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
                                         <div className="relative">
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                step="any"
-                                                value={amount}
-                                                onChange={(e) => setAmount(e.target.value)}
-                                                className="w-full bg-[#F2F7FB]/90 border border-[#BED7EA] focus:border-[#38BDF8] focus:ring-0 rounded-xl px-4 py-3 text-3xl font-bold font-mono text-[#0E2437] transition-all pr-20"
-                                            />
-                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-mono font-bold text-[#5A7C95] select-none">
-                                                USDC
+                                            <div className="w-16 h-16 rounded-full bg-white/10 border border-white/25 flex items-center justify-center text-white shadow-lg ring-4 ring-white/10 backdrop-blur-md">
+                                                {step === "waiting-sender" && <Mic size={26} className="text-white animate-pulse" />}
+                                                {step === "fetching-network" && <Activity size={26} className="text-white animate-spin" />}
+                                                {step === "broadcasting-request" && <Radio size={26} className="text-white animate-ping" />}
+                                                {step === "listening" && <Search size={26} className="text-white animate-pulse" />}
+                                                {step === "verifying" && <ShieldCheck size={26} className="text-white animate-bounce" />}
+                                                {step === "submitting" && <Activity size={26} className="text-white animate-spin" />}
+                                            </div>
+                                            <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white text-black flex items-center justify-center text-[11px] font-bold shadow-xs">
+                                                {stepIndex}
                                             </span>
                                         </div>
 
-                                        {/* Quick Amount Presets */}
-                                        <div className="flex items-center gap-2 mt-2.5">
-                                            {["1.00", "5.00", "10.00", "25.00"].map((quick) => (
-                                                <button
-                                                    key={quick}
-                                                    type="button"
-                                                    onClick={() => setAmount(quick)}
-                                                    className={`px-3 py-1.5 text-xs font-mono rounded-md transition-all ${
-                                                        amount === quick
-                                                            ? "bg-[#0E2638] text-white font-bold shadow-xs"
-                                                            : "bg-[#FFFFFF] hover:bg-[#E2EDF7] text-[#183952] border border-[#BED7EA]"
-                                                    }`}
-                                                >
-                                                    ${quick}
-                                                </button>
-                                            ))}
+                                        <div className="max-w-xs sm:max-w-sm">
+                                            <span className="text-[10px] font-mono uppercase tracking-widest text-[#38BDF8] block mb-1">
+                                                PHASE 0{stepIndex} // ACOUSTIC ENGINE
+                                            </span>
+                                            <h3 className="text-base font-bold font-sans text-white leading-snug">
+                                                {status}
+                                            </h3>
+                                            <p className="text-xs font-sans text-white/70 mt-1.5 leading-relaxed">
+                                                Keep your ESP32-S3 sound wallet near the terminal speaker. The device will chirp signed authorization chunks back.
+                                            </p>
                                         </div>
                                     </div>
 
-                                    {error && (
-                                        <p className="text-xs text-rose-700 font-mono flex items-center gap-1.5 p-3 rounded-xl bg-rose-50 border border-rose-200">
-                                            <AlertCircle size={14} />
-                                            <span>{error}</span>
-                                        </p>
-                                    )}
-
-                                    {/* Action Button */}
-                                    <button
-                                        type="button"
-                                        onClick={handleStart}
-                                        disabled={!recipientAddress || !amount || Number(amount) <= 0}
-                                        className="w-full bg-[#0E2638] hover:bg-[#081826] text-white py-4 rounded-xl text-sm font-mono font-semibold uppercase tracking-wider transition-all shadow-sm flex items-center justify-center gap-2.5 disabled:opacity-50 group cursor-pointer"
-                                    >
-                                        <Mic size={17} className="text-[#38BDF8] group-hover:scale-110 transition-transform" />
-                                        <span>Initialize Acoustic Turn-Taking & Listen</span>
-                                    </button>
+                                    <div className="pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => resetSession("Session cancelled by merchant.")}
+                                            className="w-full bg-white/10 hover:bg-white/20 text-white border border-white/25 py-2.5 px-4 rounded-xl text-xs font-sans font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                        >
+                                            Cancel Acoustic Request
+                                        </button>
+                                    </div>
                                 </div>
                             )}
 
-                            {/* Form Step: In-Progress Turn-Taking State */}
-                            {step !== "setup" && step !== "done" && (
-                                <div className="py-6 flex flex-col items-center justify-center text-center space-y-6">
-                                    <div className="relative">
-                                        <div className="w-20 h-20 rounded-full bg-[#0E2638] flex items-center justify-center text-white shadow-lg ring-4 ring-[#38BDF8]/25">
-                                            {step === "waiting-sender" && <Mic size={32} className="text-[#38BDF8] animate-pulse" />}
-                                            {step === "fetching-network" && <Activity size={32} className="text-[#38BDF8] animate-spin" />}
-                                            {step === "broadcasting-request" && <Radio size={32} className="text-[#38BDF8] animate-ping" />}
-                                            {step === "listening" && <Search size={32} className="text-[#38BDF8] animate-pulse" />}
-                                            {step === "verifying" && <ShieldCheck size={32} className="text-[#38BDF8] animate-bounce" />}
-                                            {step === "submitting" && <Activity size={32} className="text-[#38BDF8] animate-spin" />}
-                                        </div>
-                                        <span className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[#0284C7] border-2 border-white flex items-center justify-center text-xs font-bold text-white shadow-xs">
-                                            {stepIndex}
-                                        </span>
-                                    </div>
-
-                                    <div className="max-w-md">
-                                        <span className="text-[11px] font-mono uppercase tracking-widest text-[#5A7C95] block mb-1">
-                                            PHASE 0{stepIndex} // ACOUSTIC ENGINE
-                                        </span>
-                                        <h3 className="text-base font-bold font-sans text-[#0E2638]">
-                                            {status}
-                                        </h3>
-                                        <p className="text-xs font-mono text-[#5A7C95] mt-2">
-                                            Keep your ESP32-S3 sound wallet near the terminal speaker. The device will chirp signed authorization chunks back.
-                                        </p>
-                                    </div>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => resetSession("Cancelled by merchant.")}
-                                        className="px-4 py-2 rounded-lg bg-[#FFFFFF] hover:bg-[#E2EDF7] text-xs font-mono text-[#0E2638] border border-[#BED7EA] transition-colors cursor-pointer"
-                                    >
-                                        Reset Terminal
-                                    </button>
-                                </div>
-                            )}
-
-                            {/* Form Step: Done / Settled Digital Receipt */}
+                            {/* State 3: Settled / Done */}
                             {step === "done" && (
-                                <div className="py-4 flex flex-col items-center justify-center font-mono space-y-5">
-                                    <div className="w-16 h-16 rounded-full bg-[#F0F8FF] border-2 border-[#0284C7] flex items-center justify-center text-[#0284C7] shadow-sm">
-                                        <CheckCircle2 size={36} />
-                                    </div>
-
-                                    <div className="text-center max-w-md">
-                                        <span className="text-xs uppercase tracking-widest text-[#0284C7] font-bold font-mono">
-                                            PAYMENT SETTLED
-                                        </span>
-                                        <h3 className="text-2xl font-bold font-sans text-[#0E2638] mt-2">
-                                            {amount} USDC Received
-                                        </h3>
-                                        <p className="text-xs text-[#5A7C95] mt-1">
-                                            {status}
-                                        </p>
-                                    </div>
-
-                                    {/* Digital Receipt Box */}
-                                    <div className="w-full p-4 bg-[#F2F7FB]/90 border border-[#BED7EA] rounded-xl space-y-2.5 text-xs">
-                                        <div className="flex items-center justify-between pb-2 border-b border-[#DFECF5]">
-                                            <span className="text-[#5A7C95]">MERCHANT RECIPIENT:</span>
-                                            <span className="font-bold text-[#0E2437]">{recipientAddress.slice(0, 10)}...{recipientAddress.slice(-6)}</span>
+                                <div className="flex-1 flex flex-col justify-between py-2">
+                                    <div className="space-y-3.5">
+                                        <div className="p-3.5 bg-emerald-500/20 border border-emerald-400/35 rounded-xl text-center space-y-1">
+                                            <div className="w-9 h-9 rounded-full bg-emerald-400/20 text-emerald-300 mx-auto flex items-center justify-center mb-1">
+                                                <CheckCircle2 size={20} />
+                                            </div>
+                                            <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-200 font-bold block">
+                                                PAYMENT SETTLED ON BASE
+                                            </span>
+                                            <h3 className="text-xl font-bold font-sans text-white">
+                                                {amount} USDC Received
+                                            </h3>
+                                            <p className="text-xs font-sans text-white/80">
+                                                {status}
+                                            </p>
                                         </div>
-                                        <div className="flex items-center justify-between pb-2 border-b border-[#DFECF5]">
-                                            <span className="text-[#5A7C95]">SETTLEMENT ASSET:</span>
-                                            <span className="font-semibold text-[#0E2437]">USDC</span>
-                                        </div>
-                                        {txHash && (
-                                            <div className="pt-1">
-                                                <span className="text-[10px] text-[#5A7C95] block mb-1">TRANSACTION HASH:</span>
-                                                <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#FFFFFF] border border-[#BED7EA]">
-                                                    <span className="text-[10px] text-[#0E2437] truncate">
-                                                        {txHash}
-                                                    </span>
+
+                                        {/* Transaction Details Box */}
+                                        <div className="p-3 bg-white/[0.08] backdrop-blur-md border border-white/20 rounded-xl space-y-2 text-xs font-mono">
+                                            <div className="flex items-center justify-between text-white/75">
+                                                <span>RECIPIENT:</span>
+                                                <span className="font-bold text-white">{recipientAddress.slice(0, 8)}...{recipientAddress.slice(-6)}</span>
+                                            </div>
+                                            {txHash && (
+                                                <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/10">
+                                                    <span className="text-white/75 truncate">{txHash.slice(0, 16)}...{txHash.slice(-8)}</span>
                                                     <div className="flex items-center gap-1 shrink-0">
                                                         <button
                                                             type="button"
                                                             onClick={handleCopyHash}
-                                                            className="p-1 rounded hover:bg-[#E2EDF7] text-[#5A7C95]"
+                                                            className="p-1 rounded hover:bg-white/20 text-white cursor-pointer"
                                                             title="Copy Hash"
                                                         >
-                                                            {copiedHash ? <Check size={12} className="text-[#0284C7]" /> : <Copy size={12} />}
+                                                            {copiedHash ? <Check size={12} className="text-emerald-300" /> : <Copy size={12} />}
                                                         </button>
                                                         {chain && (
                                                             <a
                                                                 href={`${chain.explorerUrl}/tx/${txHash}`}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
-                                                                className="p-1 rounded hover:bg-[#E2EDF7] text-[#0284C7]"
+                                                                className="p-1 rounded hover:bg-white/20 text-white cursor-pointer"
                                                                 title="View on Explorer"
                                                             >
                                                                 <ExternalLink size={12} />
@@ -785,95 +781,106 @@ export function ReceivePayment() {
                                                         )}
                                                     </div>
                                                 </div>
-                                            </div>
-                                        )}
+                                            )}
+                                        </div>
                                     </div>
 
-                                    <button
-                                        type="button"
-                                        onClick={() => navigate("/receipt")}
-                                        className="w-full bg-white hover:bg-[#E2EDF7] text-[#0E2638] border border-[#BED7EA] py-3 rounded-xl text-xs font-mono font-semibold transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-                                    >
-                                        <Printer size={14} className="text-[#0284C7]" />
-                                        <span>View Thermal POS Receipt</span>
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => resetSession()}
-                                        className="w-full bg-[#0E2638] hover:bg-[#081826] text-white py-3.5 rounded-xl text-xs font-mono font-semibold uppercase tracking-wider transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-                                    >
-                                        <RefreshCw size={14} className="text-[#38BDF8]" />
-                                        <span>Receive Next Payment</span>
-                                    </button>
+                                    <div className="space-y-2 pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate("/receipt")}
+                                            className="w-full bg-white hover:bg-white/90 text-black py-3 px-4 rounded-xl text-xs font-sans font-semibold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                                        >
+                                            <Printer size={14} />
+                                            <span>View Thermal POS Receipt</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => resetSession()}
+                                            className="w-full bg-white/10 hover:bg-white/20 text-white border border-white/25 py-2.5 px-4 rounded-xl text-xs font-sans font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                        >
+                                            <RefreshCw size={13} />
+                                            <span>Receive Next Payment</span>
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>
                     </div>
-                </div>
 
-                {/* =========================================================================
-                    RIGHT COLUMN: SOUND TRACKING TELEMETRY (Panoramic Image Background)
-                   ========================================================================= */}
-                <div className="lg:col-span-6 xl:col-span-7 relative flex flex-col justify-center p-6 sm:p-8 lg:p-10 pt-24 sm:pt-28 lg:pt-28 overflow-hidden min-h-[580px] bg-[#0d281a]">
-                    {/* Full Panoramic Image Background for the ENTIRE Right Screen */}
-                    <img
-                        src="/image copy 3.png"
-                        alt="Acoustic Landscape"
-                        className="absolute inset-0 w-full h-full object-cover object-center select-none z-0"
-                    />
-
-                    {/* Subtle soft vignette for depth & contrast */}
-                    <div className="absolute inset-0 bg-black/20 pointer-events-none z-[1]" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/40 pointer-events-none z-[1]" />
-
-                    {/* Foreground Content */}
-                    <div className="relative z-10 space-y-6 w-full">
-
-                        {/* Top Live Bar */}
-                        <div className="flex items-center justify-between pb-3 border-b border-white/20 text-white font-mono text-xs">
-                            <div className="flex items-center gap-2">
-                                <span className="p-1.5 rounded-lg bg-white/10 text-white border border-white/25 backdrop-blur-sm">
-                                    <Waves size={16} />
-                                </span>
-                                <div>
-                                    <span className="font-bold text-white uppercase tracking-wider block">
-                                        ACOUSTIC SOUND TELEMETRY
-                                    </span>
-                                    <span className="text-[10px] text-white/80">
-                                        ggwave FSK Protocol // Air-Gapped Audio Transport
+                    {/* Right Column: Live Acoustic Telemetry & Oscilloscope (Matching Clean & Lean Card) */}
+                    <div className="bg-white/[0.07] backdrop-blur-2xl border border-white/25 rounded-2xl p-5 sm:p-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.25)] ring-1 ring-white/10 flex flex-col justify-between h-full">
+                        <div className="space-y-3">
+                            {/* Header: Acoustic Telemetry Title & Status */}
+                            <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/20">
+                                <div className="flex items-center gap-2">
+                                    <Waves size={15} className="text-[#38BDF8]" />
+                                    <h3 className="text-xs font-mono font-semibold uppercase tracking-[0.18em] text-white">
+                                        Acoustic Sound Telemetry
+                                    </h3>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-[11px] font-mono text-white/85">
+                                    <span className={`w-2 h-2 rounded-full ${
+                                        step === "waiting-sender" || step === "listening"
+                                            ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+                                            : step === "broadcasting-request"
+                                            ? "bg-amber-400 animate-pulse shadow-[0_0_8px_rgba(251,191,36,0.8)]"
+                                            : "bg-white/60"
+                                    }`} />
+                                    <span>
+                                        {step === "waiting-sender" || step === "listening"
+                                            ? "LISTENING"
+                                            : step === "broadcasting-request"
+                                            ? "BROADCASTING"
+                                            : "STANDBY"}
                                     </span>
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                <div className="flex items-center gap-2 text-xs text-white font-mono">
-                                    <span className="w-2 h-2 rounded-full bg-white animate-pulse shadow-[0_0_8px_rgba(255,255,255,0.8)]" />
-                                    <span>
-                                        {step === "waiting-sender" || step === "listening"
-                                            ? "LISTENING (MIC ACTIVE)"
-                                            : step === "broadcasting-request"
-                                            ? "BROADCASTING INVOICE"
-                                            : "AWAITING TURN-TAKING"}
-                                    </span>
-                                </div>
+                            {/* Live Acoustic Oscilloscope Viewport */}
+                            <div className="w-full">
+                                <AcousticOscilloscope
+                                    height={200}
+                                    activeMessage={status}
+                                    isReceiving={step === "waiting-sender" || step === "listening"}
+                                    isTransmitting={step === "broadcasting-request"}
+                                    darkMode={true}
+                                    transparentBg={true}
+                                    showControls={false}
+                                />
                             </div>
                         </div>
 
-                        {/* TRANSLUCENT OSCILLOSCOPE */}
-                        <AcousticOscilloscope
-                            height={380}
-                            activeMessage={status}
-                            isReceiving={step === "waiting-sender" || step === "listening"}
-                            isTransmitting={step === "broadcasting-request"}
-                            darkMode={true}
-                            transparentBg={true}
-                            showControls={true}
-                        />
+                        {/* Section 2: Hardware Protocol Specifications */}
+                        <div className="pt-2.5 border-t border-dashed border-white/20">
+                            <div className="flex items-center gap-2 pb-1.5 mb-1.5 border-b border-white/20">
+                                <ShieldCheck size={14} className="text-white" />
+                                <h3 className="text-[11px] font-mono font-semibold uppercase tracking-[0.18em] text-white">
+                                    Air-Gapped Payment Architecture
+                                </h3>
+                            </div>
 
+                            <ul className="space-y-1.5 text-xs font-sans text-white/85 leading-relaxed">
+                                <li className="flex items-start gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 shrink-0" />
+                                    <span><strong className="text-white font-semibold font-sans">Acoustic Wire</strong>: Ultrasound audio packets demodulated locally on-chip via ggwave FSK.</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 shrink-0" />
+                                    <span><strong className="text-white font-semibold font-sans">Zero Radios</strong>: Wi-Fi & Bluetooth permanently disabled at hardware silicon level.</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 shrink-0" />
+                                    <span><strong className="text-white font-semibold font-sans">EIP-3009 Gasless</strong>: On-chain transfer authorization signed offline and relayed on Base.</span>
+                                </li>
+                                <li className="flex items-start gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 shrink-0" />
+                                    <span><strong className="text-white font-semibold font-sans">Tactile Switch</strong>: Physical push-button confirmation required for every authorization.</span>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
-
             </div>
         </div>
     );

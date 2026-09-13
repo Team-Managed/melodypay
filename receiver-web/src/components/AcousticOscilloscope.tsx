@@ -370,9 +370,11 @@ export function AcousticOscilloscope({
     }, [isReceiving, isTransmitting, isListeningTest, darkMode, bgImage, transparentBg]);
 
     return (
-        <div className={`w-full rounded-3xl font-mono transition-all relative overflow-hidden ${
-            darkMode 
-                ? "bg-black/20 backdrop-blur-md border border-white/25 p-5 sm:p-7 shadow-2xl text-white" 
+        <div className={`w-full font-mono transition-all relative overflow-hidden ${
+            transparentBg
+                ? "bg-transparent border-0 p-0 shadow-none text-white"
+                : darkMode 
+                ? "bg-black/20 backdrop-blur-md border border-white/25 p-5 sm:p-7 shadow-2xl text-white rounded-3xl" 
                 : "bg-[#FFFFFF] border border-[#E2E2DA] rounded-lg p-4 shadow-sm text-[#111113]"
         }`}>
             {/* Optional inner background image only if explicitly supplied and not inherited */}
