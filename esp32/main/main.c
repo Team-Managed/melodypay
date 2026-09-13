@@ -6,6 +6,7 @@
 #include "keystore.h"
 #include "evm_tx.h"
 #include "wallet_state.h"
+#include "eip3009.h"
 
 #include "nvs_flash.h"
 #include "esp_log.h"
@@ -151,6 +152,55 @@ static esp_err_t send_audio_text(const char *text)
     return result;
 }
 
+static int hex_value(char character)
+{
+    if (character >= '0' && character <= '9') return character - '0';
+    if (character >= 'a' && character <= 'f') return character - 'a' + 10;
+    if (character >= 'A' && character <= 'F') return character - 'A' + 10;
+    return -1;
+}
+
+static bool parse_hex_bytes(const char *text, uint8_t *output, size_t length)
+{
+    if (text == NULL || output == NULL) return false;
+    if (text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) text += 2;
+    if (strlen(text) != length * 2) return false;
+    for (size_t index = 0; index < length; index++) {
+        const int high = hex_value(text[index * 2]);
+        const int low = hex_value(text[index * 2 + 1]);
+        if (high < 0 || low < 0) return false;
+        output[index] = (uint8_t)((high << 4) | low);
+    }
+    return true;
+}
+
+static esp_err_t transmit_arc_authorization(const eip3009_authorization_t *authorization, const uint8_t signature[65])
+{
+    char nonce_hex[65];
+    char signature_hex[131];
+    char message[224];
+    bytes_to_hex(authorization->nonce, sizeof(authorization->nonce), nonce_hex);
+    bytes_to_hex(signature, 64, signature_hex);
+    snprintf(message, sizeof(message), "AUTH|%llu|0x%s|0x%s|%u",
+             (unsigned long long)authorization->valid_before, nonce_hex, signature_hex, (unsigned)signature[64]);
+
+    const size_t chunk_size = 48;
+    const size_t total = (strlen(message) + chunk_size - 1) / chunk_size;
+    if (total == 0 || total > 16) return ESP_ERR_INVALID_SIZE;
+    for (size_t index = 0; index < total; index++) {
+        char chunk[GGWAVE_TRANSPORT_PAYLOAD_BYTES];
+        snprintf(chunk, sizeof(chunk), "AUTH%u/%u|%.*s", (unsigned)(index + 1), (unsigned)total,
+                 (int)chunk_size, message + index * chunk_size);
+        esp_err_t result = send_audio_text(chunk);
+        if (result != ESP_OK) return result;
+        if (index + 1 < total) vTaskDelay(pdMS_TO_TICKS(150));
+    }
+    memset(nonce_hex, 0, sizeof(nonce_hex));
+    memset(signature_hex, 0, sizeof(signature_hex));
+    memset(message, 0, sizeof(message));
+    return ESP_OK;
+}
+
 static esp_err_t transmit_pending_signed_transaction(void)
 {
     if (pending_signed_length == 0) return ESP_ERR_INVALID_STATE;
@@ -209,7 +259,9 @@ static esp_err_t listen_audio_text(char *output, size_t capacity, uint32_t timeo
             unsigned chunk = 0;
             unsigned total = 0;
             int prefix_length = 0;
-            if (sscanf((char *)payload, "TX%u/%u|%n", &chunk, &total, &prefix_length) == 2) {
+            bool framed = sscanf((char *)payload, "REQ%u/%u|%n", &chunk, &total, &prefix_length) == 2;
+            if (!framed) framed = sscanf((char *)payload, "TX%u/%u|%n", &chunk, &total, &prefix_length) == 2;
+            if (framed) {
                 if (total == 0 || total > 16 || chunk != expected_chunk + 1 ||
                     assembled_length + (size_t)decoded - (size_t)prefix_length >= sizeof(assembled)) {
                     assembled_length = 0;
@@ -240,6 +292,82 @@ static esp_err_t listen_audio_text(char *output, size_t capacity, uint32_t timeo
     return ESP_ERR_TIMEOUT;
 }
 
+static esp_err_t run_hardware_arc_payment(char *request)
+{
+    char *fields[6] = {0};
+    size_t field_count = 0;
+    for (char *field = strtok(request, "|"); field != NULL && field_count < 6; field = strtok(NULL, "|")) {
+        fields[field_count++] = field;
+    }
+    if (field_count != 6 || strcmp(fields[0], "PAY_ARC") != 0) return ESP_ERR_INVALID_RESPONSE;
+
+    char *end = NULL;
+    const uint64_t chain_id = strtoull(fields[1], &end, 10);
+    if (end == fields[1] || *end != '\0' || chain_id != ARC_CHAIN_ID) return ESP_ERR_NOT_SUPPORTED;
+    if (strlen(fields[2]) != 42 || fields[2][0] != '0' || (fields[2][1] != 'x' && fields[2][1] != 'X')) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    eip3009_authorization_t authorization = {0};
+    authorization.chain_id = chain_id;
+    memcpy(authorization.token_address, ARC_CANONICAL_USDC_ADDRESS, sizeof(authorization.token_address));
+    if (!parse_hex_bytes(fields[2], authorization.recipient, sizeof(authorization.recipient)) ||
+        !decimal_to_units(fields[3], 6, authorization.value)) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    authorization.valid_after = 0;
+    end = NULL;
+    authorization.valid_before = strtoull(fields[4], &end, 10);
+    if (end == fields[4] || *end != '\0' || !parse_hex_bytes(fields[5], authorization.nonce, sizeof(authorization.nonce))) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (keystore_get_address(authorization.authorizer) != ESP_OK) return ESP_ERR_INVALID_STATE;
+    if (eip3009_validate_request(&authorization) != ESP_OK) return ESP_ERR_INVALID_ARG;
+
+    snprintf(pending_amount, sizeof(pending_amount), "%s", fields[3]);
+    snprintf(pending_symbol, sizeof(pending_symbol), "USDC");
+    bytes_to_hex(authorization.recipient, sizeof(authorization.recipient), pending_address + 2);
+    pending_address[0] = '0';
+    pending_address[1] = 'x';
+
+    wallet_state_set(WALLET_REVIEW);
+    char recipient_preview[24];
+    char amount_display[32];
+    snprintf(recipient_preview, sizeof(recipient_preview), "TO %.8s...", fields[2]);
+    snprintf(amount_display, sizeof(amount_display), "%s USDC", fields[3]);
+    esp_err_t result = ESP_ERR_TIMEOUT;
+    for (uint32_t remaining = 15; remaining > 0; remaining--) {
+        char countdown[16];
+        snprintf(countdown, sizeof(countdown), "%02u", (unsigned)remaining);
+        display_message("ARC / USDC", amount_display, recipient_preview, countdown);
+        result = button_wait_for_approval(1000);
+        if (result == ESP_OK) break;
+        if (result != ESP_ERR_TIMEOUT) return result;
+    }
+    if (result != ESP_OK) return result;
+
+    uint8_t digest[32];
+    uint8_t signature[65];
+    result = eip3009_compute_receive_digest(&authorization, digest);
+    if (result == ESP_OK) result = keystore_sign_digest(digest, signature, sizeof(signature));
+    memset(digest, 0, sizeof(digest));
+    if (result != ESP_OK) {
+        memset(signature, 0, sizeof(signature));
+        return result;
+    }
+    wallet_state_set(WALLET_TRANSMITTING);
+    result = transmit_arc_authorization(&authorization, signature);
+    memset(signature, 0, sizeof(signature));
+    if (result != ESP_OK) return result;
+
+    char receipt[128] = {0};
+    result = listen_audio_text(receipt, sizeof(receipt), 60000);
+    if (result != ESP_OK || strncmp(receipt, "RECEIPT|", 8) != 0) return result == ESP_OK ? ESP_ERR_INVALID_RESPONSE : result;
+    wallet_state_set(WALLET_IDLE);
+    show_payment_success();
+    return ESP_OK;
+}
+
 static esp_err_t run_hardware_payment_sender(void)
 {
     uint8_t address[20];
@@ -259,6 +387,7 @@ static esp_err_t run_hardware_payment_sender(void)
     char request[GGWAVE_TRANSPORT_PAYLOAD_BYTES] = {0};
     result = listen_audio_text(request, sizeof(request), 60000);
     if (result != ESP_OK) return result;
+    if (strncmp(request, "PAY_ARC|", 8) == 0) return run_hardware_arc_payment(request);
     char *fields[12] = {0};
     size_t field_count = 0;
     for (char *field = strtok(request, "|"); field != NULL && field_count < 12; field = strtok(NULL, "|")) {

@@ -1,5 +1,11 @@
 import { ethers } from "ethers";
 import { getChainConfig } from "./chains";
+import {
+  ARC_CANONICAL_USDC,
+  ARC_CHAIN_ID,
+  buildReceiveAuthorizationTypedData,
+  recoverReceiveAuthorizationSigner,
+} from "./eip3009";
 
 /**
  * Monad testnet configuration.
@@ -187,4 +193,82 @@ export async function validateSignedErc20Transfer(
   }
 
   return tx;
+}
+
+export interface ArcAuthorizationExpectation {
+  expectedAuthorizer?: string;
+  expectedRecipient: string;
+  expectedValue: bigint;
+  chainId?: number;
+  verifyingContract?: string;
+  maxValidBefore?: bigint;
+}
+
+export function validateSignedReceiveAuthorization(
+  auth: {
+    authorizer: string;
+    recipient: string;
+    value: bigint;
+    validAfter: bigint;
+    validBefore: bigint;
+    nonce: string;
+    v: number;
+    r: string;
+    s: string;
+  },
+  expected: ArcAuthorizationExpectation,
+  currentTimestamp = Math.floor(Date.now() / 1000),
+): { authorizer: string; recipient: string; value: bigint; nonce: string } {
+  if (auth.recipient.toLowerCase() !== expected.expectedRecipient.toLowerCase()) {
+    throw new Error("Authorization recipient mismatch");
+  }
+  if (auth.value !== expected.expectedValue) throw new Error("Authorization amount mismatch");
+  if (auth.validAfter > BigInt(currentTimestamp)) throw new Error("Authorization is not yet valid");
+  if (auth.validBefore <= BigInt(currentTimestamp)) throw new Error("Authorization is expired");
+  if (expected.maxValidBefore !== undefined && auth.validBefore > expected.maxValidBefore) {
+    throw new Error("Authorization expiry exceeds request TTL");
+  }
+  if ((expected.chainId ?? ARC_CHAIN_ID) !== ARC_CHAIN_ID) throw new Error("Unsupported Arc chain ID");
+  if ((expected.verifyingContract ?? ARC_CANONICAL_USDC).toLowerCase() !== ARC_CANONICAL_USDC.toLowerCase()) {
+    throw new Error("Unsupported Arc token contract");
+  }
+
+  const typedData = buildReceiveAuthorizationTypedData({
+    from: auth.authorizer,
+    to: auth.recipient,
+    value: auth.value,
+    validAfter: auth.validAfter,
+    validBefore: auth.validBefore,
+    nonce: auth.nonce,
+  });
+  const signature = ethers.Signature.from({ v: auth.v, r: auth.r, s: auth.s }).serialized;
+  const recovered = recoverReceiveAuthorizationSigner(typedData.domain, typedData.message, signature);
+  if (expected.expectedAuthorizer !== undefined && recovered.toLowerCase() !== expected.expectedAuthorizer.toLowerCase()) {
+    throw new Error("Authorization signer mismatch");
+  }
+  if (recovered.toLowerCase() !== auth.authorizer.toLowerCase()) {
+    throw new Error("Authorization authorizer mismatch");
+  }
+
+  return { authorizer: recovered, recipient: auth.recipient, value: auth.value, nonce: auth.nonce };
+}
+
+export const ARC_USDC_ABI = [
+  "function balanceOf(address account) view returns (uint256)",
+  "function authorizationState(address authorizer, bytes32 nonce) view returns (bool)",
+  "function receiveWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s)",
+  "event AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce)",
+  "event Transfer(address indexed from, address indexed to, uint256 value)",
+];
+
+export async function getArcUsdcBalance(address: string): Promise<string> {
+  const provider = new ethers.JsonRpcProvider(getChainConfig(ARC_CHAIN_ID)!.rpcUrl);
+  const token = new ethers.Contract(ARC_CANONICAL_USDC, ARC_USDC_ABI, provider);
+  return ethers.formatUnits(await token.balanceOf(address), 6);
+}
+
+export async function getArcAuthorizationState(authorizer: string, nonce: string): Promise<boolean> {
+  const provider = new ethers.JsonRpcProvider(getChainConfig(ARC_CHAIN_ID)!.rpcUrl);
+  const token = new ethers.Contract(ARC_CANONICAL_USDC, ARC_USDC_ABI, provider);
+  return token.authorizationState(authorizer, nonce);
 }

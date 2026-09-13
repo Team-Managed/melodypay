@@ -10,7 +10,14 @@ export interface TokenConfig {
 // Keep this list empty until each token address is verified on its target chain.
 // A receiver must not turn an arbitrary user-entered address into a hardware
 // wallet signing policy.
-export const VERIFIED_TOKEN_CONFIGS: readonly TokenConfig[] = [];
+export const VERIFIED_TOKEN_CONFIGS: readonly TokenConfig[] = [
+  {
+    chainId: 5042002,
+    address: "0x3600000000000000000000000000000000000000",
+    symbol: "USDC",
+    decimals: 6,
+  },
+];
 
 export function getVerifiedToken(chainId: number, address: string): TokenConfig | undefined {
   if (!/^0x[0-9a-fA-F]{40}$/.test(address)) return undefined;

@@ -16,8 +16,12 @@ import {
     broadcastTransaction,
     getFeeData,
     getNonce,
+    getArcAuthorizationState,
+    getArcUsdcBalance,
     validateSignedNativeTransfer,
+    validateSignedReceiveAuthorization,
 } from "../core/tx-builder";
+import { ARC_CANONICAL_USDC, ARC_CHAIN_ID, generateAuthorizationNonce, splitAuthorizationSignature } from "../core/eip3009";
 
 type Step =
     | "setup"
@@ -35,6 +39,10 @@ interface PendingPayment {
     requestId: number;
     gasLimit: bigint;
     startedAt: number;
+    isArc?: boolean;
+    authNonce?: string;
+    tokenValue?: bigint;
+    validBefore?: bigint;
 }
 
 const PAYMENT_TTL_SECONDS = 60;
@@ -93,9 +101,10 @@ export function ReceivePayment() {
             return;
         }
 
+        const isArc = chain.chainId === ARC_CHAIN_ID;
         let value: bigint;
         try {
-            value = ethers.parseEther(amount);
+            value = isArc ? ethers.parseUnits(amount, 6) : ethers.parseEther(amount);
         } catch {
             setError("Enter a valid amount.");
             return;
@@ -125,41 +134,42 @@ export function ReceivePayment() {
                 setStatus(`Fetching ${chain.name} nonce and fee data...`);
 
                 try {
-                    const [nonce, feeData] = await Promise.all([
-                        getNonce(sender, chain.chainId),
-                        getFeeData(chain.chainId),
-                    ]);
                     const requestId = Math.floor(Math.random() * 0x1_0000_0000) >>> 0;
                     const gasLimit = 21000n;
-                    pendingRef.current = {
-                        sender,
-                        nonce,
-                        requestId,
-                        gasLimit,
-                        startedAt: Date.now(),
-                    };
-
-                    // Keep PAY compatibility for the current browser proof of concept.
-                    // PAY2 carries the chain and fee fields needed by the hardware wallet.
-                    const paymentRequest = chain.chainId === 10143
-                        ? `PAY|${receiver}|${amount}|${nonce}`
-                        : [
-                            "PAY2",
-                            chain.chainId,
-                            receiver,
-                            amount,
-                            nonce,
+                    let paymentRequest: string;
+                    if (isArc) {
+                        const balance = await getArcUsdcBalance(sender);
+                        if (ethers.parseUnits(balance, 6) < value) throw new Error("Insufficient Arc USDC balance");
+                        const authNonce = generateAuthorizationNonce();
+                        const validBefore = BigInt(Math.floor(Date.now() / 1000) + PAYMENT_TTL_SECONDS);
+                        pendingRef.current = {
+                            sender,
+                            nonce: 0,
                             requestId,
-                            PAYMENT_TTL_SECONDS,
-                            feeData.maxFeePerGas.toString(),
-                            feeData.maxPriorityFeePerGas.toString(),
-                            gasLimit,
-                        ].join("|");
+                            gasLimit: 100000n,
+                            startedAt: Date.now(),
+                            isArc: true,
+                            authNonce,
+                            tokenValue: value,
+                            validBefore,
+                        };
+                        paymentRequest = ["PAY_ARC", ARC_CHAIN_ID, receiver, amount, validBefore, authNonce].join("|");
+                    } else {
+                        const [nonce, feeData] = await Promise.all([
+                            getNonce(sender, chain.chainId),
+                            getFeeData(chain.chainId),
+                        ]);
+                        pendingRef.current = { sender, nonce, requestId, gasLimit, startedAt: Date.now() };
+                        paymentRequest = chain.chainId === 10143
+                            ? `PAY|${receiver}|${amount}|${nonce}`
+                            : ["PAY2", chain.chainId, receiver, amount, nonce, requestId, PAYMENT_TTL_SECONDS,
+                                feeData.maxFeePerGas.toString(), feeData.maxPriorityFeePerGas.toString(), gasLimit].join("|");
+                    }
 
                     setStep("broadcasting-request");
                     if (cancelledRef.current) return;
                     setStatus("Sending payment request...");
-                    if (chain.chainId === 10143) await playHardwarePayload(paymentRequest);
+                    if (chain.chainId === 10143 && !isArc) await playHardwarePayload(paymentRequest);
                     else await playHardwareChunkedPayload(paymentRequest);
 
                     if (cancelledRef.current) return;
@@ -173,9 +183,9 @@ export function ReceivePayment() {
 
                     const { stop: stopChunked } = await startHardwareChunkedListening(
                         async (signedTx) => {
-                            if (cancelledRef.current || !signedTx.startsWith("0x")) return;
                             const pending = pendingRef.current;
                             if (!pending) return;
+                            if (cancelledRef.current || (!pending.isArc && !signedTx.startsWith("0x")) || (pending.isArc && !signedTx.startsWith("AUTH|"))) return;
 
                             stopChunked();
                             stopRef.current = null;
@@ -184,13 +194,59 @@ export function ReceivePayment() {
                             setStatus("Verifying the signed transaction...");
 
                             try {
+                                if (pending.isArc) {
+                                    const fields = signedTx.split("|");
+                                    if (fields.length !== 5) throw new Error("Malformed Arc authorization");
+                                    const validBefore = BigInt(fields[1]);
+                                    const nonce = fields[2];
+                                    const signatureBytes = `${fields[3]}${Number(fields[4]).toString(16).padStart(2, "0")}`;
+                                    const signature = splitAuthorizationSignature(signatureBytes);
+                                    const validated = validateSignedReceiveAuthorization({
+                                        authorizer: pending.sender,
+                                        recipient: receiver,
+                                        value: pending.tokenValue!,
+                                        validAfter: 0n,
+                                        validBefore,
+                                        nonce,
+                                        ...signature,
+                                    }, {
+                                        expectedAuthorizer: pending.sender,
+                                        expectedRecipient: receiver,
+                                        expectedValue: pending.tokenValue!,
+                                        maxValidBefore: pending.validBefore,
+                                    });
+                                    if (await getArcAuthorizationState(validated.authorizer, validated.nonce)) {
+                                        throw new Error("Arc authorization nonce already used");
+                                    }
+                                    if (!(window as any).ethereum) throw new Error("Connect a gas-paying browser wallet to submit Arc USDC");
+                                    setStep("submitting");
+                                    setStatus(`Submitting ${amount} USDC authorization to Arc...`);
+                                    const browserProvider = new ethers.BrowserProvider((window as any).ethereum);
+                                    const signer = await browserProvider.getSigner();
+                                    const token = new ethers.Contract(ARC_CANONICAL_USDC, [
+                                        "function receiveWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s) external",
+                                        "event AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce)",
+                                        "event Transfer(address indexed from, address indexed to, uint256 value)",
+                                    ], signer);
+                                    const tx = await token.receiveWithAuthorization(validated.authorizer, receiver, validated.value,
+                                        0n, validBefore, validated.nonce, signature.v, signature.r, signature.s);
+                                    const receipt = await tx.wait();
+                                    const eventNames = new Set(receipt.logs.map((log: ethers.Log | ethers.EventLog) => {
+                                        try { return token.interface.parseLog(log)?.name; } catch { return undefined; }
+                                    }));
+                                    if (!eventNames.has("AuthorizationUsed") || !eventNames.has("Transfer")) {
+                                        throw new Error("Arc receipt missing AuthorizationUsed or Transfer evidence");
+                                    }
+                                    await playHardwareChunkedPayload(`RECEIPT|${receipt.hash}`);
+                                    setTxHash(receipt.hash);
+                                    setStep("done");
+                                    setStatus(`${amount} USDC payment settled on Arc.`);
+                                    return;
+                                }
+
                                 const parsed = await validateSignedNativeTransfer(signedTx, {
-                                    sender: pending.sender,
-                                    recipient: receiver,
-                                    chainId: chain.chainId,
-                                    value,
-                                    nonce: pending.nonce,
-                                    gasLimit: pending.gasLimit,
+                                    sender: pending.sender, recipient: receiver, chainId: chain.chainId,
+                                    value, nonce: pending.nonce, gasLimit: pending.gasLimit,
                                 });
                                 const transactionHash = parsed.hash ?? ethers.keccak256(ethers.getBytes(signedTx));
                                 if (seenTransactionsRef.current.has(transactionHash)) {
