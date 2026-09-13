@@ -13,4 +13,5 @@ void display_boot_animation(void);
 void display_home_screen(uint8_t selection);
 void display_menu_screen(uint8_t selection);
 void display_payment_screen(void);
+void display_payment_menu_screen(uint8_t selection);
 void display_receive_screen(void);

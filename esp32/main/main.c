@@ -28,6 +28,7 @@ typedef enum {
     UI_MENU,
     UI_PAYMENT,
     UI_RECEIVE,
+    UI_PAYMENT_MENU,
 } ui_screen_t;
 
 static ui_screen_t ui_screen = UI_HOME;
@@ -270,6 +271,7 @@ static void render_ui(void)
     if (ui_screen == UI_HOME) display_home_screen(ui_selection);
     if (ui_screen == UI_MENU) display_menu_screen(ui_selection);
     if (ui_screen == UI_PAYMENT) display_payment_screen();
+    if (ui_screen == UI_PAYMENT_MENU) display_payment_menu_screen(ui_selection);
 }
 
 static void handle_ui_event(button_event_t event)
@@ -289,7 +291,13 @@ static void handle_ui_event(button_event_t event)
                 return;
             }
             const esp_err_t payment_result = run_hardware_payment_sender();
-            if (payment_result != ESP_OK && payment_result != ESP_ERR_INVALID_STATE) {
+            if (payment_result == ESP_ERR_INVALID_STATE) {
+                ui_screen = UI_PAYMENT_MENU;
+                ui_selection = 0;
+                display_payment_menu_screen(0);
+                return;
+            }
+            if (payment_result != ESP_OK) {
                 display_message("PAYMENT", "Flow stopped", esp_err_to_name(payment_result), "");
                 vTaskDelay(pdMS_TO_TICKS(1200));
             }
@@ -349,6 +357,34 @@ static void handle_ui_event(button_event_t event)
         ui_selection = 0;
         wallet_state_set(WALLET_IDLE);
         render_ui();
+        return;
+    }
+
+    if (ui_screen == UI_PAYMENT_MENU) {
+        if (event == BUTTON_EVENT_SINGLE_CLICK) {
+            ui_selection = (uint8_t)((ui_selection + 1) % 2);
+            render_ui();
+        } else if (ui_selection == 0) {
+            if (button_wait_for_release(1000) == ESP_OK) {
+                ui_screen = UI_PAYMENT;
+                const esp_err_t result = run_hardware_payment_sender();
+                if (result == ESP_ERR_INVALID_STATE) {
+                    ui_screen = UI_PAYMENT_MENU;
+                    ui_selection = 0;
+                    display_payment_menu_screen(0);
+                    return;
+                }
+            }
+            ui_screen = UI_HOME;
+            ui_selection = 0;
+            wallet_state_set(WALLET_IDLE);
+            render_ui();
+        } else {
+            ui_screen = UI_HOME;
+            ui_selection = 0;
+            wallet_state_set(WALLET_IDLE);
+            render_ui();
+        }
     }
 }
 

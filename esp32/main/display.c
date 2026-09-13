@@ -281,6 +281,12 @@ void display_payment_screen(void)
     display_message("PAYMENT", "Waiting request", "Audio link ready", "");
 }
 
+void display_payment_menu_screen(uint8_t selection)
+{
+    display_message("PAYMENT", selection == 0 ? "> REPLAY" : "  REPLAY",
+                    selection == 1 ? "> BACK" : "  BACK", "");
+}
+
 void display_receive_screen(void)
 {
     memcpy(display_buffer, oled_qr_frame, sizeof(display_buffer));
