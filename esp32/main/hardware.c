@@ -226,6 +226,40 @@ esp_err_t hardware_play_success_chime(void)
     return result;
 }
 
+static esp_err_t hardware_play_note_sequence(const uint16_t *notes, size_t note_count,
+                                             uint16_t duration_ms, int16_t amplitude)
+{
+    static int16_t tone[8640];
+    const size_t note_samples = MELODY_SAMPLE_RATE * duration_ms / 1000;
+    if (note_samples > sizeof(tone) / sizeof(tone[0])) return ESP_ERR_INVALID_SIZE;
+    hardware_mute_mic();
+    esp_err_t result = ESP_OK;
+    for (size_t note = 0; note < note_count && result == ESP_OK; note++) {
+        const uint32_t period = MELODY_SAMPLE_RATE / notes[note];
+        memset(tone, 0, sizeof(tone));
+        for (size_t sample = 0; sample < note_samples; sample++) {
+            tone[sample] = (sample % period) < period / 2 ? amplitude : -amplitude;
+        }
+        result = hardware_play_pcm(tone, note_samples);
+        if (result == ESP_OK) result = hardware_stop_pcm();
+    }
+    hardware_unmute_mic();
+    memset(tone, 0, sizeof(tone));
+    return result;
+}
+
+esp_err_t hardware_play_warp_chime(void)
+{
+    static const uint16_t notes[] = {196, 247, 330, 440, 659};
+    return hardware_play_note_sequence(notes, sizeof(notes) / sizeof(notes[0]), 110, 850);
+}
+
+esp_err_t hardware_play_check_chime(void)
+{
+    static const uint16_t notes[] = {784, 988, 1319};
+    return hardware_play_note_sequence(notes, sizeof(notes) / sizeof(notes[0]), 180, 1050);
+}
+
 void hardware_mute_mic(void)
 {
     if (mic_channel != NULL) (void)i2s_channel_disable(mic_channel);

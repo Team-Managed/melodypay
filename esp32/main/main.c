@@ -38,6 +38,41 @@ static volatile bool boot_audio_running;
 static volatile bool boot_audio_done;
 static uint8_t pending_signed_transaction[256];
 static size_t pending_signed_length;
+static char pending_amount[32];
+static char pending_symbol[16];
+static char pending_address[43];
+static volatile bool success_audio_running;
+static volatile bool success_audio_done;
+static volatile uint8_t success_audio_phase;
+
+static void success_chime_task(void *argument)
+{
+    (void)argument;
+    while (success_audio_running) {
+        if (success_audio_phase == 1) (void)hardware_play_warp_chime();
+        else (void)hardware_play_check_chime();
+    }
+    success_audio_done = true;
+    vTaskDelete(NULL);
+}
+
+static void show_payment_success(void)
+{
+    success_audio_running = true;
+    success_audio_done = false;
+    success_audio_phase = 1;
+    if (xTaskCreate(success_chime_task, "success_chime", 3072, NULL, 4, NULL) != pdPASS) {
+        success_audio_running = false;
+        success_audio_done = true;
+    }
+    display_success_warp_animation();
+    success_audio_phase = 2;
+    display_success_check_animation();
+    success_audio_running = false;
+    while (!success_audio_done) vTaskDelay(pdMS_TO_TICKS(10));
+    display_success_screen(pending_amount, pending_symbol, pending_address);
+    vTaskDelay(pdMS_TO_TICKS(2500));
+}
 
 static void bytes_to_hex(const uint8_t *bytes, size_t length, char *output)
 {
@@ -132,9 +167,7 @@ static esp_err_t wait_for_payment_receipt(void)
     memset(pending_signed_transaction, 0, sizeof(pending_signed_transaction));
     pending_signed_length = 0;
     wallet_state_set(WALLET_IDLE);
-    display_message("PAYMENT", "Complete", "Receipt received", "");
-    (void)hardware_play_success_chime();
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    show_payment_success();
     return ESP_OK;
 }
 
@@ -256,6 +289,10 @@ static esp_err_t run_hardware_payment_sender(void)
     }
     memcpy(transfer.recipient, recipient_bytes, sizeof(recipient_bytes));
     memcpy(transfer.value, value, sizeof(value));
+    snprintf(pending_amount, sizeof(pending_amount), "%s", amount);
+    snprintf(pending_symbol, sizeof(pending_symbol), "%s",
+             evm_chain_symbol(transfer.chain_id) != NULL ? evm_chain_symbol(transfer.chain_id) : "TOKEN");
+    snprintf(pending_address, sizeof(pending_address), "%s", address_hex);
     if (pay2) {
         if (!decimal_to_units(fields[8], 9, transfer.max_priority_fee_per_gas) ||
             !decimal_to_units(fields[7], 9, transfer.max_fee_per_gas)) return ESP_ERR_INVALID_ARG;
@@ -437,6 +474,8 @@ static void handle_ui_event(button_event_t event)
         } else {
             ui_screen = UI_HOME;
             ui_selection = 0;
+            memset(pending_signed_transaction, 0, sizeof(pending_signed_transaction));
+            pending_signed_length = 0;
             wallet_state_set(WALLET_IDLE);
             render_ui();
         }

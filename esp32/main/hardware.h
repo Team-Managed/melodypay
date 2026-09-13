@@ -27,5 +27,7 @@ esp_err_t hardware_run_audio_self_test(void);
 esp_err_t hardware_play_boot_chime(void);
 esp_err_t hardware_play_feedback(bool confirm);
 esp_err_t hardware_play_success_chime(void);
+esp_err_t hardware_play_warp_chime(void);
+esp_err_t hardware_play_check_chime(void);
 void hardware_mute_mic(void);
 void hardware_unmute_mic(void);
