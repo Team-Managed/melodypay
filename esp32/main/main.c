@@ -22,6 +22,7 @@
 
 static const char *TAG = "melodypay";
 static int16_t mic_sample_to_pcm(int32_t raw);
+static esp_err_t listen_audio_text(char *output, size_t capacity, uint32_t timeout_ms);
 
 typedef enum {
     UI_HOME = 0,
@@ -35,6 +36,8 @@ static ui_screen_t ui_screen = UI_HOME;
 static uint8_t ui_selection;
 static volatile bool boot_audio_running;
 static volatile bool boot_audio_done;
+static uint8_t pending_signed_transaction[256];
+static size_t pending_signed_length;
 
 static void bytes_to_hex(const uint8_t *bytes, size_t length, char *output)
 {
@@ -97,6 +100,44 @@ static esp_err_t send_audio_text(const char *text)
     return result;
 }
 
+static esp_err_t transmit_pending_signed_transaction(void)
+{
+    if (pending_signed_length == 0) return ESP_ERR_INVALID_STATE;
+    char signed_hex[515];
+    bytes_to_hex(pending_signed_transaction, pending_signed_length, signed_hex + 2);
+    signed_hex[0] = '0';
+    signed_hex[1] = 'x';
+    const size_t chunk_size = 48;
+    const size_t total = (strlen(signed_hex) + chunk_size - 1) / chunk_size;
+    esp_err_t result = ESP_OK;
+    for (size_t index = 0; index < total; index++) {
+        char chunk[GGWAVE_TRANSPORT_PAYLOAD_BYTES];
+        snprintf(chunk, sizeof(chunk), "TX%u/%u|%.*s", (unsigned)(index + 1), (unsigned)total,
+                 (int)chunk_size, signed_hex + index * chunk_size);
+        result = send_audio_text(chunk);
+        if (result != ESP_OK) break;
+        vTaskDelay(pdMS_TO_TICKS(150));
+    }
+    memset(signed_hex, 0, sizeof(signed_hex));
+    return result;
+}
+
+static esp_err_t wait_for_payment_receipt(void)
+{
+    display_payment_menu_screen(0);
+    char receipt[128] = {0};
+    esp_err_t result = listen_audio_text(receipt, sizeof(receipt), 60000);
+    if (result == ESP_ERR_TIMEOUT) return ESP_ERR_INVALID_STATE;
+    if (result != ESP_OK || strncmp(receipt, "RECEIPT|", 8) != 0) return result == ESP_OK ? ESP_ERR_INVALID_RESPONSE : result;
+    memset(pending_signed_transaction, 0, sizeof(pending_signed_transaction));
+    pending_signed_length = 0;
+    wallet_state_set(WALLET_IDLE);
+    display_message("PAYMENT", "Complete", "Receipt received", "");
+    (void)hardware_play_success_chime();
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    return ESP_OK;
+}
+
 static esp_err_t listen_audio_text(char *output, size_t capacity, uint32_t timeout_ms)
 {
     static int32_t raw_samples[512];
@@ -108,6 +149,7 @@ static esp_err_t listen_audio_text(char *output, size_t capacity, uint32_t timeo
     unsigned total_chunks = 0;
     const int64_t deadline = esp_timer_get_time() + (int64_t)timeout_ms * 1000;
     while (esp_timer_get_time() < deadline) {
+        if (button_is_pressed()) return ESP_ERR_INVALID_STATE;
         if (button_poll_event() != BUTTON_EVENT_NONE) return ESP_ERR_INVALID_STATE;
         size_t sample_count = 0;
         if (hardware_read_mic(raw_samples, 512, &sample_count, 100) != ESP_OK) continue;
@@ -251,33 +293,12 @@ static esp_err_t run_hardware_payment_sender(void)
     result = evm_sign_eip1559(&transfer, signed_transaction, sizeof(signed_transaction), &signed_length);
     if (result != ESP_OK) return result;
     ESP_LOGI(TAG, "transaction signed; transmitting %u bytes", (unsigned)signed_length);
-    char signed_hex[515];
-    bytes_to_hex(signed_transaction, signed_length, signed_hex + 2);
-    signed_hex[0] = '0';
-    signed_hex[1] = 'x';
-    const size_t chunk_size = 48;
-    const size_t total = (strlen(signed_hex) + chunk_size - 1) / chunk_size;
-    for (size_t index = 0; index < total; index++) {
-        char chunk[GGWAVE_TRANSPORT_PAYLOAD_BYTES];
-        snprintf(chunk, sizeof(chunk), "TX%u/%u|%.*s", (unsigned)(index + 1), (unsigned)total,
-                 (int)chunk_size, signed_hex + index * chunk_size);
-        result = send_audio_text(chunk);
-        if (result != ESP_OK) break;
-        vTaskDelay(pdMS_TO_TICKS(300));
-    }
+    memcpy(pending_signed_transaction, signed_transaction, signed_length);
+    pending_signed_length = signed_length;
     memset(signed_transaction, 0, sizeof(signed_transaction));
-    memset(signed_hex, 0, sizeof(signed_hex));
+    result = transmit_pending_signed_transaction();
     if (result != ESP_OK) return result;
-    display_payment_menu_screen(0);
-    char receipt[128] = {0};
-    result = listen_audio_text(receipt, sizeof(receipt), 60000);
-    if (result == ESP_ERR_TIMEOUT) return ESP_ERR_INVALID_STATE;
-    if (result != ESP_OK || strncmp(receipt, "RECEIPT|", 8) != 0) return result == ESP_OK ? ESP_ERR_INVALID_RESPONSE : result;
-    wallet_state_set(WALLET_IDLE);
-    display_message("PAYMENT", "Complete", "Receipt received", "");
-    (void)hardware_play_success_chime();
-    vTaskDelay(pdMS_TO_TICKS(2000));
-    return ESP_OK;
+    return wait_for_payment_receipt();
 }
 
 static void boot_chime_task(void *argument)
@@ -314,6 +335,7 @@ static void handle_ui_event(button_event_t event)
             }
             const esp_err_t payment_result = run_hardware_payment_sender();
             if (payment_result == ESP_ERR_INVALID_STATE) {
+                (void)button_wait_for_release(1000);
                 ui_screen = UI_PAYMENT_MENU;
                 ui_selection = 0;
                 display_payment_menu_screen(0);
@@ -388,13 +410,24 @@ static void handle_ui_event(button_event_t event)
             render_ui();
         } else if (ui_selection == 0) {
             if (button_wait_for_release(1000) == ESP_OK) {
-                ui_screen = UI_PAYMENT;
-                const esp_err_t result = run_hardware_payment_sender();
+                const esp_err_t result = pending_signed_length > 0
+                    ? (wallet_state_set(WALLET_TRANSMITTING), transmit_pending_signed_transaction())
+                    : ESP_ERR_INVALID_STATE;
                 if (result == ESP_ERR_INVALID_STATE) {
                     ui_screen = UI_PAYMENT_MENU;
                     ui_selection = 0;
                     display_payment_menu_screen(0);
                     return;
+                }
+                if (result == ESP_OK) {
+                    const esp_err_t receipt_result = wait_for_payment_receipt();
+                    if (receipt_result == ESP_ERR_INVALID_STATE) {
+                        (void)button_wait_for_release(1000);
+                        ui_screen = UI_PAYMENT_MENU;
+                        ui_selection = 0;
+                        display_payment_menu_screen(0);
+                        return;
+                    }
                 }
             }
             ui_screen = UI_HOME;
