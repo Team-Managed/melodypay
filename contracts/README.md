@@ -18,14 +18,30 @@ This directory contains the smart contract architecture for MelodyPay.
 - **POS Integration**: Provides POS invoice/order tracking (`orderId => settlement nonce`), dual replay protection, and emits `SoundPaymentSettled` receipt events for terminals and printers.
 - **Dual Flow**: Supports direct peer-to-peer (`transferWithAuthorization`) and receiver-routed (`receiveWithAuthorization`) settlement.
 
+### 3. Priority Hardware Waitlist Pre-Booking (Base Mainnet)
+- **Contract**: `src/MelodyPayPrebooking.sol`
+- **Purpose**: Fixed-price (1.00 USDC) non-custodial pre-booking and priority waitlist contract for the ESP32-S3 Air-Gapped Acoustic Sound Terminal.
+- **Treasury Recipient**: Proceeds forward directly to `0x0E6937A18De79Ed54692E65F7A0DA5A81B8D7BCF`.
+- **On-Chain Queue Count**: Maintains monotonic `totalPrebookings` counter and assigns sequential queue numbers (`#001`, `#002`, ...).
+- **Privacy**: User emails remain 100% off-chain; confirmation emails with subject `Prebooked` are dispatched off-chain via Resend.
+
 ## Testing
 
-Run the test suite against the Sepolia fork:
+Run the test suite:
 ```bash
+# Run unit tests
+forge test --root contracts
+
+# Run Sepolia fork tests
 forge test --root contracts --fork-url https://ethereum-sepolia-rpc.publicnode.com
 ```
 
 ## Deployment
+
+Deploy the hardware pre-booking contract to Base Mainnet:
+```bash
+forge script script/DeployPrebooking.s.sol:DeployPrebooking --rpc-url https://mainnet.base.org --broadcast
+```
 
 Deploy the subname registrar to Sepolia:
 ```bash
