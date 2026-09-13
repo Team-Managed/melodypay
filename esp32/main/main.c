@@ -230,12 +230,15 @@ static esp_err_t run_hardware_payment_sender(void)
     }
     wallet_state_set(WALLET_REVIEW);
     char recipient_preview[24];
+    char amount_display[32];
     char countdown[16];
     snprintf(recipient_preview, sizeof(recipient_preview), "TO %.8s...", recipient);
+    snprintf(amount_display, sizeof(amount_display), "%s %s", amount,
+             evm_chain_symbol(transfer.chain_id) != NULL ? evm_chain_symbol(transfer.chain_id) : "TOKEN");
     result = ESP_ERR_TIMEOUT;
     for (uint32_t remaining = 60; remaining > 0; remaining--) {
-        snprintf(countdown, sizeof(countdown), "T-%02us", (unsigned)remaining);
-        display_message("PAYMENT", amount, recipient_preview, countdown);
+        snprintf(countdown, sizeof(countdown), "%02u", (unsigned)remaining);
+        display_message("PAYMENT", amount_display, recipient_preview, countdown);
         result = button_wait_for_approval(1000);
         if (result == ESP_OK) break;
         if (result != ESP_ERR_TIMEOUT) return result;
