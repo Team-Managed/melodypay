@@ -43,6 +43,30 @@ static const uint8_t digit_glyphs[10][5] = {
     {0x36, 0x49, 0x49, 0x36, 0x00}, {0x06, 0x49, 0x49, 0x3e, 0x00},
 };
 
+static const uint8_t small_letter_glyphs[26][5] = {
+    {0x02, 0x05, 0x07, 0x05, 0x05}, {0x06, 0x05, 0x06, 0x05, 0x06},
+    {0x03, 0x04, 0x04, 0x04, 0x03}, {0x06, 0x05, 0x05, 0x05, 0x06},
+    {0x07, 0x04, 0x06, 0x04, 0x07}, {0x07, 0x04, 0x06, 0x04, 0x04},
+    {0x03, 0x04, 0x05, 0x05, 0x03}, {0x05, 0x05, 0x07, 0x05, 0x05},
+    {0x07, 0x02, 0x02, 0x02, 0x07}, {0x01, 0x01, 0x01, 0x05, 0x02},
+    {0x05, 0x05, 0x06, 0x05, 0x05}, {0x04, 0x04, 0x04, 0x04, 0x07},
+    {0x05, 0x07, 0x07, 0x05, 0x05}, {0x06, 0x05, 0x05, 0x05, 0x05},
+    {0x02, 0x05, 0x05, 0x05, 0x02}, {0x06, 0x05, 0x06, 0x04, 0x04},
+    {0x03, 0x04, 0x05, 0x05, 0x03}, {0x06, 0x05, 0x06, 0x05, 0x05},
+    {0x03, 0x04, 0x02, 0x01, 0x06}, {0x07, 0x02, 0x02, 0x02, 0x02},
+    {0x05, 0x05, 0x05, 0x05, 0x02}, {0x05, 0x05, 0x05, 0x05, 0x02},
+    {0x05, 0x05, 0x07, 0x07, 0x05}, {0x05, 0x05, 0x02, 0x05, 0x05},
+    {0x05, 0x05, 0x02, 0x02, 0x02}, {0x07, 0x01, 0x02, 0x04, 0x07},
+};
+
+static const uint8_t small_digit_glyphs[10][5] = {
+    {0x07, 0x05, 0x05, 0x05, 0x07}, {0x02, 0x06, 0x02, 0x02, 0x07},
+    {0x06, 0x01, 0x02, 0x04, 0x07}, {0x06, 0x01, 0x02, 0x01, 0x06},
+    {0x05, 0x05, 0x07, 0x01, 0x01}, {0x07, 0x04, 0x06, 0x01, 0x06},
+    {0x03, 0x04, 0x06, 0x05, 0x02}, {0x07, 0x01, 0x02, 0x02, 0x02},
+    {0x02, 0x05, 0x02, 0x05, 0x02}, {0x02, 0x05, 0x03, 0x01, 0x06},
+};
+
 static const uint8_t *glyph_for_char(char character)
 {
     static const uint8_t blank[5] = {0, 0, 0, 0, 0};
@@ -72,6 +96,23 @@ static const uint8_t *glyph_for_char(char character)
     if (character == ':') return punctuation[7];
     if (character == '*') return punctuation[8];
     return punctuation[6];
+}
+
+static const uint8_t *small_glyph_for_char(char character)
+{
+    static const uint8_t blank[5] = {0, 0, 0, 0, 0};
+    static const uint8_t dot[5] = {0, 0, 0, 0, 0x02};
+    static const uint8_t dash[5] = {0, 0x07, 0, 0, 0};
+    static const uint8_t slash[5] = {0x01, 0x02, 0x02, 0x04, 0x04};
+
+    character = (char)toupper((unsigned char)character);
+    if (character >= 'A' && character <= 'Z') return small_letter_glyphs[character - 'A'];
+    if (character >= '0' && character <= '9') return small_digit_glyphs[character - '0'];
+    if (character == ' ') return blank;
+    if (character == '.') return dot;
+    if (character == '-') return dash;
+    if (character == '/') return slash;
+    return blank;
 }
 
 static esp_err_t send_command(uint8_t command)
@@ -301,11 +342,34 @@ void display_receive_screen(void)
     (void)flush_display_buffer();
 }
 
-static void draw_checkmark(uint8_t x, uint8_t y)
+static void draw_small_line(const char *text, uint8_t y)
 {
-    for (uint8_t index = 0; index < 6; index++) {
-        set_pixel((uint8_t)(x + index), (uint8_t)(y + 6 + index), true);
-        set_pixel((uint8_t)(x + 5 + index), (uint8_t)(y + 11 - index), true);
+    if (text == NULL || y > 59) return;
+    size_t length = strlen(text);
+    if (length > 31) length = 31;
+    const uint8_t x = (uint8_t)((128 - length * 4) / 2);
+    for (size_t index = 0; index < length; index++) {
+        const uint8_t *glyph = small_glyph_for_char(text[index]);
+        for (uint8_t glyph_y = 0; glyph_y < 5; glyph_y++) {
+            for (uint8_t glyph_x = 0; glyph_x < 3; glyph_x++) {
+                if ((glyph[glyph_y] & (uint8_t)(1u << (2 - glyph_x))) != 0) {
+                    set_pixel((uint8_t)(x + index * 4 + glyph_x), (uint8_t)(y + glyph_y), true);
+                }
+            }
+        }
+    }
+}
+
+static void draw_final_checkmark_top(void)
+{
+    const uint8_t *frame = OLED_SUCCESS_CHECK_frames[OLED_SUCCESS_CHECK_FRAME_COUNT - 1];
+    for (uint8_t y = 24; y < 40; y++) {
+        for (uint8_t x = 56; x < 72; x++) {
+            const size_t source_index = (size_t)(y / 8) * 128 + x;
+            if ((frame[source_index] & (uint8_t)(1u << (y % 8))) != 0) {
+                set_pixel(x, (uint8_t)(y - 24), true);
+            }
+        }
     }
 }
 
@@ -354,9 +418,8 @@ void display_success_screen(const char *amount, const char *symbol, const char *
         snprintf(address_line, sizeof(address_line), "Wallet ready");
     }
     memset(display_buffer, 0, sizeof(display_buffer));
-    draw_checkmark(54, 1);
-    draw_line("PAID", 1);
-    draw_line(amount_line, 2);
-    draw_line(address_line, 3);
+    draw_final_checkmark_top();
+    draw_small_line(amount_line, 21);
+    draw_small_line(address_line, 34);
     (void)flush_display_buffer();
 }
