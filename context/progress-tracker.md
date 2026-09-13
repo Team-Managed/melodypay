@@ -118,6 +118,7 @@
     - Commented out inactive contracts and unused modules (`MelodyPaySettlement.sol`, `MelodyPaySubnameRegistrar.sol`, and `ERC1155Holder.sol`).
     - Foundry test suite passing with 6 tests in `MelodyPayPrebooking.t.sol` in 19.2ms with new Treasury `0xE36f3d4Bd0a6bbdd940404C6323c1121b2666176`.
     - Vitest test suites passing across 12 test files and 41 tests.
+    - Harmonized Register page typography with Hero section: unified on Inter sans-serif (`font-sans`), added `// PRIORITY HARDWARE WAITLIST` uppercase tracking eyebrow (`font-mono tracking-[0.22em]`), split editorial headline hierarchy (`font-bold` with `font-normal` subhead), clean sans input fields, and semibold CTA buttons matching the hero action buttons.
     - Production build (`npm run build`) passing cleanly.
 - [ ] Task 9: Integrate ENSv2 Merchant Resolution (`receiver-web/src/core/ensv2.ts`, `cli/src/ens.ts`, `tests/ensv2-resolution.test.ts`).
 - [ ] Task 10: Integrate Ledger Signer Backend (`cli/src/signers/ledger.ts`, `tests/ledger-signer.test.ts`).

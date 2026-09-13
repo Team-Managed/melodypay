@@ -369,7 +369,7 @@ export function Register() {
     };
 
     return (
-        <div className="flex-1 flex flex-col justify-center w-full text-[#111113] relative overflow-hidden py-6 sm:py-8 pt-20 sm:pt-24 lg:pt-26 min-h-screen lg:h-screen lg:max-h-screen">
+        <div className="flex-1 flex flex-col justify-center w-full text-[#111113] relative overflow-hidden py-6 sm:py-8 pt-20 sm:pt-24 lg:pt-26 min-h-screen lg:h-screen lg:max-h-screen font-sans selection:bg-[#836EF9]/20 selection:text-[#111113]">
             {/* Full-Bleed Meadow with Birds Aerial Background */}
             <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
                 <img
@@ -385,10 +385,14 @@ export function Register() {
             <div className="relative w-full max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-10 z-10 flex-1 flex flex-col justify-center">
                 {/* Page Title Header - Brought lower down for balanced screen composition */}
                 <div className="mb-6 lg:mb-7 text-center max-w-2xl mx-auto">
-                    <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.7)] font-sans">
-                        Pre-Book Your Sound Wallet
+                    <span className="text-[11px] font-mono text-[#38BDF8] uppercase tracking-[0.22em] font-semibold mb-2 block drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]">
+                        // PRIORITY HARDWARE WAITLIST
+                    </span>
+                    <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.7)] font-sans leading-[1.12]">
+                        Pre-Book Your Sound Wallet.<br />
+                        <span className="text-white/85 font-normal">Sign offline. Settle on Base.</span>
                     </h1>
-                    <p className="text-sm sm:text-base font-medium text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)] mt-2 sm:mt-2.5 leading-relaxed max-w-xl mx-auto">
+                    <p className="text-sm sm:text-base font-sans text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)] mt-2 sm:mt-2.5 leading-relaxed max-w-xl mx-auto">
                         Secure first-batch hardware allocation for the ESP32-S3 Air-Gapped Acoustic Sound Terminal. 
                         Pay 1.00 USDC on Base Sepolia Testnet to confirm your DevKit pre-order.
                     </p>
@@ -399,16 +403,16 @@ export function Register() {
                     <div className="bg-white/[0.07] backdrop-blur-2xl border border-white/25 rounded-2xl p-5 sm:p-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.25)] ring-1 ring-white/10 flex flex-col justify-between h-full">
                         <div className="flex flex-col justify-between h-full space-y-3.5">
                             {/* Lean Top Wallet Status Bar */}
-                            <div className="p-2.5 px-3.5 rounded-xl border border-white/20 bg-white/[0.08] backdrop-blur-md flex items-center justify-between text-xs font-mono">
+                            <div className="p-2.5 px-3.5 rounded-xl border border-white/20 bg-white/[0.08] backdrop-blur-md flex items-center justify-between text-xs font-sans">
                                 <div className="flex items-center gap-2">
                                     <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/15 text-white">
                                         <Wallet size={12} />
                                     </div>
-                                    <span className="font-bold text-white">
+                                    <span className="font-semibold text-white font-sans">
                                         {connectedWallet ? "Wallet Active" : "No Wallet Connected"}
                                     </span>
                                     {connectedWallet && (
-                                        <span className="text-white/70 hidden sm:inline">
+                                        <span className="text-white/70 font-mono text-[11px] hidden sm:inline">
                                             ({connectedWallet.slice(0, 6)}...{connectedWallet.slice(-4)})
                                         </span>
                                     )}
@@ -418,7 +422,7 @@ export function Register() {
                                         <button
                                             type="button"
                                             onClick={disconnectWallet}
-                                            className="text-white/75 hover:text-white underline cursor-pointer text-[11px]"
+                                            className="text-white/75 hover:text-white underline cursor-pointer text-xs font-sans transition-colors"
                                         >
                                             Disconnect
                                         </button>
@@ -426,7 +430,7 @@ export function Register() {
                                         <button
                                             type="button"
                                             onClick={connectWallet}
-                                            className="bg-white hover:bg-white/90 text-black px-2.5 py-1 rounded text-[11px] font-bold shadow-sm transition-all cursor-pointer"
+                                            className="bg-white hover:bg-white/90 text-black px-3 py-1.5 rounded-md text-xs font-semibold font-sans shadow-sm transition-all cursor-pointer"
                                         >
                                             Connect
                                         </button>
@@ -437,7 +441,7 @@ export function Register() {
                             <form onSubmit={handlePrebook} className="space-y-3.5 flex-1 flex flex-col justify-between">
                                 {/* Step 1: Contact Email */}
                                 <div>
-                                    <label className="block text-[11px] font-mono font-bold text-white uppercase tracking-wider mb-1">
+                                    <label className="block text-xs font-sans font-semibold text-white mb-1.5">
                                         Contact Email
                                     </label>
                                     <div className="relative">
@@ -450,7 +454,7 @@ export function Register() {
                                             value={email}
                                             onChange={(e) => setEmail(e.target.value)}
                                             placeholder="developer@company.com"
-                                            className="w-full bg-white/[0.08] border border-white/25 focus:border-white focus:bg-white/[0.14] focus:ring-1 focus:ring-white rounded-lg pl-9 pr-3 py-2.5 text-xs font-mono text-white placeholder-white/40 transition-all"
+                                            className="w-full bg-white/[0.08] border border-white/25 focus:border-white focus:bg-white/[0.14] focus:ring-1 focus:ring-white rounded-lg pl-9 pr-3 py-2.5 text-sm font-sans text-white placeholder-white/40 transition-all"
                                         />
                                     </div>
                                 </div>
@@ -458,18 +462,18 @@ export function Register() {
                                 {/* Step 2: Fixed 1 USDC Pricing Card */}
                                 <div className="p-3 px-4 bg-white/[0.08] backdrop-blur-md border border-white/20 rounded-xl flex items-center justify-between">
                                     <div>
-                                        <span className="text-xs font-mono font-bold uppercase text-white block">
+                                        <span className="text-xs font-sans font-semibold text-white block">
                                             Pre-Booking Deposit
                                         </span>
-                                        <span className="text-[10px] text-white/70 font-mono block">
+                                        <span className="text-[11px] text-white/70 font-sans block">
                                             Direct Treasury Settlement // Zero Custody
                                         </span>
                                     </div>
                                     <div className="text-right">
-                                        <span className="text-xl font-bold font-mono text-white block">
+                                        <span className="text-xl font-bold font-sans text-white block tracking-tight">
                                             1.00 USDC
                                         </span>
-                                        <span className="text-[9px] font-mono text-white/70 block">
+                                        <span className="text-[10px] font-mono text-white/70 block uppercase tracking-wider">
                                             Base Sepolia
                                         </span>
                                     </div>
@@ -477,14 +481,14 @@ export function Register() {
 
                                 {/* Status & Error Alerts */}
                                 {statusMessage && (
-                                    <div className="p-2.5 px-3.5 rounded-lg bg-white/15 border border-white/30 text-xs font-mono text-white flex items-center gap-2">
+                                    <div className="p-2.5 px-3.5 rounded-lg bg-white/15 border border-white/30 text-xs font-sans text-white flex items-center gap-2">
                                         <Loader2 size={13} className="animate-spin shrink-0 text-white" />
                                         <span className="truncate">{statusMessage}</span>
                                     </div>
                                 )}
 
                                 {errorMessage && (
-                                    <div className="p-2.5 px-3.5 rounded-lg bg-white/20 border border-white/40 text-xs font-mono text-white flex items-center gap-2">
+                                    <div className="p-2.5 px-3.5 rounded-lg bg-white/20 border border-white/40 text-xs font-sans text-white flex items-center gap-2">
                                         <AlertCircle size={13} className="shrink-0 text-white" />
                                         <span className="truncate">{errorMessage}</span>
                                     </div>
@@ -496,47 +500,47 @@ export function Register() {
                                         <button
                                             type="button"
                                             onClick={connectWallet}
-                                            className="w-full bg-white hover:bg-white/90 text-black py-3 px-4 rounded-xl text-xs font-mono font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+                                            className="w-full bg-white hover:bg-white/90 text-black py-3 px-5 rounded-xl text-sm font-sans font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:shadow-xl"
                                         >
-                                            <Wallet size={14} />
+                                            <Wallet size={15} />
                                             <span>Connect Wallet to Pre-Book</span>
-                                            <ArrowRight size={13} />
+                                            <ArrowRight size={14} />
                                         </button>
                                     ) : !isBaseNetwork ? (
                                         <button
                                             type="button"
                                             onClick={switchToBase}
-                                            className="w-full bg-white hover:bg-white/90 text-black py-3 px-4 rounded-xl text-xs font-mono font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+                                            className="w-full bg-white hover:bg-white/90 text-black py-3 px-5 rounded-xl text-sm font-sans font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:shadow-xl"
                                         >
-                                            <ArrowRight size={13} />
+                                            <ArrowRight size={14} />
                                             <span>Switch to Base Sepolia (84532)</span>
                                         </button>
                                     ) : userExistingQueue !== null ? (
                                         <button
                                             type="button"
                                             onClick={() => navigate("/receipt")}
-                                            className="w-full bg-white hover:bg-white/90 text-black py-3 px-4 rounded-xl text-xs font-mono font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+                                            className="w-full bg-white hover:bg-white/90 text-black py-3 px-5 rounded-xl text-sm font-sans font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:shadow-xl"
                                         >
-                                            <CheckCircle2 size={14} />
+                                            <CheckCircle2 size={15} />
                                             <span>Already Pre-Booked • View Receipt</span>
-                                            <ArrowRight size={13} />
+                                            <ArrowRight size={14} />
                                         </button>
                                     ) : usdcAllowance < 1_000_000n ? (
                                         <button
                                             type="button"
                                             onClick={handleApproveUSDC}
                                             disabled={isApproving}
-                                            className="w-full bg-white hover:bg-white/90 text-black py-3 px-4 rounded-xl text-xs font-mono font-bold tracking-wider uppercase transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+                                            className="w-full bg-white hover:bg-white/90 text-black py-3 px-5 rounded-xl text-sm font-sans font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:shadow-xl"
                                         >
                                             {isApproving ? (
                                                 <>
-                                                    <Loader2 size={13} className="animate-spin" />
+                                                    <Loader2 size={14} className="animate-spin" />
                                                     <span>Approving 1.00 USDC...</span>
                                                 </>
                                             ) : (
                                                 <>
                                                     <span>Step 1: Approve 1.00 USDC</span>
-                                                    <ArrowRight size={13} />
+                                                    <ArrowRight size={14} />
                                                 </>
                                             )}
                                         </button>
@@ -544,24 +548,24 @@ export function Register() {
                                         <button
                                             type="submit"
                                             disabled={isPrebooking}
-                                            className="w-full bg-white hover:bg-white/90 text-black py-3 px-4 rounded-xl text-xs font-mono font-bold tracking-wider uppercase transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+                                            className="w-full bg-white hover:bg-white/90 text-black py-3 px-5 rounded-xl text-sm font-sans font-semibold transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:shadow-xl"
                                         >
                                             {isPrebooking ? (
                                                 <>
-                                                    <Loader2 size={13} className="animate-spin" />
+                                                    <Loader2 size={14} className="animate-spin" />
                                                     <span>Confirming Pre-Booking...</span>
                                                 </>
                                             ) : (
                                                 <>
                                                     <span>Step 2: Pre-Book for 1.00 USDC</span>
-                                                    <ArrowRight size={13} />
+                                                    <ArrowRight size={14} />
                                                 </>
                                             )}
                                         </button>
                                     )}
                                 </div>
 
-                                <p className="text-[10px] font-mono text-white/60 text-center">
+                                <p className="text-xs font-sans text-white/60 text-center">
                                     {userExistingQueue !== null 
                                         ? "This wallet has already confirmed a priority DevKit pre-order. Switch accounts in MetaMask to pre-book for another address." 
                                         : "Secures DevKit priority slot. Instant cryptographic POS receipt generated."}
@@ -577,27 +581,27 @@ export function Register() {
                             <div>
                                 <div className="flex items-center gap-2 pb-2 mb-2.5 border-b border-white/20">
                                     <Cpu size={15} className="text-white" />
-                                    <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-white">
+                                    <h3 className="text-xs font-mono font-semibold uppercase tracking-[0.18em] text-white">
                                         ESP32-S3 Sound Terminal Specifications
                                     </h3>
                                 </div>
 
-                                <ul className="space-y-2 text-xs font-mono text-white/85 leading-normal">
+                                <ul className="space-y-2 text-xs sm:text-sm font-sans text-white/85 leading-relaxed">
                                     <li className="flex items-start gap-2">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-white mt-1 shrink-0" />
-                                        <span><strong className="text-white">Acoustic Wire</strong>: Ultrasonic tones demodulated locally on-chip.</span>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 shrink-0" />
+                                        <span><strong className="text-white font-semibold font-sans">Acoustic Wire</strong>: Ultrasonic tones demodulated locally on-chip.</span>
                                     </li>
                                     <li className="flex items-start gap-2">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-white mt-1 shrink-0" />
-                                        <span><strong className="text-white">Zero Radios</strong>: Wi-Fi & Bluetooth permanently disabled at silicon level.</span>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 shrink-0" />
+                                        <span><strong className="text-white font-semibold font-sans">Zero Radios</strong>: Wi-Fi & Bluetooth permanently disabled at silicon level.</span>
                                     </li>
                                     <li className="flex items-start gap-2">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-white mt-1 shrink-0" />
-                                        <span><strong className="text-white">Tactile Switch</strong>: Physical push-button authorizes every transaction.</span>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 shrink-0" />
+                                        <span><strong className="text-white font-semibold font-sans">Tactile Switch</strong>: Physical push-button authorizes every transaction.</span>
                                     </li>
                                     <li className="flex items-start gap-2">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-white mt-1 shrink-0" />
-                                        <span><strong className="text-white">OLED Screen</strong>: SSD1306 high-contrast cryptographic display.</span>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-white mt-1.5 shrink-0" />
+                                        <span><strong className="text-white font-semibold font-sans">OLED Screen</strong>: SSD1306 high-contrast cryptographic display.</span>
                                     </li>
                                 </ul>
                             </div>
@@ -606,34 +610,34 @@ export function Register() {
                             <div className="pt-3 border-t border-dashed border-white/20">
                                 <div className="flex items-center gap-2 pb-2 mb-2.5 border-b border-white/20">
                                     <ShieldCheck size={15} className="text-white" />
-                                    <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-white">
+                                    <h3 className="text-xs font-mono font-semibold uppercase tracking-[0.18em] text-white">
                                         What Your 1.00 USDC Secures
                                     </h3>
                                 </div>
 
-                                <div className="space-y-2 text-xs font-mono text-white/85">
+                                <div className="space-y-2 text-xs font-sans text-white/85">
                                     <div className="flex items-center justify-between pb-1.5 border-b border-dashed border-white/10">
-                                        <span className="text-white/70">Allocation:</span>
-                                        <span className="font-bold text-white">Batch #1 Priority DevKit</span>
+                                        <span className="text-white/70 font-sans">Allocation:</span>
+                                        <span className="font-semibold text-white font-sans">Batch #1 Priority DevKit</span>
                                     </div>
                                     <div className="flex items-center justify-between pb-1.5 border-b border-dashed border-white/10">
-                                        <span className="text-white/70">Confirmation:</span>
-                                        <span className="font-bold text-white">Instant Subject: Prebooked</span>
+                                        <span className="text-white/70 font-sans">Confirmation:</span>
+                                        <span className="font-semibold text-white font-sans">Instant Subject: Prebooked</span>
                                     </div>
                                     <div className="flex items-center justify-between pb-1.5 border-b border-dashed border-white/10">
-                                        <span className="text-white/70">Receipt Proof:</span>
-                                        <span className="font-bold text-white">Thermal POS On-Chain Slip</span>
+                                        <span className="text-white/70 font-sans">Receipt Proof:</span>
+                                        <span className="font-semibold text-white font-sans">Thermal POS On-Chain Slip</span>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-white/70">Settlement:</span>
-                                        <span className="font-bold text-white">1.00 USDC on Base Sepolia</span>
+                                        <span className="text-white/70 font-sans">Settlement:</span>
+                                        <span className="font-semibold text-white font-sans">1.00 USDC on Base Sepolia</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         {/* Bottom Hardware Micro-Badge for Perfect Vertical Alignment */}
-                        <div className="pt-3 mt-3 border-t border-white/15 text-[10px] font-mono text-white/70 flex items-center justify-between">
+                        <div className="pt-3 mt-3 border-t border-white/15 text-[10px] font-mono text-white/70 flex items-center justify-between tracking-[0.18em] uppercase">
                             <span>HARDWARE TERMINAL V1</span>
                             <span className="text-white font-semibold">AIR-GAP VERIFIED</span>
                         </div>
