@@ -84,7 +84,16 @@ async function runInteractive<T>(render: (terminal: Terminal) => void, handleKey
   input.setRawMode?.(true);
   input.resume();
   const result = await new Promise<T>((resolve) => {
-    listener = (value, key) => handleKey(value, key, resolve);
+    let finished = false;
+    const finish = (value: T) => {
+      if (finished) return;
+      finished = true;
+      resolve(value);
+    };
+    listener = (value, key) => {
+      handleKey(value, key, finish);
+      if (!finished) render(terminal);
+    };
     input.on("keypress", listener);
     render(terminal);
   });
