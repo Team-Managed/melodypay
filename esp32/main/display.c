@@ -283,8 +283,13 @@ void display_payment_screen(void)
 
 void display_payment_menu_screen(uint8_t selection)
 {
-    display_message("PAYMENT", selection == 0 ? "> REPLAY" : "  REPLAY",
-                    selection == 1 ? "> BACK" : "  BACK", "");
+    memset(display_buffer, 0, sizeof(display_buffer));
+    draw_line("LISTENING FOR", 0);
+    draw_line("PAYMENT", 1);
+    draw_line("REPLAY", 2);
+    draw_line("BACK", 3);
+    draw_selection((uint8_t)(selection + 2));
+    (void)flush_display_buffer();
 }
 
 void display_receive_screen(void)
