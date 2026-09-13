@@ -384,7 +384,7 @@ static esp_err_t run_hardware_payment_sender(void)
     result = send_audio_text(address_message);
     if (result != ESP_OK) return result;
     display_payment_menu_screen(0);
-    char request[GGWAVE_TRANSPORT_PAYLOAD_BYTES] = {0};
+    char request[256] = {0};
     result = listen_audio_text(request, sizeof(request), 60000);
     if (result != ESP_OK) return result;
     if (strncmp(request, "PAY_ARC|", 8) == 0) return run_hardware_arc_payment(request);
