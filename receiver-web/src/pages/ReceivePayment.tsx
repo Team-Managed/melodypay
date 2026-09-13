@@ -31,7 +31,7 @@ import {
     validateSignedNativeTransfer,
     validateSignedReceiveAuthorization,
 } from "../core/tx-builder";
-import { ARC_CANONICAL_USDC, ARC_CHAIN_ID, generateAuthorizationNonce, splitAuthorizationSignature } from "../core/eip3009";
+import { ARC_CANONICAL_USDC, ARC_CHAIN_ID, generateAuthorizationNonce, hasArcTransferEvidence, splitAuthorizationSignature } from "../core/eip3009";
 import { resolveMerchantName as resolveReceiverName } from "../core/ensv2";
 import { VibrantSoundBars } from "../components/VibrantSoundBars";
 import type { ReceiptData } from "./PaymentReceipt";
@@ -267,15 +267,13 @@ export function ReceivePayment() {
                                         "event AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce)",
                                         "event Transfer(address indexed from, address indexed to, uint256 value)",
                                     ], signer);
-                                    const tx = await token.receiveWithAuthorization(validated.authorizer, receiver, validated.value,
-                                        0n, validBefore, validated.nonce, signature.v, signature.r, signature.s);
-                                    const receipt = await tx.wait();
-                                    const eventNames = new Set(receipt.logs.map((log: ethers.Log | ethers.EventLog) => {
-                                        try { return token.interface.parseLog(log)?.name; } catch { return undefined; }
-                                    }));
-                                    if (!eventNames.has("AuthorizationUsed") || !eventNames.has("Transfer")) {
-                                        throw new Error("Arc receipt missing AuthorizationUsed or Transfer evidence");
-                                    }
+                                     const tx = await token.receiveWithAuthorization(validated.authorizer, receiver, validated.value,
+                                         0n, validBefore, validated.nonce, signature.v, signature.r, signature.s);
+                                     const receipt = await tx.wait();
+                                     if (receipt.status !== 1) throw new Error("Arc settlement transaction failed");
+                                     if (!hasArcTransferEvidence(receipt.logs, validated.authorizer, receiver, validated.value)) {
+                                         throw new Error("Arc receipt missing matching USDC Transfer evidence");
+                                     }
                                      await playHardwareChunkedPayload(`RECEIPT|${receipt.hash}`);
                                      setTxHash(receipt.hash);
                                      setStep("done");

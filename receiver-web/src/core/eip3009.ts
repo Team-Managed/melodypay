@@ -1,11 +1,14 @@
 import {
+  AbiCoder,
   getAddress,
   getBytes,
   hexlify,
+  id,
   randomBytes,
   recoverAddress,
   Signature,
   TypedDataEncoder,
+  zeroPadValue,
 } from "ethers";
 
 export const ARC_CHAIN_ID = 5042002;
@@ -103,6 +106,42 @@ export function splitAuthorizationSignature(signature: string): {
 } {
   const parsed = Signature.from(signature);
   return { v: parsed.v, r: parsed.r, s: parsed.s, rawSignature: parsed.serialized };
+}
+
+export interface ArcReceiptLog {
+  topics: readonly string[];
+  data: string;
+}
+
+const ARC_TRANSFER_TOPIC = id("Transfer(address,address,uint256)");
+const ARC_NATIVE_DECIMAL_FACTOR = 10n ** 12n;
+const ARC_UINT256_DECODER = AbiCoder.defaultAbiCoder();
+
+/**
+ * Arc can emit the same USDC movement through its ERC-20 interface (6 decimals)
+ * and its native system emitter (18 decimals). Match raw topics instead of
+ * relying on the token interface's emitter assumptions.
+ */
+export function hasArcTransferEvidence(
+  logs: readonly ArcReceiptLog[],
+  expectedFrom: string,
+  expectedTo: string,
+  expectedValue: bigint,
+): boolean {
+  const fromTopic = zeroPadValue(getAddress(expectedFrom), 32).toLowerCase();
+  const toTopic = zeroPadValue(getAddress(expectedTo), 32).toLowerCase();
+
+  return logs.some((log) => {
+    if (log.topics[0]?.toLowerCase() !== ARC_TRANSFER_TOPIC.toLowerCase()) return false;
+    if (log.topics[1]?.toLowerCase() !== fromTopic || log.topics[2]?.toLowerCase() !== toTopic) return false;
+
+    try {
+      const [value] = ARC_UINT256_DECODER.decode(["uint256"], log.data);
+      return value === expectedValue || value === expectedValue * ARC_NATIVE_DECIMAL_FACTOR;
+    } catch {
+      return false;
+    }
+  });
 }
 
 export function recoverReceiveAuthorizationSigner(

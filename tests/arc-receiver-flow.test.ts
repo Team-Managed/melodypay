@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { Wallet } from "ethers";
+import { AbiCoder, id, Wallet, zeroPadValue } from "ethers";
 import {
   buildReceiveAuthorizationTypedData,
+  hasArcTransferEvidence,
   splitAuthorizationSignature,
 } from "../receiver-web/src/core/eip3009";
 import { validateSignedReceiveAuthorization } from "../receiver-web/src/core/tx-builder";
@@ -61,5 +62,31 @@ describe("Arc authorization receiver validation", () => {
       expectedRecipient: recipient,
       expectedValue: 1_500_000n,
     }, 1_700_000_000)).toThrow(/expired/i);
+  });
+
+  it("accepts the ERC-20 six-decimal Transfer receipt log", () => {
+    const transferLog = {
+      topics: [
+        id("Transfer(address,address,uint256)"),
+        zeroPadValue(payer.address, 32),
+        zeroPadValue(recipient, 32),
+      ],
+      data: AbiCoder.defaultAbiCoder().encode(["uint256"], [1_500_000n]),
+    };
+
+    expect(hasArcTransferEvidence([transferLog], payer.address, recipient, 1_500_000n)).toBe(true);
+  });
+
+  it("accepts the native system-emitter eighteen-decimal Transfer receipt log", () => {
+    const transferLog = {
+      topics: [
+        id("Transfer(address,address,uint256)"),
+        zeroPadValue(payer.address, 32),
+        zeroPadValue(recipient, 32),
+      ],
+      data: AbiCoder.defaultAbiCoder().encode(["uint256"], [1_500_000n * 10n ** 12n]),
+    };
+
+    expect(hasArcTransferEvidence([transferLog], payer.address, recipient, 1_500_000n)).toBe(true);
   });
 });
