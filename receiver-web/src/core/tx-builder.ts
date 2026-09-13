@@ -261,14 +261,19 @@ export const ARC_USDC_ABI = [
   "event Transfer(address indexed from, address indexed to, uint256 value)",
 ];
 
+function arcRpcUrl(): string {
+  if (typeof window !== "undefined") return new URL("/api/arc-rpc", window.location.href).toString();
+  return "https://rpc.testnet.arc.io";
+}
+
 export async function getArcUsdcBalance(address: string): Promise<string> {
-  const provider = new ethers.JsonRpcProvider("/api/arc-rpc");
+  const provider = new ethers.JsonRpcProvider(arcRpcUrl());
   const token = new ethers.Contract(ARC_CANONICAL_USDC, ARC_USDC_ABI, provider);
   return ethers.formatUnits(await token.balanceOf(address), 6);
 }
 
 export async function getArcAuthorizationState(authorizer: string, nonce: string): Promise<boolean> {
-  const provider = new ethers.JsonRpcProvider("/api/arc-rpc");
+  const provider = new ethers.JsonRpcProvider(arcRpcUrl());
   const token = new ethers.Contract(ARC_CANONICAL_USDC, ARC_USDC_ABI, provider);
   return token.authorizationState(authorizer, nonce);
 }
