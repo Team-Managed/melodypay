@@ -64,7 +64,21 @@ esp_err_t button_wait_for_release(uint32_t timeout_ms)
     while (button_is_pressed() && esp_timer_get_time() < deadline) {
         vTaskDelay(pdMS_TO_TICKS(10));
     }
+    if (!button_is_pressed()) {
+        stable_pressed = false;
+        click_pending = false;
+        first_click_us = 0;
+        last_transition_us = esp_timer_get_time();
+    }
     return button_is_pressed() ? ESP_ERR_TIMEOUT : ESP_OK;
+}
+
+void button_reset_event_state(void)
+{
+    stable_pressed = button_is_pressed();
+    click_pending = false;
+    first_click_us = 0;
+    last_transition_us = esp_timer_get_time();
 }
 
 bool button_is_pressed(void)

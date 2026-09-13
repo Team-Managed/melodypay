@@ -373,6 +373,7 @@ static void handle_ui_event(button_event_t event)
             const esp_err_t payment_result = run_hardware_payment_sender();
             if (payment_result == ESP_ERR_INVALID_STATE) {
                 (void)button_wait_for_release(1000);
+                button_reset_event_state();
                 ui_screen = UI_PAYMENT_MENU;
                 ui_selection = 0;
                 display_payment_menu_screen(0);
@@ -451,6 +452,8 @@ static void handle_ui_event(button_event_t event)
                     ? (wallet_state_set(WALLET_TRANSMITTING), transmit_pending_signed_transaction())
                     : ESP_ERR_INVALID_STATE;
                 if (result == ESP_ERR_INVALID_STATE) {
+                    (void)button_wait_for_release(1000);
+                    button_reset_event_state();
                     ui_screen = UI_PAYMENT_MENU;
                     ui_selection = 0;
                     display_payment_menu_screen(0);
@@ -460,6 +463,7 @@ static void handle_ui_event(button_event_t event)
                     const esp_err_t receipt_result = wait_for_payment_receipt();
                     if (receipt_result == ESP_ERR_INVALID_STATE) {
                         (void)button_wait_for_release(1000);
+                        button_reset_event_state();
                         ui_screen = UI_PAYMENT_MENU;
                         ui_selection = 0;
                         display_payment_menu_screen(0);
