@@ -185,7 +185,7 @@ static esp_err_t sign_request(const cJSON *params, cJSON **result)
     char recipient_preview[32];
     snprintf(recipient_preview, sizeof(recipient_preview), "0x%02x%02x%02x%02x...",
              transfer.recipient[0], transfer.recipient[1], transfer.recipient[2], transfer.recipient[3]);
-    display_message(evm_chain_name(transfer.chain_id), recipient_preview, "Native transfer", "Press button");
+    display_message(evm_chain_name(transfer.chain_id), recipient_preview, "Native transfer", "");
     error = button_wait_for_approval((uint32_t)timeout_seconds * 1000);
     if (error != ESP_OK) {
         signing_in_progress = false;

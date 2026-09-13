@@ -229,14 +229,25 @@ static esp_err_t run_hardware_payment_sender(void)
         transfer.max_fee_per_gas[31] = 0x00;
     }
     wallet_state_set(WALLET_REVIEW);
-    display_message("PAYMENT", "Review on device", "Press button", "to approve");
-    result = button_wait_for_approval(60000);
+    char recipient_preview[24];
+    char countdown[16];
+    snprintf(recipient_preview, sizeof(recipient_preview), "TO %.8s...", recipient);
+    result = ESP_ERR_TIMEOUT;
+    for (uint32_t remaining = 60; remaining > 0; remaining--) {
+        snprintf(countdown, sizeof(countdown), "T-%02us", (unsigned)remaining);
+        display_message("PAYMENT", amount, recipient_preview, countdown);
+        result = button_wait_for_approval(1000);
+        if (result == ESP_OK) break;
+        if (result != ESP_ERR_TIMEOUT) return result;
+    }
     if (result != ESP_OK) return result;
+    ESP_LOGI(TAG, "payment approval accepted; signing transaction");
     wallet_state_set(WALLET_TRANSMITTING);
     uint8_t signed_transaction[256];
     size_t signed_length = 0;
     result = evm_sign_eip1559(&transfer, signed_transaction, sizeof(signed_transaction), &signed_length);
     if (result != ESP_OK) return result;
+    ESP_LOGI(TAG, "transaction signed; transmitting %u bytes", (unsigned)signed_length);
     char signed_hex[513];
     bytes_to_hex(signed_transaction, signed_length, signed_hex);
     const size_t chunk_size = 48;
