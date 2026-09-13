@@ -177,7 +177,7 @@ static esp_err_t sign_request(const cJSON *params, cJSON **result)
     error = evm_validate_native_transfer(&transfer);
     if (error != ESP_OK) return error;
     const cJSON *timeout = cJSON_GetObjectItemCaseSensitive(params, "timeout_seconds");
-    const int timeout_seconds = cJSON_IsNumber(timeout) ? timeout->valueint : 10;
+    const int timeout_seconds = cJSON_IsNumber(timeout) ? timeout->valueint : 15;
     if (timeout_seconds <= 0 || timeout_seconds > 60) return ESP_ERR_INVALID_ARG;
     if (signing_in_progress) return ESP_ERR_INVALID_STATE;
     signing_in_progress = true;
@@ -336,7 +336,7 @@ int device_api_command(int argc, char **argv)
         }
     } else if (strcmp(op, "wallet.wait_approval") == 0) {
         const cJSON *timeout = params ? cJSON_GetObjectItemCaseSensitive(params, "timeout_seconds") : NULL;
-        const int timeout_seconds = cJSON_IsNumber(timeout) ? timeout->valueint : 10;
+        const int timeout_seconds = cJSON_IsNumber(timeout) ? timeout->valueint : 15;
         if (timeout_seconds <= 0 || timeout_seconds > 60) {
             error = "timeout_seconds must be between 1 and 60";
         } else {

@@ -236,7 +236,7 @@ static esp_err_t run_hardware_payment_sender(void)
     snprintf(amount_display, sizeof(amount_display), "%s %s", amount,
              evm_chain_symbol(transfer.chain_id) != NULL ? evm_chain_symbol(transfer.chain_id) : "TOKEN");
     result = ESP_ERR_TIMEOUT;
-    for (uint32_t remaining = 60; remaining > 0; remaining--) {
+    for (uint32_t remaining = 15; remaining > 0; remaining--) {
         snprintf(countdown, sizeof(countdown), "%02u", (unsigned)remaining);
         display_message("PAYMENT", amount_display, recipient_preview, countdown);
         result = button_wait_for_approval(1000);
