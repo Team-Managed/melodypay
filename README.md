@@ -385,9 +385,11 @@ forge script script/SetupENSv2.s.sol:SetupENSv2 `
 ### 5. ESP32-S3 Hardware Wallet Firmware
 
 <p align="center">
-  <img src="public/image.png" alt="ESP32-S3 Hardware Prototype" width="260" />
+  <img src="receiver-web/public/image.png" alt="ESP32-S3 Hardware Wallet Prototype" width="360" />
+  &nbsp;&nbsp;
+  <img src="receiver-web/public/image%20copy.png" alt="OLED Display clear-signing UI" width="360" />
   <br/>
-  <em>ESP32-S3 Breadboard Prototype (INMP441 Mic, MAX98357A Amp, SSD1306 OLED, and physical tactile buttons)</em>
+  <em>Left: Assembled ESP32-S3 acoustic hardware wallet bench prototype. Right: SSD1306 OLED display clear-signing interface (MELODYPAY PAY / RECEIVE).</em>
 </p>
 
 The firmware workspace targets the ESP32-S3 development board (e.g., N16R8):
