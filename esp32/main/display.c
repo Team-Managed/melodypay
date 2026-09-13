@@ -14,6 +14,7 @@
 #include <string.h>
 
 static const char *TAG = "display";
+#define SUCCESS_CHECK_FULL_FRAME 11
 static i2c_master_bus_handle_t display_bus;
 static i2c_master_dev_handle_t display_device;
 static bool display_connected;
@@ -330,13 +331,14 @@ void display_success_check_animation(void)
 {
     if (!display_connected) return;
     const uint8_t *previous_frame = NULL;
-    for (uint8_t frame = 0; frame < OLED_SUCCESS_CHECK_FRAME_COUNT; frame++) {
+    for (uint8_t frame = 0; frame <= SUCCESS_CHECK_FULL_FRAME; frame++) {
         const uint8_t *current_frame = OLED_SUCCESS_CHECK_frames[frame];
         if (previous_frame != NULL && memcmp(previous_frame, current_frame, sizeof(display_buffer)) == 0) continue;
         display_success_check_frame(frame);
         previous_frame = current_frame;
         vTaskDelay(pdMS_TO_TICKS(100));
     }
+    vTaskDelay(pdMS_TO_TICKS(1000));
 }
 
 void display_success_screen_frame(const char *amount, const char *symbol, const char *address, uint8_t frame)
@@ -368,15 +370,18 @@ void display_success_screen_frame(const char *amount, const char *symbol, const 
 void display_success_screen_check_animation(const char *amount, const char *symbol, const char *address)
 {
     if (!display_connected) return;
-    for (uint8_t cycle = 0; cycle < 2; cycle++) {
-        const uint8_t *previous_frame = NULL;
-        for (uint8_t frame = 0; frame < OLED_SUCCESS_CHECK_FRAME_COUNT; frame++) {
-            const uint8_t *current_frame = OLED_SUCCESS_CHECK_frames[frame];
-            if (previous_frame != NULL && memcmp(previous_frame, current_frame, sizeof(display_buffer)) == 0) continue;
-            display_success_screen_frame(amount, symbol, address, frame);
-            previous_frame = current_frame;
-            vTaskDelay(pdMS_TO_TICKS(100));
-        }
+    const TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(2500);
+    const uint8_t *previous_frame = NULL;
+    for (uint8_t frame = 0; frame <= SUCCESS_CHECK_FULL_FRAME; frame++) {
+        const uint8_t *current_frame = OLED_SUCCESS_CHECK_frames[frame];
+        if (previous_frame != NULL && memcmp(previous_frame, current_frame, sizeof(display_buffer)) == 0) continue;
+        display_success_screen_frame(amount, symbol, address, frame);
+        previous_frame = current_frame;
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+    while (xTaskGetTickCount() < deadline) {
+        display_success_screen_frame(amount, symbol, address, SUCCESS_CHECK_FULL_FRAME);
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
