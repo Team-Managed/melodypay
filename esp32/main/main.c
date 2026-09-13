@@ -262,7 +262,7 @@ static esp_err_t listen_audio_text(char *output, size_t capacity, uint32_t timeo
             bool framed = sscanf((char *)payload, "REQ%u/%u|%n", &chunk, &total, &prefix_length) == 2;
             if (!framed) framed = sscanf((char *)payload, "TX%u/%u|%n", &chunk, &total, &prefix_length) == 2;
             if (framed) {
-                if (total == 0 || total > 16 || chunk != expected_chunk + 1 ||
+                if (total == 0 || total > 16 ||
                     assembled_length + (size_t)decoded - (size_t)prefix_length >= sizeof(assembled)) {
                     assembled_length = 0;
                     expected_chunk = 0;
@@ -271,9 +271,17 @@ static esp_err_t listen_audio_text(char *output, size_t capacity, uint32_t timeo
                 }
                 if (total_chunks == 0) total_chunks = total;
                 if (total != total_chunks) continue;
+                if (chunk == expected_chunk) continue;
+                if (chunk != expected_chunk + 1) {
+                    assembled_length = 0;
+                    expected_chunk = 0;
+                    total_chunks = 0;
+                    continue;
+                }
                 memcpy(assembled + assembled_length, payload + prefix_length, (size_t)decoded - (size_t)prefix_length);
                 assembled_length += (size_t)decoded - (size_t)prefix_length;
                 expected_chunk = chunk;
+                ESP_LOGI(TAG, "received framed audio chunk %u/%u", chunk, total);
                 if (expected_chunk == total_chunks) {
                     if (assembled_length >= capacity) return ESP_ERR_INVALID_SIZE;
                     memcpy(output, assembled, assembled_length);
@@ -387,6 +395,7 @@ static esp_err_t run_hardware_payment_sender(void)
     char request[256] = {0};
     result = listen_audio_text(request, sizeof(request), 60000);
     if (result != ESP_OK) return result;
+    ESP_LOGI(TAG, "payment request received: %.32s", request);
     if (strncmp(request, "PAY_ARC|", 8) == 0) return run_hardware_arc_payment(request);
     char *fields[12] = {0};
     size_t field_count = 0;
