@@ -255,13 +255,18 @@ async function main() {
   intro("MelodyPay Receiver CLI | keyless operator terminal");
   clearTerminal();
   await walletDashboard();
+  const continueToMenu = await text({ message: "Press Enter to open the operator menu" });
+  if (isCancel(continueToMenu)) {
+    outro("MelodyPay receiver stopped");
+    return;
+  }
+  clearTerminal();
 
-  let firstMenu = true;
   for (;;) {
-    if (!firstMenu) clearTerminal();
-    firstMenu = false;
+    clearTerminal();
     const action = await select<Action>({
       message: "Operator menu",
+      maxItems: 8,
       options: [
         { value: "dashboard", label: "Dashboard", hint: "show current receiver and wallet state" },
         { value: "device", label: "USB wallet manager", hint: "connect, configure, disconnect" },
