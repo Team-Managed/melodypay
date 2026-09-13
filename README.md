@@ -47,7 +47,7 @@ Sender (Air-Gapped)                Receiver (Online)
 
 ---
 
-## AI Agent Mode (A2A)
+## Historical AI Agent Mode (A2A)
 
 MelodyPay includes an **agent-to-agent** demo where two AI agents transact over sound:
 
@@ -70,9 +70,9 @@ Customer Agent                     Barista Agent
    │◀─────────────────────────────────│
 ```
 
-- **Barista Agent** — AI-powered barista that takes orders and receives MON payments
-- **Customer Agent** — AI customer that orders coffee and pays automatically
-- Both use **Google Gemini** (called directly from client) for conversation
+- **Barista Agent** — historical AI-powered barista demo that took orders and received MON payments
+- **Customer Agent** — historical AI customer demo that ordered coffee and paid automatically
+- This mode is not part of the current `receiver-web` client and does not require Gemini
 - Half-duplex turn-taking over ggwave — same sound protocol as manual payments
 
 ---
@@ -89,7 +89,6 @@ Customer Agent                     Barista Agent
 | Icons | Lucide React |
 | Audio Protocol | ggwave (WASM) |
 | Blockchain | ethers.js v6 → Monad Testnet |
-| AI / LLM | Google Gemini 2.5 Flash |
 | PWA | vite-plugin-pwa (offline support) |
 
 ---
@@ -107,7 +106,7 @@ melody-pay/
 ├── index.html               # Web entry point — loads ggwave.js globally
 ├── vite.config.ts           # Vite + PWA config
 ├── tailwind.config.js       # Tailwind theme
-├── .env                     # VITE_GEMINI_API_KEY (not committed)
+├── .env                     # local environment values (not committed)
 ├── public/
 │   ├── ggwave.js            # ggwave WASM library
 │   └── icons/               # PWA icons
@@ -149,7 +148,13 @@ npm install
 
 Create `.env`:
 ```
-VITE_GEMINI_API_KEY=your_gemini_api_key_here
+# Server-only email credentials. These must never use the VITE_ prefix.
+BREVO_API_KEY=your_brevo_api_key
+BREVO_SENDER_EMAIL=sender@example.com
+RESEND_API_KEY=your_resend_api_key
+
+# Public client configuration. VITE_* values are visible in the browser.
+VITE_PREBOOKING_CONTRACT_ADDRESS=0x06E86FeeAdd4c0767080235fa82EF87e0fBBCcff
 ```
 
 Run:
