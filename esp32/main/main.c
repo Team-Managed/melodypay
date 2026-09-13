@@ -755,6 +755,8 @@ static int cmd_oled_success(int argc, char **argv)
 {
     (void)argc;
     (void)argv;
+    run_debug_success_animation(false);
+    run_debug_success_animation(true);
     display_success_screen("0.01", "MON", "0x940b939cc85fdef41880b601467b9c40fdca22e5");
     return 0;
 }
