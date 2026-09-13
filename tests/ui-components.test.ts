@@ -60,7 +60,7 @@ describe("Frontend Industrial Studio Components & Logic", () => {
       headline: "Air-gapped by sound.",
       subheadline: "Sign offline. Settle on-chain.",
       centerpieceImage: "/image copy 3.png",
-      primaryCta: "Launch Terminal",
+      primaryCta: "Receive Payments",
       primaryCtaLink: "/receive",
       secondaryCta: "Pre-book Device & ENS ➔",
       secondaryCtaLink: "/register",
@@ -80,7 +80,7 @@ describe("Frontend Industrial Studio Components & Logic", () => {
       { path: "/#how-it-works", label: "How It Works" },
       { path: "/#prototype", label: "Prototype" },
       { path: "/#faqs", label: "FAQs" },
-      { path: "/receive", label: "Terminal" },
+      { path: "/receive", label: "Receive Payments" },
       { path: "/register", label: "Register" },
     ];
 
@@ -89,7 +89,7 @@ describe("Frontend Industrial Studio Components & Logic", () => {
     expect(navItems.find((item) => item.label === "How It Works")?.path).toBe("/#how-it-works");
     expect(navItems.find((item) => item.label === "Prototype")?.path).toBe("/#prototype");
     expect(navItems.find((item) => item.label === "FAQs")?.path).toBe("/#faqs");
-    expect(navItems.find((item) => item.label === "Terminal")?.path).toBe("/receive");
+    expect(navItems.find((item) => item.label === "Receive Payments")?.path).toBe("/receive");
     expect(navItems.find((item) => item.label === "Register")?.path).toBe("/register");
   });
 

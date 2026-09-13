@@ -72,6 +72,54 @@
         - Bi-directional navigation: clicking any staircase node or clicking any 3D component automatically selects and transitions that step into view via `scrollToStep`.
       - FAQs Section (interactive animated accordion covering acoustic replay prevention, gasless economics, background noise resilience, USB serial communication, and fail-closed key security).
       - Architectural Footer (fanned card stack logo, multi-column navigation matrix, transformed cursive `MelodyPayStaffRibbon` wave rendered in pure glowing white Spencerian calligraphy matching `PayForSoundStaffRibbon` identically with tight, cohesive kerning, centered word proportion flanked by serene undulating stave trails, floating notes, live system status telemetry, slowed calm animation tempo ~15s per cycle, and the brightened, visible hero panorama background image `/image copy 3.png` at 70% opacity with deep green base `#0d281a` and gentle gradient wash creating a cohesive thematic visual bookend with the hero).
-  - [x] 33/33 unit tests passing and clean Vite HMR verified.
+  - [x] Receive Payment Page Redesign (`receiver-web/src/pages/ReceivePayment.tsx`):
+    - Refactored into a 2-column split-screen layout:
+      - **Left Column**: Payment form on harmonious pastel green background (`bg-gradient-to-b from-[#F2F7F4] via-[#EBF3ED] to-[#E3EFE7]`), preconfigured specifically for **1 USDC on Base** (`chainId: 8453`, Native USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, 6 decimals, amount default `1.00`), with verified ENS merchant identity (`cafe.melodypay.eth`), preset buttons, and turn-taking listener initialization.
+      - Extended both left (pastel green) and right (panoramic image) column backgrounds completely to the top (`top: 0`) behind the floating `StudioHeader` navigation bar with proper internal top padding.
+      - Removed the footer note (`MelodyPay Base Point-of-Sale // EIP-3009 Standard`) from the bottom of the left column.
+        - Implemented **Connect Wallet** feature on the left column:
+          - Connects via `window.ethereum` (MetaMask, Coinbase Wallet, etc.).
+          - Auto-detects connected accounts, autofills the merchant settlement address, and monitors account/chain changes.
+          - Detects network and provides a 1-click **"Switch to Base"** action with network parameter configuration.
+          - Displays connected badge with short address, green active pulse, and disconnect action.
+        - Synchronized `listener.ts` with `AcousticOscilloscope`: shared live `AudioContext` and `MediaStreamAudioSourceNode` directly into the visualizer with a 5.0x preamp gain node to eliminate duplicate mic requests and prevent hardware device lockouts.
+  - [x] Clean & Premium Receive Payment Terminal Refinements (`receiver-web/src/pages/ReceivePayment.tsx`):
+    - Removed all floating pill badges and chip containers across the page for a clean, architectural editorial layout.
+    - Removed subtitle ("Air-Gapped Acoustic POS // 1 USDC on Base") under the main header.
+    - Removed ENS labels and tags from the recipient section, leaving a clean "Merchant Recipient Address" input with wallet autofill support.
+    - Removed the entire "Settlement Currency & Protocol" box (USDC, EIP-3009 Gasless, Payer Gas, and Sub-second Finality) for an ultra-clean, focused merchant POS terminal experience.
+    - Replaced the blue USDC pill tag inside the amount input with clean, plain typography.
+    - Polished quick preset buttons into minimalist, flat editorial actions.
+    - Re-themed left column terminal to crisp, serene light sky blue matching the open sky in `/image copy 3.png` (`bg-gradient-to-b from-[#F0F6FA] via-[#E2EDF6] to-[#D2E4F2]`, sky accents `#38BDF8`).
+  - [x] Success Payment Redirection & Animated Thermal POS Receipt Printer (`receiver-web/src/pages/PaymentReceipt.tsx`, `ReceivePayment.tsx`, `Register.tsx`, `App.tsx`):
+    - Created dedicated `/receipt` route featuring a photorealistic desktop thermal POS printer chassis (modeled after commercial Epson/Star thermal printers with curved paper roll lid, metallic stainless-steel serrated tear cutter blade, tactile FEED button, silkscreen-labeled status LEDs, and internal rubber platen roller).
+    - Centered single-page composition fitting 100% within the viewport without vertical scrolling.
+    - Set blurred hero panorama background (`/image copy 3.png`) with enlarged, prominent animated glowing cursive `MelodyPayStaffRibbon` musical staff wave undulating across the backdrop.
+    - Stripped all upper navigation pills and lower action buttons per user request, leaving a pure, focused, elongated thermal printer and receipt.
+    - Implemented buttery smooth mechanical paper feed animation (`framer-motion` cubic ease `[0.25, 0.1, 0.25, 1]` with GPU acceleration `willChange: "transform"`, solid opacity, depth shadow at dispenser mouth, and tactile FEED trigger).
+    - Designed realistic thermal receipt paper with top and bottom serrated / saw-tooth perforated tear edges (SVG vectors).
+    - Supports both air-gapped acoustic POS payment settlements (`1.00 USDC` on Base, payer address, merchant recipient, on-chain tx hash with explorer link) and ENS subname registrations (subname, forward routing target).
+    - Removed `$0.00 (Gasless Relayed)` metadata line per user preference.
+    - Simplified receipt header to a clean single line: "Melodypay Payment Receipt".
+    - Updated receipt footer from `melodypay.eth // Decentralized Acoustic POS` to `PAID WITH MELODYPAY`.
+    - Resolved navbar collision with `StudioHeader` using top clearance (`pt-20 sm:pt-24 pb-4`) and balanced padding (`py-2 sm:py-3`), ensuring 100% single-page fit without vertical scrolling.
+    - Added scannable thermal barcode graphic, perforated scissors tear-off indicator, and verified hardware air-gap badge.
+    - Wired automatic redirection from both `/receive` upon settlement and `/register` upon subname reservation, with `localStorage` backup to prevent blank states on refresh.
+    - Added unit test suite in `tests/receipt-flow.test.ts`.
+  - [x] Priority Hardware Waitlist Pre-Booking Smart Contract & Email Dispatcher (`MelodyPayPrebooking.sol`, `email.ts`, `Register.tsx`, `PaymentReceipt.tsx`, `vite.config.ts`):
+    - Deployed live on Base Sepolia Testnet (`84532`) at `0xbCcbF37cFcFC282AD7540b298650faCCC92095E6` (tx `0x3954ce269858e2ecf855cd0e60cf16b318e84bfc8ae865688d22ceb05a4b64da`) using canonical Circle Testnet USDC (`0x036CbD53842c5426634e7929541eC2318f3dCF7e`).
+    - Fixed 1.00 USDC non-custodial pre-booking fee transferred directly to Treasury (`0xE36f3d4Bd0a6bbdd940404C6323c1121b2666176`) via `SafeERC20.safeTransferFrom`.
+    - Maintained monotonic on-chain counter `totalPrebookings` on-chain while keeping user contact info 100% off-chain for strict privacy (zero emails on-chain).
+    - Refactored Register UI into two expansive transparent glassmorphic vertical boxes (`bg-white/[0.07] backdrop-blur-2xl border border-white/25 ring-1 ring-white/10 rounded-2xl shadow-2xl`) over full-bleed aerial meadow photography (`image copy 2.png`).
+    - Retained the prominent, bold original header size (`text-3xl sm:text-4xl lg:text-5xl font-extrabold`) while lowering the header down the viewport (`pt-20 sm:pt-24 lg:pt-26 mb-6 lg:mb-7`); removed redundant settlement details from the left box to make both boxes significantly smaller and tighter, ensuring an effortless single-screen fit.
+    - Completely eliminated fake fallback transaction hashes in `Register.tsx`: enforces authentic on-chain execution with pre-validation of duplicate bookings (`hasPrebooked`), live USDC balance checks, automatic wallet approval handling, and surfaces genuine revert/wallet rejection errors. If the wallet has already pre-booked on-chain, displays a clear "Already Pre-Booked • View Receipt" state.
+    - Rendered 100% pure white typography across both cards with matching equal heights (`items-stretch`, `h-full flex flex-col justify-between`).
+    - Integrated Brevo (Sendinblue) Transactional Email API v3 into Vite dev backend proxy (`https://api.brevo.com/v3/smtp/email`): allows dispatching confirmation emails to ANY recipient without requiring custom DNS domain verification (300 free emails/day). Maintained Resend as automatic fallback.
+    - Commented out inactive contracts and unused modules (`MelodyPaySettlement.sol`, `MelodyPaySubnameRegistrar.sol`, and `ERC1155Holder.sol`).
+    - Foundry test suite passing with 6 tests in `MelodyPayPrebooking.t.sol` in 19.2ms with new Treasury `0xE36f3d4Bd0a6bbdd940404C6323c1121b2666176`.
+    - Vitest test suites passing across 12 test files and 41 tests.
+    - Production build (`npm run build`) passing cleanly.
 - [ ] Task 9: Integrate ENSv2 Merchant Resolution (`receiver-web/src/core/ensv2.ts`, `cli/src/ens.ts`, `tests/ensv2-resolution.test.ts`).
 - [ ] Task 10: Integrate Ledger Signer Backend (`cli/src/signers/ledger.ts`, `tests/ledger-signer.test.ts`).
+
+

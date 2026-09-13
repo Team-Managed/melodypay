@@ -1,392 +1,642 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ethers } from "ethers";
-import { Link } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { 
-    Search, 
     CheckCircle2, 
     AlertCircle, 
-    Copy, 
-    Check, 
-    Terminal, 
-    Ticket, 
-    ArrowRight, 
     Cpu, 
     ShieldCheck, 
-    Radio
+    Radio,
+    Sparkles,
+    ArrowRight,
+    Mail,
+    Wallet,
+    Loader2
 } from "lucide-react";
+import { sendPrebookingConfirmationEmail } from "../core/email";
+
+// Base Mainnet Constants
+// Base Sepolia Testnet Constants (Chain ID 84532)
+const BASE_SEPOLIA_CHAIN_ID = 84532;
+
+// Official Circle Native USDC on Base Sepolia Testnet
+const BASE_SEPOLIA_USDC = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
+const TREASURY_ADDRESS = "0xE36f3d4Bd0a6bbdd940404C6323c1121b2666176";
+
+// Target Contract (Official Base Sepolia Deployment)
+const RAW_PREBOOKING_ADDRESS = 
+    (import.meta as any).env?.VITE_PREBOOKING_CONTRACT_ADDRESS || 
+    "0xbCcbF37cFcFC282AD7540b298650faCCC92095E6";
+
+const PREBOOKING_CONTRACT_ADDRESS = (() => {
+    try {
+        return ethers.getAddress(RAW_PREBOOKING_ADDRESS.toLowerCase());
+    } catch {
+        return "0xbCcbF37cFcFC282AD7540b298650faCCC92095E6";
+    }
+})();
+
+const PREBOOKING_ABI = [
+    "function prebook() external returns (uint256 queueNumber)",
+    "function getQueueCount() external view returns (uint256)",
+    "function getUserQueue(address user) external view returns (uint256)",
+    "function hasPrebooked(address user) external view returns (bool)",
+    "function totalPrebookings() external view returns (uint256)",
+    "event Prebooked(uint256 indexed queueNumber, address indexed user, uint256 amount, uint256 timestamp)",
+];
+
+const ERC20_ABI = [
+    "function approve(address spender, uint256 amount) external returns (bool)",
+    "function allowance(address owner, address spender) external view returns (uint256)",
+    "function balanceOf(address account) external view returns (uint256)",
+];
 
 export function Register() {
-    const [subname, setSubname] = useState("");
-    const [recipientAddress, setRecipientAddress] = useState("");
-    const [selectedNetwork, setSelectedNetwork] = useState("5042002"); // Arc Testnet default
-    const [isChecking, setIsChecking] = useState(false);
-    const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
-    const [reservationTicket, setReservationTicket] = useState<{
-        id: string;
-        subname: string;
-        address: string;
-        networkName: string;
-        timestamp: string;
-    } | null>(null);
-    const [copiedCli, setCopiedCli] = useState(false);
-    const [inputError, setInputError] = useState("");
+    const navigate = useNavigate();
+    const [email, setEmail] = useState("");
+    const [connectedWallet, setConnectedWallet] = useState<string | null>(null);
+    const [currentChainId, setCurrentChainId] = useState<number>(BASE_SEPOLIA_CHAIN_ID);
+    const [isBaseNetwork, setIsBaseNetwork] = useState(false);
+    const [queueCount, setQueueCount] = useState<number>(0);
+    const [userExistingQueue, setUserExistingQueue] = useState<number | null>(null);
+    const [usdcAllowance, setUsdcAllowance] = useState<bigint>(0n);
+    const [usdcBalance, setUsdcBalance] = useState<string>("0.00");
+    const [isApproving, setIsApproving] = useState(false);
+    const [isPrebooking, setIsPrebooking] = useState(false);
+    const [errorMessage, setErrorMessage] = useState("");
+    const [statusMessage, setStatusMessage] = useState("");
 
-    // Subname validation rules
-    const cleanSubname = subname.toLowerCase().trim().replace(/[^a-z0-9-]/g, "");
+    const activeUsdcAddress = BASE_SEPOLIA_USDC;
 
-    const handleCheckAvailability = async () => {
-        if (!cleanSubname || cleanSubname.length < 3) {
-            setInputError("Subname must be at least 3 alphanumeric characters.");
-            setIsAvailable(null);
+    // Fetch live on-chain queue count from Base Sepolia contract immediately
+    useEffect(() => {
+        const fetchLiveQueue = async () => {
+            try {
+                const rpcProvider = new ethers.JsonRpcProvider("https://sepolia.base.org");
+                const contract = new ethers.Contract(PREBOOKING_CONTRACT_ADDRESS, PREBOOKING_ABI, rpcProvider);
+                const count = await contract.getQueueCount();
+                setQueueCount(Number(count));
+            } catch (err) {
+                console.warn("Could not read on-chain queue count:", err);
+            }
+        };
+        fetchLiveQueue();
+    }, []);
+
+    // 1. Check connected wallet & Base network on mount
+    useEffect(() => {
+        const checkWalletAndNetwork = async () => {
+            if (typeof window !== "undefined" && (window as any).ethereum) {
+                try {
+                    const provider = new ethers.BrowserProvider((window as any).ethereum);
+                    const accounts = await provider.listAccounts();
+                    if (accounts.length > 0) {
+                        const addr = accounts[0].address;
+                        setConnectedWallet(addr);
+                        checkNetworkAndState(provider, addr);
+                    }
+                } catch {}
+
+                (window as any).ethereum.on?.("accountsChanged", (accounts: string[]) => {
+                    if (accounts && accounts.length > 0) {
+                        setConnectedWallet(accounts[0]);
+                        const provider = new ethers.BrowserProvider((window as any).ethereum);
+                        checkNetworkAndState(provider, accounts[0]);
+                    } else {
+                        setConnectedWallet(null);
+                        setUserExistingQueue(null);
+                    }
+                });
+
+                (window as any).ethereum.on?.("chainChanged", () => {
+                    window.location.reload();
+                });
+            }
+        };
+
+        checkWalletAndNetwork();
+    }, []);
+
+    const checkNetworkAndState = async (provider: ethers.BrowserProvider, userAddr: string) => {
+        try {
+            const network = await provider.getNetwork();
+            const chainId = Number(network.chainId);
+            setCurrentChainId(chainId);
+            const isBase = chainId === BASE_SEPOLIA_CHAIN_ID;
+            setIsBaseNetwork(isBase);
+
+            const usdcAddr = BASE_SEPOLIA_USDC;
+
+            if (isBase) {
+                // Read live queue count
+                try {
+                    const contract = new ethers.Contract(PREBOOKING_CONTRACT_ADDRESS, PREBOOKING_ABI, provider);
+                    const count = await contract.getQueueCount();
+                    setQueueCount(Number(count));
+
+                    const existingQ = await contract.getUserQueue(userAddr);
+                    if (Number(existingQ) > 0) {
+                        setUserExistingQueue(Number(existingQ));
+                    } else {
+                        setUserExistingQueue(null);
+                    }
+                } catch {}
+
+                // Check USDC balance & allowance
+                try {
+                    const usdcContract = new ethers.Contract(usdcAddr, ERC20_ABI, provider);
+                    const [bal, allow] = await Promise.all([
+                        usdcContract.balanceOf(userAddr),
+                        usdcContract.allowance(userAddr, PREBOOKING_CONTRACT_ADDRESS),
+                    ]);
+                    setUsdcBalance(ethers.formatUnits(bal, 6));
+                    setUsdcAllowance(allow);
+                } catch {}
+            }
+        } catch {}
+    };
+
+    const connectWallet = async () => {
+        setErrorMessage("");
+        if (typeof window === "undefined" || !(window as any).ethereum) {
+            setErrorMessage("No Web3 wallet found. Please install MetaMask or Coinbase Wallet.");
             return;
         }
-        setInputError("");
-        setIsChecking(true);
 
         try {
-            // Check availability: query Sepolia NameWrapper or simulate resolution check
-            // For known test names, verify; otherwise available
-            await new Promise((res) => setTimeout(res, 500));
-            // Reserve demo names or mark available
-            if (cleanSubname === "admin" || cleanSubname === "registrar") {
-                setIsAvailable(false);
-            } else {
-                setIsAvailable(true);
+            const provider = new ethers.BrowserProvider((window as any).ethereum);
+            const accounts = await provider.send("eth_requestAccounts", []);
+            if (accounts.length > 0) {
+                setConnectedWallet(accounts[0]);
+                checkNetworkAndState(provider, accounts[0]);
             }
-        } catch {
-            setIsAvailable(true);
+        } catch (err: any) {
+            setErrorMessage(err.message || "Failed to connect wallet.");
+        }
+    };
+
+    const disconnectWallet = () => {
+        setConnectedWallet(null);
+        setUserExistingQueue(null);
+        setUsdcAllowance(0n);
+        setUsdcBalance("0.00");
+        setErrorMessage("");
+        setStatusMessage("");
+    };
+
+    const switchToBase = async () => {
+        if (typeof window === "undefined" || !(window as any).ethereum) return;
+        try {
+            await (window as any).ethereum.request({
+                method: "wallet_switchEthereumChain",
+                params: [{ chainId: "0x14a34" }], // 84532 in hex (Base Sepolia)
+            });
+        } catch (switchError: any) {
+            if (switchError.code === 4902) {
+                try {
+                    await (window as any).ethereum.request({
+                        method: "wallet_addEthereumChain",
+                        params: [
+                            {
+                                chainId: "0x14a34",
+                                chainName: "Base Sepolia Testnet",
+                                nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+                                rpcUrls: ["https://sepolia.base.org"],
+                                blockExplorerUrls: ["https://sepolia.basescan.org"],
+                            },
+                        ],
+                    });
+                } catch {}
+            }
+        }
+    };
+
+    const handleApproveUSDC = async () => {
+        if (!connectedWallet) {
+            connectWallet();
+            return;
+        }
+        if (!isBaseNetwork) {
+            switchToBase();
+            return;
+        }
+
+        setErrorMessage("");
+        setIsApproving(true);
+        setStatusMessage("Requesting 1.00 USDC approval in wallet...");
+
+        try {
+            const provider = new ethers.BrowserProvider((window as any).ethereum);
+            const signer = await provider.getSigner();
+            const usdcContract = new ethers.Contract(activeUsdcAddress, ERC20_ABI, signer);
+
+            // Approve 1 USDC (1_000_000 units)
+            const tx = await usdcContract.approve(PREBOOKING_CONTRACT_ADDRESS, 1_000_000n);
+            setStatusMessage("Awaiting approval transaction confirmation...");
+            await tx.wait(1);
+
+            setUsdcAllowance(1_000_000n);
+            setStatusMessage("USDC approval confirmed! Ready to pre-book.");
+        } catch (err: any) {
+            setErrorMessage(err.reason || err.message || "Failed to approve USDC.");
+            setStatusMessage("");
         } finally {
-            setIsChecking(false);
+            setIsApproving(false);
         }
     };
 
-    const handlePrebook = (e: React.FormEvent) => {
+    const handlePrebook = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!cleanSubname || cleanSubname.length < 3) {
-            setInputError("Please enter a valid subname.");
+        setErrorMessage("");
+        setStatusMessage("");
+
+        const cleanEmail = email.trim().toLowerCase();
+        if (!cleanEmail || !cleanEmail.includes("@") || !cleanEmail.includes(".")) {
+            setErrorMessage("Please enter a valid email address to receive your confirmation and queue updates.");
             return;
         }
-        if (recipientAddress && !ethers.isAddress(recipientAddress)) {
-            setInputError("Please enter a valid 0x... EVM receiving address.");
+
+        if (!connectedWallet) {
+            connectWallet();
             return;
         }
-        setInputError("");
 
-        const networkNames: Record<string, string> = {
-            "5042002": "Arc Network Testnet (USDC EIP-3009)",
-            "10143": "Monad Testnet (MON)",
-            "11155111": "Ethereum Sepolia (ETH)",
-        };
+        if (!isBaseNetwork) {
+            switchToBase();
+            return;
+        }
 
-        const randomNum = Math.floor(1000 + Math.random() * 9000);
-        const ticket = {
-            id: `MP-2026-${randomNum}`,
-            subname: `${cleanSubname}.melodypay.eth`,
-            address: recipientAddress ? ethers.getAddress(recipientAddress) : "0x0E6937A18De79Ed54692E65F7A0DA5A81B8D7BCF",
-            networkName: networkNames[selectedNetwork] || "Arc Network",
-            timestamp: new Date().toISOString().replace("T", " ").substring(0, 19) + " UTC",
-        };
+        const networkName = "Base Sepolia Testnet";
+        setIsPrebooking(true);
+        setStatusMessage(`Preparing 1.00 USDC pre-booking on ${networkName}...`);
 
-        setReservationTicket(ticket);
-    };
+        try {
+            const provider = new ethers.BrowserProvider((window as any).ethereum);
+            const signer = await provider.getSigner();
+            const userAddress = await signer.getAddress();
 
-    const cliCommand = `npx melodypay register ${cleanSubname || "merchant"}.melodypay.eth --network sepolia --token USDC ${recipientAddress ? `--recipient ${recipientAddress}` : ""}`;
+            // 1. Verify User has not already prebooked
+            const contract = new ethers.Contract(PREBOOKING_CONTRACT_ADDRESS, PREBOOKING_ABI, signer);
+            try {
+                const alreadyPrebooked = await contract.hasPrebooked(userAddress);
+                if (alreadyPrebooked) {
+                    setErrorMessage("This wallet address has already pre-booked a DevKit! Each address is allocated 1 priority slot.");
+                    setIsPrebooking(false);
+                    setStatusMessage("");
+                    return;
+                }
+            } catch (checkErr) {
+                console.warn("Prebook check warning:", checkErr);
+            }
 
-    const handleCopyCli = () => {
-        navigator.clipboard.writeText(cliCommand);
-        setCopiedCli(true);
-        setTimeout(() => setCopiedCli(false), 2000);
+            // 2. Check USDC Balance
+            const usdcContract = new ethers.Contract(activeUsdcAddress, ERC20_ABI, signer);
+            const bal = await usdcContract.balanceOf(userAddress);
+            if (bal < 1_000_000n) {
+                setErrorMessage(`Insufficient USDC on Base Sepolia. Your balance is ${ethers.formatUnits(bal, 6)} USDC, but 1.00 USDC is required.`);
+                setIsPrebooking(false);
+                setStatusMessage("");
+                return;
+            }
+
+            // 3. Check Allowance and Auto-Approve if needed
+            const currentAllowance = await usdcContract.allowance(userAddress, PREBOOKING_CONTRACT_ADDRESS);
+            if (currentAllowance < 1_000_000n) {
+                setStatusMessage("Step 1/2: Please approve 1.00 USDC in your wallet...");
+                const approveTx = await usdcContract.approve(PREBOOKING_CONTRACT_ADDRESS, 1_000_000n);
+                setStatusMessage("Awaiting USDC approval confirmation on Base Sepolia...");
+                await approveTx.wait(1);
+                setUsdcAllowance(1_000_000n);
+            }
+
+            // 4. Submit real prebooking transaction on Base Sepolia
+            setStatusMessage("Step 2/2: Confirming 1.00 USDC pre-booking in wallet...");
+            const tx = await contract.prebook();
+            setStatusMessage("Awaiting on-chain settlement on Base Sepolia...");
+            const receipt = await tx.wait(1);
+            const txHash = receipt.hash;
+
+            setStatusMessage("Payment confirmed on-chain! Dispatching confirmation email...");
+
+            // 5. Dispatch Confirmation Email with exact subject "Prebooked"
+            const emailResult = await sendPrebookingConfirmationEmail({
+                to: cleanEmail,
+                txHash,
+                payerAddress: userAddress,
+                amount: "1.00",
+                networkName,
+                timestamp: new Date().toISOString(),
+            });
+
+            if (!emailResult.success && emailResult.error) {
+                console.warn("[Register] Email dispatch notice:", emailResult.error);
+                setStatusMessage(`Payment confirmed! Note on email: ${emailResult.error}`);
+            }
+
+            // 6. Prepare receipt data for /receipt
+            const receiptData = {
+                type: "prebooking" as const,
+                amount: "1.00",
+                token: "USDC",
+                recipient: TREASURY_ADDRESS,
+                payer: userAddress,
+                txHash,
+                chainId: BASE_SEPOLIA_CHAIN_ID,
+                networkName,
+                timestamp: new Date().toISOString(),
+                receiptId: `PREBOOK-BASE-${Date.now().toString().slice(-6)}`,
+            };
+
+            // 7. Save to localStorage for refresh persistence
+            try {
+                localStorage.setItem("melodypay_last_receipt", JSON.stringify(receiptData));
+            } catch {}
+
+            // 8. Navigate to receipt
+            setStatusMessage("Redirecting to your thermal POS receipt...");
+            setTimeout(() => {
+                navigate("/receipt", { state: receiptData });
+            }, 800);
+
+        } catch (err: any) {
+            console.error("Pre-booking error:", err);
+            const reason = err.reason || err.shortMessage || err.message || "Pre-booking failed. Please check your wallet and try again.";
+            setErrorMessage(reason);
+            setIsPrebooking(false);
+            setStatusMessage("");
+        }
     };
 
     return (
-        <div className="flex-1 flex flex-col w-full bg-[#FBFBF9] text-[#111113] relative overflow-hidden py-12">
-            {/* Subtle Drafting Grid */}
-            <div className="absolute inset-0 bg-drafting-grid pointer-events-none opacity-50" />
+        <div className="flex-1 flex flex-col justify-center w-full text-[#111113] relative overflow-hidden py-6 sm:py-8 pt-20 sm:pt-24 lg:pt-26 min-h-screen lg:h-screen lg:max-h-screen">
+            {/* Full-Bleed Meadow with Birds Aerial Background */}
+            <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+                <img
+                    src="/image copy 2.png"
+                    alt="Meadow with Birds Background"
+                    className="w-full h-full object-cover object-center select-none scale-105"
+                />
+                {/* Soft ambient vignette & subtle darkening for superior contrast and readability */}
+                <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/25 to-black/55 pointer-events-none" />
+                <div className="absolute inset-0 bg-[#0d281a]/20 backdrop-blur-[0.5px] pointer-events-none" />
+            </div>
 
-            <div className="relative max-w-5xl mx-auto px-4 lg:px-8 z-10">
-                {/* Page Title Header */}
-                <div className="mb-10 text-center max-w-2xl mx-auto">
-                    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-[#FFFFFF] border border-[#E2E2DA] text-[11px] font-mono text-[#4B4B52] shadow-xs mb-3">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
-                        <span>ENSV2 MERCHANT REGISTRAR & HARDWARE PRE-BOOKING</span>
-                    </div>
-                    <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#111113] font-sans">
-                        Reserve Your Merchant Subname & Sound Wallet
+            <div className="relative w-full max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-10 z-10 flex-1 flex flex-col justify-center">
+                {/* Page Title Header - Brought lower down for balanced screen composition */}
+                <div className="mb-6 lg:mb-7 text-center max-w-2xl mx-auto">
+                    <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.7)] font-sans">
+                        Pre-Book Your Sound Wallet
                     </h1>
-                    <p className="text-sm text-[#4B4B52] mt-2 leading-relaxed">
-                        Claim an official <code className="font-mono text-xs bg-[#ECECE6] px-1 py-0.5 rounded">*.melodypay.eth</code> identity on Ethereum Sepolia and join the hardware provisioning queue for the ESP32-S3 sound wallet.
+                    <p className="text-sm sm:text-base font-medium text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)] mt-2 sm:mt-2.5 leading-relaxed max-w-xl mx-auto">
+                        Secure first-batch hardware allocation for the ESP32-S3 Air-Gapped Acoustic Sound Terminal. 
+                        Pay 1.00 USDC on Base Sepolia Testnet to confirm your DevKit pre-order.
                     </p>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                    {/* Left Column: Form Setup */}
-                    <div className="lg:col-span-7 bg-[#FFFFFF] border border-[#E2E2DA] rounded-lg p-6 shadow-sm">
-                        <form onSubmit={handlePrebook} className="space-y-6">
-                            {/* Subname Selection */}
-                            <div>
-                                <label className="block text-xs font-mono font-semibold text-[#111113] uppercase tracking-wider mb-2">
-                                    01. Choose ENS Merchant Subname
-                                </label>
-                                <div className="flex items-center">
-                                    <div className="relative flex-1">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-7 items-stretch flex-1 lg:max-h-[520px]">
+                    {/* Left Column: Pre-Booking Form (Compact & Clean White Transparent Glassmorphic Card) */}
+                    <div className="bg-white/[0.07] backdrop-blur-2xl border border-white/25 rounded-2xl p-5 sm:p-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.25)] ring-1 ring-white/10 flex flex-col justify-between h-full">
+                        <div className="flex flex-col justify-between h-full space-y-3.5">
+                            {/* Lean Top Wallet Status Bar */}
+                            <div className="p-2.5 px-3.5 rounded-xl border border-white/20 bg-white/[0.08] backdrop-blur-md flex items-center justify-between text-xs font-mono">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full flex items-center justify-center bg-white/15 text-white">
+                                        <Wallet size={12} />
+                                    </div>
+                                    <span className="font-bold text-white">
+                                        {connectedWallet ? "Wallet Active" : "No Wallet Connected"}
+                                    </span>
+                                    {connectedWallet && (
+                                        <span className="text-white/70 hidden sm:inline">
+                                            ({connectedWallet.slice(0, 6)}...{connectedWallet.slice(-4)})
+                                        </span>
+                                    )}
+                                </div>
+                                <div>
+                                    {connectedWallet ? (
+                                        <button
+                                            type="button"
+                                            onClick={disconnectWallet}
+                                            className="text-white/75 hover:text-white underline cursor-pointer text-[11px]"
+                                        >
+                                            Disconnect
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={connectWallet}
+                                            className="bg-white hover:bg-white/90 text-black px-2.5 py-1 rounded text-[11px] font-bold shadow-sm transition-all cursor-pointer"
+                                        >
+                                            Connect
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            <form onSubmit={handlePrebook} className="space-y-3.5 flex-1 flex flex-col justify-between">
+                                {/* Step 1: Contact Email */}
+                                <div>
+                                    <label className="block text-[11px] font-mono font-bold text-white uppercase tracking-wider mb-1">
+                                        Contact Email
+                                    </label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-white/50">
+                                            <Mail size={14} />
+                                        </div>
                                         <input
-                                            type="text"
-                                            value={subname}
-                                            onChange={(e) => {
-                                                setSubname(e.target.value);
-                                                setIsAvailable(null);
-                                                setInputError("");
-                                            }}
-                                            placeholder="e.g. cafe, boutique, bodega"
-                                            className="w-full bg-[#FBFBF9] border border-[#E2E2DA] focus:border-[#111113] focus:ring-0 rounded-l px-3.5 py-2.5 text-sm font-mono text-[#111113] placeholder-[#A1A1AA] transition-all"
+                                            type="email"
+                                            required
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            placeholder="developer@company.com"
+                                            className="w-full bg-white/[0.08] border border-white/25 focus:border-white focus:bg-white/[0.14] focus:ring-1 focus:ring-white rounded-lg pl-9 pr-3 py-2.5 text-xs font-mono text-white placeholder-white/40 transition-all"
                                         />
                                     </div>
-                                    <div className="px-3.5 py-2.5 bg-[#F5F5F0] border-y border-r border-[#E2E2DA] text-sm font-mono text-[#4B4B52] font-medium">
-                                        .melodypay.eth
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={handleCheckAvailability}
-                                        disabled={isChecking || !cleanSubname}
-                                        className="ml-2 bg-[#111113] hover:bg-black text-white px-4 py-2.5 rounded-r text-xs font-mono transition-all disabled:opacity-50"
-                                    >
-                                        {isChecking ? "Checking..." : "Check"}
-                                    </button>
                                 </div>
 
-                                {inputError && (
-                                    <p className="text-xs text-rose-600 font-mono mt-1.5 flex items-center gap-1">
-                                        <AlertCircle size={12} />
-                                        <span>{inputError}</span>
-                                    </p>
-                                )}
-
-                                {isAvailable !== null && !inputError && (
-                                    <div className="mt-2 flex items-center gap-2 text-xs font-mono">
-                                        {isAvailable ? (
-                                            <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
-                                                <CheckCircle2 size={12} />
-                                                <span>AVAILABLE TO RESERVE</span>
-                                            </span>
-                                        ) : (
-                                            <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 flex items-center gap-1">
-                                                <AlertCircle size={12} />
-                                                <span>NAME ALREADY REGISTERED</span>
-                                            </span>
-                                        )}
-                                        <span className="text-[#7A7A85]">
-                                            Registration fee: 1.00 USDC (or Sepolia ETH)
+                                {/* Step 2: Fixed 1 USDC Pricing Card */}
+                                <div className="p-3 px-4 bg-white/[0.08] backdrop-blur-md border border-white/20 rounded-xl flex items-center justify-between">
+                                    <div>
+                                        <span className="text-xs font-mono font-bold uppercase text-white block">
+                                            Pre-Booking Deposit
+                                        </span>
+                                        <span className="text-[10px] text-white/70 font-mono block">
+                                            Direct Treasury Settlement // Zero Custody
                                         </span>
                                     </div>
-                                )}
-                            </div>
-
-                            {/* Settlement Address */}
-                            <div>
-                                <label className="block text-xs font-mono font-semibold text-[#111113] uppercase tracking-wider mb-2">
-                                    02. Merchant Receiving EVM Address
-                                </label>
-                                <input
-                                    type="text"
-                                    value={recipientAddress}
-                                    onChange={(e) => setRecipientAddress(e.target.value)}
-                                    placeholder="0x... (Your EVM wallet address to receive customer funds)"
-                                    className="w-full bg-[#FBFBF9] border border-[#E2E2DA] focus:border-[#111113] focus:ring-0 rounded px-3.5 py-2.5 text-xs font-mono text-[#111113] placeholder-[#A1A1AA] transition-all"
-                                />
-                                <span className="text-[11px] font-mono text-[#7A7A85] mt-1 block">
-                                    This address is recorded in the ENS resolver for forward payment routing.
-                                </span>
-                            </div>
-
-                            {/* Preferred Network */}
-                            <div>
-                                <label className="block text-xs font-mono font-semibold text-[#111113] uppercase tracking-wider mb-2">
-                                    03. Default Settlement Network
-                                </label>
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                                    <button
-                                        type="button"
-                                        onClick={() => setSelectedNetwork("5042002")}
-                                        className={`p-3 rounded border text-left font-mono transition-all ${
-                                            selectedNetwork === "5042002"
-                                                ? "bg-[#0088FF]/5 border-[#0088FF] ring-1 ring-[#0088FF]"
-                                                : "bg-[#FBFBF9] border-[#E2E2DA] hover:bg-[#F5F5F0]"
-                                        }`}
-                                    >
-                                        <span className="text-xs font-bold text-[#111113] block">Arc Testnet</span>
-                                        <span className="text-[10px] text-[#0088FF] block mt-0.5">USDC // Gasless</span>
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => setSelectedNetwork("10143")}
-                                        className={`p-3 rounded border text-left font-mono transition-all ${
-                                            selectedNetwork === "10143"
-                                                ? "bg-[#836EF9]/5 border-[#836EF9] ring-1 ring-[#836EF9]"
-                                                : "bg-[#FBFBF9] border-[#E2E2DA] hover:bg-[#F5F5F0]"
-                                        }`}
-                                    >
-                                        <span className="text-xs font-bold text-[#111113] block">Monad Testnet</span>
-                                        <span className="text-[10px] text-[#836EF9] block mt-0.5">10,000 TPS Native</span>
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => setSelectedNetwork("11155111")}
-                                        className={`p-3 rounded border text-left font-mono transition-all ${
-                                            selectedNetwork === "11155111"
-                                                ? "bg-[#111113]/5 border-[#111113] ring-1 ring-[#111113]"
-                                                : "bg-[#FBFBF9] border-[#E2E2DA] hover:bg-[#F5F5F0]"
-                                        }`}
-                                    >
-                                        <span className="text-xs font-bold text-[#111113] block">Sepolia</span>
-                                        <span className="text-[10px] text-[#7A7A85] block mt-0.5">ETH Native</span>
-                                    </button>
+                                    <div className="text-right">
+                                        <span className="text-xl font-bold font-mono text-white block">
+                                            1.00 USDC
+                                        </span>
+                                        <span className="text-[9px] font-mono text-white/70 block">
+                                            Base Sepolia
+                                        </span>
+                                    </div>
                                 </div>
-                            </div>
 
-                            {/* Submit Button */}
-                            <button
-                                type="submit"
-                                className="w-full bg-[#111113] hover:bg-black text-white py-3.5 px-4 rounded text-xs font-mono font-semibold uppercase tracking-wider transition-all shadow-sm flex items-center justify-center gap-2"
-                            >
-                                <Ticket size={15} className="text-[#00E5FF]" />
-                                <span>Generate Pre-Booking Pass & CLI Script</span>
-                            </button>
-                        </form>
+                                {/* Status & Error Alerts */}
+                                {statusMessage && (
+                                    <div className="p-2.5 px-3.5 rounded-lg bg-white/15 border border-white/30 text-xs font-mono text-white flex items-center gap-2">
+                                        <Loader2 size={13} className="animate-spin shrink-0 text-white" />
+                                        <span className="truncate">{statusMessage}</span>
+                                    </div>
+                                )}
+
+                                {errorMessage && (
+                                    <div className="p-2.5 px-3.5 rounded-lg bg-white/20 border border-white/40 text-xs font-mono text-white flex items-center gap-2">
+                                        <AlertCircle size={13} className="shrink-0 text-white" />
+                                        <span className="truncate">{errorMessage}</span>
+                                    </div>
+                                )}
+
+                                {/* Action Button */}
+                                <div>
+                                    {!connectedWallet ? (
+                                        <button
+                                            type="button"
+                                            onClick={connectWallet}
+                                            className="w-full bg-white hover:bg-white/90 text-black py-3 px-4 rounded-xl text-xs font-mono font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+                                        >
+                                            <Wallet size={14} />
+                                            <span>Connect Wallet to Pre-Book</span>
+                                            <ArrowRight size={13} />
+                                        </button>
+                                    ) : !isBaseNetwork ? (
+                                        <button
+                                            type="button"
+                                            onClick={switchToBase}
+                                            className="w-full bg-white hover:bg-white/90 text-black py-3 px-4 rounded-xl text-xs font-mono font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+                                        >
+                                            <ArrowRight size={13} />
+                                            <span>Switch to Base Sepolia (84532)</span>
+                                        </button>
+                                    ) : userExistingQueue !== null ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate("/receipt")}
+                                            className="w-full bg-white hover:bg-white/90 text-black py-3 px-4 rounded-xl text-xs font-mono font-bold tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+                                        >
+                                            <CheckCircle2 size={14} />
+                                            <span>Already Pre-Booked • View Receipt</span>
+                                            <ArrowRight size={13} />
+                                        </button>
+                                    ) : usdcAllowance < 1_000_000n ? (
+                                        <button
+                                            type="button"
+                                            onClick={handleApproveUSDC}
+                                            disabled={isApproving}
+                                            className="w-full bg-white hover:bg-white/90 text-black py-3 px-4 rounded-xl text-xs font-mono font-bold tracking-wider uppercase transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+                                        >
+                                            {isApproving ? (
+                                                <>
+                                                    <Loader2 size={13} className="animate-spin" />
+                                                    <span>Approving 1.00 USDC...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span>Step 1: Approve 1.00 USDC</span>
+                                                    <ArrowRight size={13} />
+                                                </>
+                                            )}
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="submit"
+                                            disabled={isPrebooking}
+                                            className="w-full bg-white hover:bg-white/90 text-black py-3 px-4 rounded-xl text-xs font-mono font-bold tracking-wider uppercase transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-lg"
+                                        >
+                                            {isPrebooking ? (
+                                                <>
+                                                    <Loader2 size={13} className="animate-spin" />
+                                                    <span>Confirming Pre-Booking...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span>Step 2: Pre-Book for 1.00 USDC</span>
+                                                    <ArrowRight size={13} />
+                                                </>
+                                            )}
+                                        </button>
+                                    )}
+                                </div>
+
+                                <p className="text-[10px] font-mono text-white/60 text-center">
+                                    {userExistingQueue !== null 
+                                        ? "This wallet has already confirmed a priority DevKit pre-order. Switch accounts in MetaMask to pre-book for another address." 
+                                        : "Secures DevKit priority slot. Instant cryptographic POS receipt generated."}
+                                </p>
+                            </form>
+                        </div>
                     </div>
 
-                    {/* Right Column: Reservation Pass or Architecture Card */}
-                    <div className="lg:col-span-5 flex flex-col gap-6">
-                        <AnimatePresence mode="wait">
-                            {reservationTicket ? (
-                                <motion.div
-                                    key="ticket"
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, scale: 0.95 }}
-                                    className="bg-[#FFFFFF] border-2 border-[#111113] rounded-lg p-6 shadow-md relative font-mono overflow-hidden"
-                                >
-                                    {/* Industrial Perforated Stamp */}
-                                    <div className="flex items-center justify-between pb-3 border-b border-[#ECECE6]">
-                                        <div className="flex items-center gap-2">
-                                            <Ticket size={16} className="text-[#0088FF]" />
-                                            <span className="text-xs font-bold uppercase tracking-wider text-[#111113]">
-                                                PRE-BOOKING PASS
-                                            </span>
-                                        </div>
-                                        <span className="text-[10px] text-[#7A7A85]">
-                                            {reservationTicket.id}
-                                        </span>
+                    {/* Right Column: Hardware Overview & Benefits (Matching Clean & Lean Card) */}
+                    <div className="bg-white/[0.07] backdrop-blur-2xl border border-white/25 rounded-2xl p-5 sm:p-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.25)] ring-1 ring-white/10 flex flex-col justify-between h-full">
+                        <div className="space-y-4">
+                            {/* Section 1: Device Specs */}
+                            <div>
+                                <div className="flex items-center gap-2 pb-2 mb-2.5 border-b border-white/20">
+                                    <Cpu size={15} className="text-white" />
+                                    <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-white">
+                                        ESP32-S3 Sound Terminal Specifications
+                                    </h3>
+                                </div>
+
+                                <ul className="space-y-2 text-xs font-mono text-white/85 leading-normal">
+                                    <li className="flex items-start gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-white mt-1 shrink-0" />
+                                        <span><strong className="text-white">Acoustic Wire</strong>: Ultrasonic tones demodulated locally on-chip.</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-white mt-1 shrink-0" />
+                                        <span><strong className="text-white">Zero Radios</strong>: Wi-Fi & Bluetooth permanently disabled at silicon level.</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-white mt-1 shrink-0" />
+                                        <span><strong className="text-white">Tactile Switch</strong>: Physical push-button authorizes every transaction.</span>
+                                    </li>
+                                    <li className="flex items-start gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-white mt-1 shrink-0" />
+                                        <span><strong className="text-white">OLED Screen</strong>: SSD1306 high-contrast cryptographic display.</span>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            {/* Section 2: What Your 1 USDC Secures */}
+                            <div className="pt-3 border-t border-dashed border-white/20">
+                                <div className="flex items-center gap-2 pb-2 mb-2.5 border-b border-white/20">
+                                    <ShieldCheck size={15} className="text-white" />
+                                    <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-white">
+                                        What Your 1.00 USDC Secures
+                                    </h3>
+                                </div>
+
+                                <div className="space-y-2 text-xs font-mono text-white/85">
+                                    <div className="flex items-center justify-between pb-1.5 border-b border-dashed border-white/10">
+                                        <span className="text-white/70">Allocation:</span>
+                                        <span className="font-bold text-white">Batch #1 Priority DevKit</span>
                                     </div>
-
-                                    <div className="py-4 space-y-3 text-xs border-b border-dashed border-[#E2E2DA]">
-                                        <div>
-                                            <span className="text-[10px] uppercase text-[#7A7A85] block">
-                                                RESERVED ENS SUBNAME:
-                                            </span>
-                                            <span className="text-sm font-bold text-[#0088FF]">
-                                                {reservationTicket.subname}
-                                            </span>
-                                        </div>
-
-                                        <div>
-                                            <span className="text-[10px] uppercase text-[#7A7A85] block">
-                                                FORWARD SETTLEMENT ADDRESS:
-                                            </span>
-                                            <span className="text-[11px] text-[#111113] break-all font-mono">
-                                                {reservationTicket.address}
-                                            </span>
-                                        </div>
-
-                                        <div>
-                                            <span className="text-[10px] uppercase text-[#7A7A85] block">
-                                                PAYMENT ROUTE:
-                                            </span>
-                                            <span className="text-xs text-[#111113] font-semibold">
-                                                {reservationTicket.networkName}
-                                            </span>
-                                        </div>
-
-                                        <div>
-                                            <span className="text-[10px] uppercase text-[#7A7A85] block">
-                                                QUEUE STATUS:
-                                            </span>
-                                            <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1.5 mt-0.5">
-                                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                                HARDWARE QUEUE #042 // READY FOR SEPOLIA EXECUTION
-                                            </span>
-                                        </div>
+                                    <div className="flex items-center justify-between pb-1.5 border-b border-dashed border-white/10">
+                                        <span className="text-white/70">Confirmation:</span>
+                                        <span className="font-bold text-white">Instant Subject: Prebooked</span>
                                     </div>
-
-                                    {/* CLI Helper Command */}
-                                    <div className="pt-4">
-                                        <span className="text-[10px] uppercase text-[#7A7A85] block mb-1.5">
-                                            ON-CHAIN EXECUTION VIA CLI:
-                                        </span>
-                                        <div className="p-2.5 rounded bg-[#FBFBF9] border border-[#E2E2DA] flex items-center justify-between gap-2">
-                                            <code className="text-[10px] text-[#111113] font-mono break-all line-clamp-2">
-                                                {cliCommand}
-                                            </code>
-                                            <button
-                                                type="button"
-                                                onClick={handleCopyCli}
-                                                className="p-1.5 rounded hover:bg-[#ECECE6] text-[#4B4B52] transition-colors shrink-0"
-                                                title="Copy CLI command"
-                                            >
-                                                {copiedCli ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-                                            </button>
-                                        </div>
+                                    <div className="flex items-center justify-between pb-1.5 border-b border-dashed border-white/10">
+                                        <span className="text-white/70">Receipt Proof:</span>
+                                        <span className="font-bold text-white">Thermal POS On-Chain Slip</span>
                                     </div>
-
-                                    <div className="mt-4 pt-3 border-t border-[#ECECE6] flex items-center justify-between text-[10px] text-[#7A7A85]">
-                                        <span>ZERO IN-BROWSER SIGNING RULE COMPLIANT</span>
-                                        <Link to="/receive" className="text-[#0088FF] hover:underline font-semibold flex items-center gap-1">
-                                            <span>Open Terminal</span>
-                                            <ArrowRight size={10} />
-                                        </Link>
-                                    </div>
-                                </motion.div>
-                            ) : (
-                                <div className="bg-[#FFFFFF] border border-[#E2E2DA] rounded-lg p-6 shadow-sm font-mono space-y-4">
-                                    <div className="flex items-center gap-2 pb-3 border-b border-[#ECECE6]">
-                                        <ShieldCheck size={16} className="text-emerald-600" />
-                                        <h3 className="text-xs font-bold text-[#111113] uppercase tracking-wider">
-                                            ENS Subname Registrar Rules
-                                        </h3>
-                                    </div>
-
-                                    <p className="text-xs text-[#4B4B52] leading-relaxed">
-                                        Subnames are registered through <code className="text-[11px] text-[#111113]">MelodyPaySubnameRegistrar.sol</code> on Ethereum Sepolia under the parent domain <code className="text-[11px] text-[#111113]">melodypay.eth</code>.
-                                    </p>
-
-                                    <div className="p-3 bg-[#FBFBF9] rounded border border-[#E2E2DA] text-[11px] space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[#7A7A85]">Contract:</span>
-                                            <span className="font-semibold text-[#111113]">MelodyPaySubnameRegistrar</span>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[#7A7A85]">NameWrapper:</span>
-                                            <span className="font-semibold text-[#111113]">0x0635...dFcE8</span>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[#7A7A85]">Fuses:</span>
-                                            <span className="font-semibold text-emerald-700">PARENT_CANNOT_CONTROL</span>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-[#7A7A85]">Registration Fee:</span>
-                                            <span className="font-semibold text-[#111113]">1.00 USDC / Dynamic ETH</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="pt-2 text-[11px] text-[#7A7A85] flex items-center gap-1.5">
-                                        <Radio size={12} className="text-[#0088FF]" />
-                                        <span>Pre-booking grants early access to production ESP32 hardware units.</span>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-white/70">Settlement:</span>
+                                        <span className="font-bold text-white">1.00 USDC on Base Sepolia</span>
                                     </div>
                                 </div>
-                            )}
-                        </AnimatePresence>
+                            </div>
+                        </div>
+
+                        {/* Bottom Hardware Micro-Badge for Perfect Vertical Alignment */}
+                        <div className="pt-3 mt-3 border-t border-white/15 text-[10px] font-mono text-white/70 flex items-center justify-between">
+                            <span>HARDWARE TERMINAL V1</span>
+                            <span className="text-white font-semibold">AIR-GAP VERIFIED</span>
+                        </div>
                     </div>
                 </div>
             </div>

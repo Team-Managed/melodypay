@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Home } from "./pages/Home";
 import { Register } from "./pages/Register";
 import { ReceivePayment } from "./pages/ReceivePayment";
+import { PaymentReceipt } from "./pages/PaymentReceipt";
 import { StudioHeader } from "./components/StudioHeader";
 import { InstallPrompt } from "./components/InstallPrompt";
 import ReactLenis from "lenis/react";
@@ -16,6 +17,7 @@ function AnimatedRoutes() {
                 <Route path="/" element={<Home />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/receive" element={<ReceivePayment />} />
+                <Route path="/receipt" element={<PaymentReceipt />} />
             </Routes>
         </AnimatePresence>
     );
